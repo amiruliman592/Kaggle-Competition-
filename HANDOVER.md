@@ -8,13 +8,12 @@ Written 2026-10-19 at the end of session 1 (Phase 0 + 1 "foundation"). Read this
 - Deadline Nov 15, 2026 (code freeze Nov 11). Final deliverables also need a public repo, notebook, requirements.txt and a short report (30% of grade is qualitative).
 - Training must run on **Google Colab** (user's local GPU is a 4 GB GTX 1650; Detectron2 is not installed locally). Claude gives the user code/instructions; the user runs them and reports back.
 
-## 2. Current state
-- **Phase 0 and 1: code done and tested locally, NOT yet run on Colab.**
-- Local: 14/14 tests pass (`python -m pytest -q -p no:warnings tests`, ~85 s). GT-vs-GT on the val split gives PQ = 1.0. Frozen split created. EDA run (`output/eda/`, gitignored).
-- **Nothing is committed or pushed.** Branch `Dev`, remote `origin` = github.com/amiruliman592/Kaggle-Competition-. The user was asked whether to commit/push and had not yet answered.
-- Not yet verified (open Phase 0/1 exit criteria):
-  - Colab dry run (`python run_pipeline.py --dry-run`) end to end with Detectron2.
-  - Local PQ matches the organisers' Kaggle `self-evaluation-notebook` within ±0.001 (page only renders in a browser; Claude could not read its code).
+## 2. Current state (updated 2026-10-19, after Colab dry run)
+- **Phase 0: DONE.** Colab T4 dry run passed end to end (exp001 in `experiments/log.csv`: 5 iters, PQ 0, Dice 0.0036, 1.67 s/img — values meaningless, plumbing proven). Detectron2 built and imported on Colab. `requirements-lock.txt` saved from that run (torch 2.11+cu130, Python 3.13, Detectron2 commit `1e3e13b`).
+- **Phase 1: done except one gate** — local PQ vs the organisers' Kaggle `self-evaluation-notebook` (±0.001) is NOT yet verified (page only renders in a browser; user must paste its PQ code + printed numbers).
+- Tests: 14/14 locally. On Colab 13/14 passed; the failure was `test_frozen_split_is_reproducible` (sklearn 1.6.1 on Colab vs 1.8.0 locally produces different folds). Replaced by `test_regenerated_split_is_valid`. The frozen file is the source of truth — never regenerate it.
+- EDA on Colab matches local numbers.
+- Commits are local only on `Dev` (user asked to commit locally first; push not yet requested). The user ran the notebook from a clone, so the remote apparently had the code — check `git status`/`git log origin/Dev` before assuming. Remote `origin` = github.com/amiruliman592/Kaggle-Competition-.
 - No real model trained, no Kaggle submission made yet.
 
 ## 3. Key findings (not obvious from the code)
@@ -51,7 +50,9 @@ Bugs fixed in old code: `total_mem` (should be `total_memory`) crash; inference 
 ## 5. Failed attempts / gotchas
 - **WebFetch of the Kaggle self-evaluation notebook returned only the title** (JS-rendered). User must paste its PQ cell(s) and printed numbers.
 - **Validator bug (fixed):** first version rejected `[` `]` in RLE strings; COCO counts legitimately contain them. Now only quotes/whitespace are forbidden (a size array is caught by the 2-column check).
-- Detectron2 cannot be imported locally, so `train.py`, `inference.py`, `dataset.register_datasets`, and `run_pipeline.py --dry-run` are **untested**. IDE "missing import" errors for detectron2 are expected. Likely first failure points on Colab: Detectron2 build vs. Colab's torch/numpy versions, `T.ResizeShortestEdge(short_edge_length=tuple)` usage, DatasetCatalog re-registration, `image_id` being a string stem.
+- Detectron2 cannot be imported locally (IDE "missing import" errors are expected). The Detectron2 code paths ran fine in the Colab dry run, but only for 5 iterations on 8 images; a full run is still untested (periodic COCOEvaluator with string `image_id`s, checkpointing).
+- **Notebook generation bug (fixed):** escape sequences like `\n` written through the Bash heredoc came out as real newlines in the .ipynb (f-string SyntaxError in the freeze cell). When generating notebook/code text via shell, avoid backslashes (use `chr(10)`) and compile-check every cell afterwards.
+- Colab ships both `opencv-python` 5.0 and `opencv-python-headless` 4.14 (same `cv2`); harmless so far.
 - `run_pipeline.py --dry-run` locally just prints that Detectron2 is required; that is correct behaviour.
 - Windows console shows mojibake for "—" in some prints; cosmetic.
 - Windows Python is 3.13 locally; Colab will differ.
@@ -63,13 +64,12 @@ Bugs fixed in old code: `total_mem` (should be `total_memory`) crash; inference 
 - User is new to segmentation; explanations so far have been plain-language (exam analogy: train = textbook, 141 val = practice test, 180 test = real exam scored by Kaggle).
 
 ## 7. Next steps
-1. Commit and push to `Dev` (ask the user; check `git status` first; dataset images are already tracked, ~670 MB pack).
-2. User runs `notebooks/colab_foundation.ipynb` on a T4 (GitHub tab → branch `Dev`; `GITHUB_TOKEN` secret if repo is private). Expect "14 passed", then dry run writing `submissions/submission_dryrun.csv` and one row in `experiments/log.csv`.
-3. User returns: `requirements-lock.txt`, `log.csv`, any tracebacks. **Fix whatever the dry run breaks** (most likely in the Detectron2 files, see §5).
-4. User opens the Kaggle self-evaluation notebook, sends its PQ code + printed numbers; Claude compares against `src/evaluate.py` (pooled vs per-image, `> 0.5` vs `>= 0.5`, overlap handling) and adjusts until within ±0.001.
-5. Freeze `requirements.txt` from the lock file. Tick Phase 0/1 gates in `Project_Phase_Plan.md`.
-6. **Phase 2:** real baseline training on Colab (LR 0.0025, batch 2, 5–7k iters at 1024), val PQ via `run_pipeline.py --step val`, produce `submissions/submission_baseline_r50.csv`, validate, first Kaggle upload; record val PQ vs public LB in `experiments/log.csv`.
-7. Later (per plan): CLAHE + solar-disk masking, 2048 tiling with stitching, anti-fragmentation post-processing, Mask2Former/SAM 2, TTA/ensembling.
+1. ~~Commit~~ (done, local). Push `Dev` when the user asks.
+2. ~~Colab dry run~~ (done, exp001). ~~Lock file~~ (saved). Phase 0 and the split gate are ticked in `Project_Phase_Plan.md`.
+3. User opens the Kaggle self-evaluation notebook, sends its PQ code + printed numbers; Claude compares against `src/evaluate.py` (pooled vs per-image, `> 0.5` vs `>= 0.5`, overlap handling) and adjusts until within ±0.001. Can run in parallel with Phase 2.
+4. Decide Mask R-CNN (default) vs YOLOv8-seg with the user.
+5. **Phase 2:** real baseline training on Colab (LR 0.0025, batch 2, 5–7k iters at 1024), val PQ via `run_pipeline.py --step val`, produce `submissions/submission_baseline_r50.csv`, validate, first Kaggle upload; record val PQ vs public LB in `experiments/log.csv`.
+6. Later (per plan): CLAHE + solar-disk masking, 2048 tiling with stitching, anti-fragmentation post-processing, Mask2Former/SAM 2, TTA/ensembling.
 
 ## 8. Standing rules (from CLAUDE.md)
 - Never list/read files in `train_images/` or `test_images/`; never print the 48 MB annotations JSON (parse only in Python).

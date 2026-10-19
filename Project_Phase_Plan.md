@@ -89,8 +89,8 @@ gantt
    - Ensure a 5-iteration dry-run produces a properly structured dummy `submission.csv` without throwing runtime errors.
 
 ### Quality Gate & Exit Criteria
-- [ ] Pipeline runs end-to-end on both local machine and cloud instances (Colab/Kaggle).
-- [ ] `experiments/log.csv` initialized and ready for automated tracking.
+- [x] Pipeline runs end-to-end on both local machine and cloud instances (Colab/Kaggle). *(Oct 19: full dry run on Colab T4, exp001; locally all non-Detectron2 steps + tests)*
+- [x] `experiments/log.csv` initialized and ready for automated tracking.
 
 ---
 
@@ -119,7 +119,7 @@ gantt
    - Verify GT polygon $\to$ RLE encode $\to$ RLE decode $\to$ mask comparison confirms lossless round-trip.
 
 ### Quality Gate & Exit Criteria
-- [ ] `splits/val_ids.json` generated and permanently frozen.
+- [x] `splits/val_ids.json` generated and permanently frozen. *(566 train / 141 val, 27-day time blocks)*
 - [ ] Local evaluator matches official Kaggle notebook output within $\pm 0.001$ PQ.
 
 ---

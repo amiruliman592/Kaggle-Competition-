@@ -1,1 +1,2 @@
 exp_id,date,model,resolution,preproc,postproc,val_pq,val_sq,val_rq,val_dice,lb_score,sec_per_img,notes
+exp001,2026-10-19 05:06,mask_rcnn_r50_dryrun,1024,none,close5_minarea50,0.0000,0.0000,0.0000,0.0036,,1.6730,DRY RUN 5 iters; frag=0 merge=0 imgs=4
