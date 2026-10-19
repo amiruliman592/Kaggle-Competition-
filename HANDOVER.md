@@ -10,7 +10,8 @@ Written 2026-10-19 at the end of session 1 (Phase 0 + 1 "foundation"). Read this
 
 ## 2. Current state (updated 2026-10-19, after Colab dry run)
 - **Phase 0: DONE.** Colab T4 dry run passed end to end (exp001 in `experiments/log.csv`: 5 iters, PQ 0, Dice 0.0036, 1.67 s/img — values meaningless, plumbing proven). Detectron2 built and imported on Colab. `requirements-lock.txt` saved from that run (torch 2.11+cu130, Python 3.13, Detectron2 commit `1e3e13b`).
-- **Phase 1: done except one gate** — local PQ vs the organisers' Kaggle `self-evaluation-notebook` (±0.001) is NOT yet verified (page only renders in a browser; user must paste its PQ code + printed numbers).
+- **Phase 1: done.** The one open gate (local PQ vs the organisers' Kaggle `self-evaluation-notebook`, ±0.001) was **moved into Phase 2 by the user** — it is Phase 2 step 2A below. Still unverified.
+- **Phase 2: NOT started. The user said: do not execute Phase 2 until they ask.**
 - Tests: 14/14 locally. On Colab 13/14 passed; the failure was `test_frozen_split_is_reproducible` (sklearn 1.6.1 on Colab vs 1.8.0 locally produces different folds). Replaced by `test_regenerated_split_is_valid`. The frozen file is the source of truth — never regenerate it.
 - EDA on Colab matches local numbers.
 - Commits are local only on `Dev` (user asked to commit locally first; push not yet requested). The user ran the notebook from a clone, so the remote apparently had the code — check `git status`/`git log origin/Dev` before assuming. Remote `origin` = github.com/amiruliman592/Kaggle-Competition-.
@@ -66,10 +67,19 @@ Bugs fixed in old code: `total_mem` (should be `total_memory`) crash; inference 
 ## 7. Next steps
 1. ~~Commit~~ (done, local). Push `Dev` when the user asks.
 2. ~~Colab dry run~~ (done, exp001). ~~Lock file~~ (saved). Phase 0 and the split gate are ticked in `Project_Phase_Plan.md`.
-3. User opens the Kaggle self-evaluation notebook, sends its PQ code + printed numbers; Claude compares against `src/evaluate.py` (pooled vs per-image, `> 0.5` vs `>= 0.5`, overlap handling) and adjusts until within ±0.001. Can run in parallel with Phase 2.
-4. Decide Mask R-CNN (default) vs YOLOv8-seg with the user.
-5. **Phase 2:** real baseline training on Colab (LR 0.0025, batch 2, 5–7k iters at 1024), val PQ via `run_pipeline.py --step val`, produce `submissions/submission_baseline_r50.csv`, validate, first Kaggle upload; record val PQ vs public LB in `experiments/log.csv`.
-6. Later (per plan): CLAHE + solar-disk masking, 2048 tiling with stitching, anti-fragmentation post-processing, Mask2Former/SAM 2, TTA/ensembling.
+3. **Phase 2 — Baseline model, metric alignment & first Kaggle submission (WAITING for user go-ahead; do not start on your own).**
+   - **2-0 Decide model** with the user: Mask R-CNN R50-FPN (default, already proven by the dry run) vs YOLOv8-seg (user knows it). Recommendation given: Mask R-CNN first, YOLOv8-seg later as a comparison.
+   - **2A Kaggle self-check / metric alignment (carried over from Phase 1).**
+     1. User opens https://www.kaggle.com/code/azimahmadzadeh/self-evaluation-notebook → Copy & Edit, runs it unchanged, records which GT/prediction files it reads and the PQ/SQ/RQ/Dice it prints.
+     2. User pastes its PQ/matching cell(s) + printed numbers to Claude.
+     3. Claude compares against `src/evaluate.py`: pooled vs per-image PQ, `IoU > 0.5` vs `>= 0.5`, matching of overlapping predictions, which Dice it uses (torchmetrics DiceScore settings), how it treats multi-annotator GT. Adjust `evaluate.py` + tests until the same inputs give the same PQ within ±0.001.
+     4. If possible, run the official notebook on our own validation predictions (CSV from 2C) and compare numbers directly. Gate: tick the ±0.001 checkbox (Phase 1 section) in `Project_Phase_Plan.md`.
+     - 2A can run in parallel with 2B; it must be done before trusting val PQ for model selection.
+   - **2B Real baseline training on Colab:** Claude writes a Phase 2 Colab notebook (e.g. `notebooks/colab_phase2_baseline.ipynb`). Per plan: R50-FPN, anchors 8–128, aspect ratios `[0.2, 0.5, 1.0, 2.0, 5.0]` (not yet in config), 1024 input, LR 0.0025, batch 2, 5–7k iters, flips + brightness/contrast. Save checkpoints to Google Drive (Colab sessions die). Untested so far: periodic COCOEvaluator with string `image_id`s — consider setting `EVAL_PERIOD=0` and using our PQ instead.
+   - **2C Validation:** `python run_pipeline.py --step val --weights <ckpt> --name baseline_r50` → val PQ/SQ/RQ, frag/merge, size-bin PQ; logged to `experiments/log.csv`. Consider a quick sweep of `SCORE_THRESHOLD` / `MIN_AREA` on val.
+   - **2D Submission:** `python run_pipeline.py --step infer --weights <ckpt> --name baseline_r50` → `submissions/submission_baseline_r50.csv`, passes `validate_submission.py` (all 180 test images), user uploads to Kaggle, records public LB score in `lb_score` of the log row.
+   - **Phase 2 exit gates:** baseline trained + evaluated on frozen val; first valid Kaggle submission scored with 0 errors; local metric aligned with the official notebook (2A).
+4. Later (per plan): CLAHE + solar-disk masking, 2048 tiling with stitching, anti-fragmentation post-processing, Mask2Former/SAM 2, TTA/ensembling.
 
 ## 8. Standing rules (from CLAUDE.md)
 - Never list/read files in `train_images/` or `test_images/`; never print the 48 MB annotations JSON (parse only in Python).
