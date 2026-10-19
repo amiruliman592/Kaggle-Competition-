@@ -1,108 +1,109 @@
 """
-run_pipeline.py — End-to-end pipeline: EDA → Train → Inference → Submission.
+run_pipeline.py — End-to-end pipeline: EDA → Split → Train → Validate → Inference → Submission.
 
-This is the main entry point designed to be run on Google Colab Pro.
-Copy this file to Colab and run it cell-by-cell, or run the whole thing:
+Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipynb):
 
-  python run_pipeline.py
+  python run_pipeline.py --step all
+  python run_pipeline.py --dry-run          # 5 iterations, few images: smoke test
 
 Steps:
-  1. Install dependencies (if on Colab)
-  2. Run EDA
-  3. Train Mask R-CNN
-  4. Run inference on test images
-  5. Generate submission CSV
+  1. EDA                       (output/eda/)
+  2. Frozen train/val split    (splits/val_ids.json, created once)
+  3. Train Mask R-CNN          (output/detectron2/)
+  4. Val PQ with local metric  (logged to experiments/log.csv)
+  5. Test inference + CSV      (submissions/submission_<name>.csv, validated)
 """
 
+import argparse
+import json
 import os
-import sys
 import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
+
+from config import CFG  # noqa: E402
+
 
 # ═══════════════════════════════════════════════════════════════════════
-# STEP 0: Setup (run this on Colab)
+# STEP 0: Setup
 # ═══════════════════════════════════════════════════════════════════════
 
-def setup_colab():
-    """Install dependencies on Google Colab."""
-    print("=" * 60)
-    print("  STEP 0: Installing dependencies")
-    print("=" * 60)
-    
-    # Install core packages
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q",
-        "pycocotools", "albumentations", "torchmetrics", "seaborn", "tqdm",
-        "scikit-image",
-    ])
-    
-    # Install Detectron2 (must match CUDA version)
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q",
-        "git+https://github.com/facebookresearch/detectron2.git",
-    ])
-    
-    print("[Setup] All dependencies installed!")
-
-
-def check_environment():
-    """Verify the environment is ready."""
+def check_environment() -> bool:
+    """Print versions; return True if Detectron2 is importable."""
     import torch
     print(f"  Python:     {sys.version.split()[0]}")
     print(f"  PyTorch:    {torch.__version__}")
-    print(f"  CUDA:       {torch.cuda.is_available()} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A'})")
-    
+    print(f"  CUDA:       {torch.cuda.is_available()} "
+          f"({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A'})")
+    print(f"  Data dir:   {CFG.paths.DATA_DIR} (exists={CFG.paths.DATA_DIR.exists()})")
     try:
         import detectron2
         print(f"  Detectron2: {detectron2.__version__}")
     except ImportError:
-        print("  Detectron2: NOT INSTALLED — run setup_colab() first!")
+        print("  Detectron2: NOT INSTALLED — see notebooks/colab_foundation.ipynb")
         return False
     return True
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# STEP 1: EDA
+# STEPS
 # ═══════════════════════════════════════════════════════════════════════
 
 def run_eda():
-    """Run exploratory data analysis."""
-    print("\n" + "=" * 60)
-    print("  STEP 1: Exploratory Data Analysis")
-    print("=" * 60)
-    
-    # Add src to path
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-    from eda import main as eda_main
-    eda_main()
+    subprocess.check_call([sys.executable, "src/eda.py"], cwd=CFG.paths.ROOT)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# STEP 2: Train
-# ═══════════════════════════════════════════════════════════════════════
+def ensure_split():
+    from split import main as split_main
+    if not CFG.paths.SPLIT_FILE.exists():
+        sys.argv = [sys.argv[0]]
+        split_main()
 
-def run_training():
-    """Train Mask R-CNN model."""
-    print("\n" + "=" * 60)
-    print("  STEP 2: Training Mask R-CNN")
-    print("=" * 60)
-    
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
+def run_training(dry_run: bool):
     from train import train
-    cfg = train()
-    return cfg
+    if dry_run:
+        return train(max_iter=5, limit=8, eval_period=0)
+    return train()
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# STEP 3: Inference & Submission
-# ═══════════════════════════════════════════════════════════════════════
+def run_validation(weights: str, dry_run: bool):
+    """Predict the val split and score it with the local PQ engine."""
+    from annotations import load_gt_rles
+    from evaluate import evaluate
+    from inference import build_predictor, predict_images
+    from split import load_split
 
-def run_inference_and_submit():
-    """Run inference on test images and create submission CSV."""
-    print("\n" + "=" * 60)
-    print("  STEP 3: Inference & Submission")
-    print("=" * 60)
-    
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-    from inference import main as inference_main
-    inference_main()
+    _, val_ids = load_split()
+    if dry_run:
+        val_ids = val_ids[:4]
+    predictor = build_predictor(weights)
+    preds, sec_per_img = predict_images(
+        predictor, [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids])
+    res = evaluate(load_gt_rles(val_ids), preds)
+    res["sec_per_img"] = sec_per_img
+    return res
+
+
+def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
+    from inference import build_predictor, build_submission_csv, predict_images
+    from validate_submission import validate_submission
+
+    test_images = sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))
+    if dry_run:
+        test_images = test_images[:3]
+    predictor = build_predictor(weights)
+    preds, _ = predict_images(predictor, test_images)
+    out = CFG.paths.SUBMISSION_DIR / f"submission_{name}.csv"
+    n_rows = build_submission_csv(preds, out)
+    # A 5-iteration model may legitimately predict nothing; the dry run checks the plumbing
+    if n_rows:
+        ok = validate_submission(out, allow_missing_images=dry_run)
+        if not ok:
+            sys.exit(1)
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -110,38 +111,58 @@ def run_inference_and_submit():
 # ═══════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import argparse
-    
     parser = argparse.ArgumentParser(description="Solar Filament Segmentation Pipeline")
     parser.add_argument("--step", type=str, default="all",
-                        choices=["setup", "eda", "train", "infer", "all"],
+                        choices=["eda", "split", "train", "val", "infer", "all"],
                         help="Which step to run (default: all)")
-    parser.add_argument("--colab", action="store_true",
-                        help="Running on Google Colab (installs dependencies)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="5 iterations on 8 train / 4 val / 3 test images")
+    parser.add_argument("--name", type=str, default=None, help="Submission/experiment name")
+    parser.add_argument("--weights", type=str, default=None, help="Model weights for val/infer")
     args = parser.parse_args()
-    
-    if args.colab or args.step == "setup":
-        setup_colab()
-    
+
+    from utils.exp_log import log_experiment
+    from utils.seed import set_seed
+
+    set_seed(CFG.SEED)
+    CFG.paths.ensure_output_dirs()
+    name = args.name or ("dryrun" if args.dry_run else "baseline_r50")
+    weights = args.weights or str(CFG.paths.OUTPUT_DIR / "detectron2" / "model_final.pth")
+
     print("\n[Pipeline] Environment check:")
     ready = check_environment()
-    
-    if args.step in ("eda", "all"):
+    needs_d2 = args.step in ("train", "val", "infer", "all")
+    if needs_d2 and not ready:
+        print("[Pipeline] Detectron2 is required for this step.")
+        sys.exit(1)
+
+    if args.step in ("eda",) or (args.step == "all" and not args.dry_run):
         run_eda()
-    
+    if args.step in ("split", "all"):
+        ensure_split()
     if args.step in ("train", "all"):
-        if not ready:
-            print("[Pipeline] Cannot train without Detectron2. Run --step setup first.")
-            sys.exit(1)
-        run_training()
-    
+        run_training(args.dry_run)
+
+    res = None
+    if args.step in ("val", "all"):
+        res = run_validation(weights, args.dry_run)
     if args.step in ("infer", "all"):
-        if not ready:
-            print("[Pipeline] Cannot infer without Detectron2. Run --step setup first.")
-            sys.exit(1)
-        run_inference_and_submit()
-    
+        out = run_inference_and_submit(weights, name, args.dry_run)
+        print(f"\n[Pipeline] Submission file: {out}")
+
+    if res is not None:
+        log_experiment(
+            model=f"mask_rcnn_r50_{name}", resolution=CFG.infer.INFER_RESIZE,
+            preproc="none",
+            postproc=f"close{CFG.infer.MORPH_KERNEL if CFG.infer.MORPH_CLOSE else 0}_minarea{CFG.infer.MIN_AREA}",
+            val_pq=res["PQ"], val_sq=res["SQ"], val_rq=res["RQ"], val_dice=res["mean_semantic_Dice"],
+            sec_per_img=round(res["sec_per_img"], 3),
+            notes=("DRY RUN 5 iters; " if args.dry_run else "")
+                  + f"frag={res['fragmented_gt_1toN']} merge={res['merged_pred_Mto1']} "
+                    f"imgs={res['num_images']}",
+        )
+        (CFG.paths.OUTPUT_DIR / f"val_results_{name}.json").write_text(json.dumps(res, indent=1))
+
     print("\n" + "=" * 60)
     print("  Pipeline complete!")
-    print("  Submission file: output/submission.csv")
     print("=" * 60)

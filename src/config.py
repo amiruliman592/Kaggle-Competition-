@@ -3,67 +3,124 @@ config.py — Centralized configuration for Solar Filament Segmentation pipeline
 
 All paths, hyperparameters, and constants live here so every other script
 can simply `from config import CFG`.
+
+Paths resolve portably (local / Colab / Kaggle) in this order:
+  1. Environment variables: SOLAR_ROOT, SOLAR_DATA_DIR, SOLAR_OUTPUT_DIR
+  2. The repository root (parent of this `src/` folder)
+
+Examples:
+  Colab:  os.environ["SOLAR_ROOT"] = "/content/Kaggle-Competition-"
+  Kaggle: os.environ["SOLAR_DATA_DIR"] = "/kaggle/input/<dataset>/MAGFiLO_1.0_Kaggle_2026"
+          os.environ["SOLAR_OUTPUT_DIR"] = "/kaggle/working/output"
 """
 
-from pathlib import Path
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Tuple
 
 
-@dataclass
-class Config:
-    """Single source of truth for all pipeline settings."""
+def _env_path(name: str, default: Path) -> Path:
+    value = os.environ.get(name)
+    return Path(value).expanduser().resolve() if value else default
 
-    # ── Paths ──────────────────────────────────────────────────────────
-    # Adjust ROOT if running on Colab (e.g., "/content/drive/MyDrive/Solar_Filament_Kaggle")
-    ROOT: Path = Path(".")
+
+@dataclass
+class PathsConfig:
+    """Filesystem layout. Nothing is created at import time."""
+
+    ROOT: Path = field(default_factory=lambda: _env_path(
+        "SOLAR_ROOT", Path(__file__).resolve().parent.parent))
     DATA_DIR: Path = field(init=False)
     TRAIN_IMG_DIR: Path = field(init=False)
     TEST_IMG_DIR: Path = field(init=False)
     ANNOTATION_FILE: Path = field(init=False)
     OUTPUT_DIR: Path = field(init=False)
+    SUBMISSION_DIR: Path = field(init=False)
+    SPLIT_FILE: Path = field(init=False)
+    EXPERIMENT_LOG: Path = field(init=False)
 
     def __post_init__(self):
         self.ROOT = Path(self.ROOT)
-        self.DATA_DIR = self.ROOT / "filament-segmentation-2026" / "MAGFiLO_1.0_Kaggle_2026"
+        self.DATA_DIR = _env_path(
+            "SOLAR_DATA_DIR", self.ROOT / "filament-segmentation-2026" / "MAGFiLO_1.0_Kaggle_2026")
         self.TRAIN_IMG_DIR = self.DATA_DIR / "train" / "train_images"
         self.TEST_IMG_DIR = self.DATA_DIR / "test" / "test_images"
         self.ANNOTATION_FILE = self.DATA_DIR / "train" / "MAGFiLO_1.0_Annotations_kaggle2026_train.json"
-        self.OUTPUT_DIR = self.ROOT / "output"
-        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        self.OUTPUT_DIR = _env_path("SOLAR_OUTPUT_DIR", self.ROOT / "output")
+        self.SUBMISSION_DIR = self.ROOT / "submissions"
+        self.SPLIT_FILE = self.ROOT / "splits" / "val_ids.json"
+        self.EXPERIMENT_LOG = self.ROOT / "experiments" / "log.csv"
 
-    # ── Image ──────────────────────────────────────────────────────────
-    IMAGE_SIZE: Tuple[int, int] = (2048, 2048)  # Native resolution
-    TRAIN_RESIZE: Tuple[int, int] = (1024, 1024)  # Resize for training (saves VRAM)
+    def ensure_output_dirs(self):
+        for d in (self.OUTPUT_DIR, self.SUBMISSION_DIR):
+            d.mkdir(parents=True, exist_ok=True)
 
-    # ── Model (Detectron2 Mask R-CNN) ──────────────────────────────────
+
+@dataclass
+class DataConfig:
+    IMAGE_SIZE: Tuple[int, int] = (2048, 2048)  # Native resolution (H, W)
+    # MAGFiLO re-annotates ~42% of files by 2-3 independent annotators; each
+    # set is a separate COCO "image" entry. Policy picks ONE set per file:
+    #   "first" — lowest entry id (deterministic, default)
+    #   "most"  — the set with the most instances
+    ANNOTATOR_POLICY: str = "first"
+    # Leak-free split: group by ~1 solar rotation, stratify by filament count
+    SPLIT_BLOCK_DAYS: int = 27
+    SPLIT_N_FOLDS: int = 5  # val fold = 1/5 ≈ 20%
+    SPLIT_VAL_FOLD: int = 0
+
+
+@dataclass
+class ModelConfig:
+    """Detectron2 Mask R-CNN."""
     MODEL_CONFIG: str = "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
-    NUM_CLASSES: int = 1  # Treat all filament categories as a single "filament" class
-    # Set to 4 if you want per-category predictions (Left/Right/Unidentifiable/Ambiguous)
-
-    # ── Training ───────────────────────────────────────────────────────
-    BASE_LR: float = 0.0025
-    MAX_ITER: int = 3000  # ~4 epochs over 707 images at batch_size=2
-    BATCH_SIZE: int = 2
-    NUM_WORKERS: int = 2
-    EVAL_PERIOD: int = 500  # Evaluate every N iterations
-    CHECKPOINT_PERIOD: int = 500
-    VAL_SPLIT: float = 0.2  # 80/20 train/val split
-
-    # ── Anchors (tuned for small filaments) ────────────────────────────
+    NUM_CLASSES: int = 1  # Single "filament" class (set 4 for Left/Right/Unidentifiable/Ambiguous)
     ANCHOR_SIZES: List[List[int]] = field(
         default_factory=lambda: [[8], [16], [32], [64], [128]]
     )
 
-    # ── Inference ──────────────────────────────────────────────────────
+
+@dataclass
+class TrainConfig:
+    TRAIN_RESIZE: int = 1024  # Images resized to this for training (saves VRAM)
+    BASE_LR: float = 0.0025
+    MAX_ITER: int = 3000  # ~10 epochs over ~566 train images at batch_size=2
+    BATCH_SIZE: int = 2
+    NUM_WORKERS: int = 2
+    EVAL_PERIOD: int = 500  # Evaluate every N iterations (0 = disabled)
+    CHECKPOINT_PERIOD: int = 500
+
+
+@dataclass
+class TilingConfig:
+    """Sliding-window inference (Phase 4)."""
+    ENABLED: bool = False
+    TILE_SIZE: int = 1024
+    OVERLAP: int = 256
+    STITCH_NMS_IOU: float = 0.35
+
+
+@dataclass
+class InferConfig:
+    """Inference & post-processing flags."""
+    INFER_RESIZE: int = 1024
     SCORE_THRESHOLD: float = 0.5  # Minimum confidence for predictions
     NMS_THRESHOLD: float = 0.3  # NMS IoU threshold
-    MIN_AREA: int = 50  # Filter out predicted masks smaller than this (in pixels²)
+    MORPH_CLOSE: bool = True
+    MORPH_KERNEL: int = 5
+    MIN_AREA: int = 50  # Drop predicted masks smaller than this (px²)
 
-    # ── Submission ─────────────────────────────────────────────────────
-    SUBMISSION_FILE: str = "submission.csv"
 
-    # ── Seed ───────────────────────────────────────────────────────────
+@dataclass
+class Config:
+    """Single source of truth for all pipeline settings."""
+    paths: PathsConfig = field(default_factory=PathsConfig)
+    data: DataConfig = field(default_factory=DataConfig)
+    model: ModelConfig = field(default_factory=ModelConfig)
+    train: TrainConfig = field(default_factory=TrainConfig)
+    tiling: TilingConfig = field(default_factory=TilingConfig)
+    infer: InferConfig = field(default_factory=InferConfig)
     SEED: int = 42
 
 

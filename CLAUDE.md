@@ -15,7 +15,10 @@ filament-segmentation-2026/MAGFiLO_1.0_Kaggle_2026/
     └── test_images/                                  # 180 JPEGs (2048x2048, unannotated)
 ```
 - **Image Specs**: Fixed 2048 × 2048 px single-channel/RGB JPEG.
-- **Instance Properties**: Areas range from 9 px² to 37,739 px² (mean ~2,120 px²); ~7.1 filaments/image.
+- **Instance Properties**: Areas range from 9 px² to 37,739 px² (mean ~2,120 px²).
+- **Multi-annotator quirk (CRITICAL)**: JSON has 1,154 image entries for 707 files; 296 files were annotated 2–3× independently (each set = separate entry). Never merge sets or treat entries as images — use `src/annotations.py` (one set per file, policy `first`; ~7.4 filaments/file).
+- **Inter-annotator PQ ≈ 0.336** (human ceiling; see `output/eda/eda_summary.json`).
+- **Frozen split**: `splits/val_ids.json` (566/141, 27-day time blocks). Never regenerate.
 - **Token Saver Guardrails (STRICT)**:
   - NEVER list or read files in `train_images/` or `test_images/`. Treat image files as opaque paths loaded only by Python `DataLoader`.
   - NEVER print or read the raw `MAGFiLO_1.0_Annotations_kaggle2026_train.json` (48 MB) into context; parse it only via Python scripts.

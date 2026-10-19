@@ -71,7 +71,7 @@ def visualize_predictions(
     plt.tight_layout()
     
     if save_path is None:
-        save_path = str(CFG.OUTPUT_DIR / "predictions_viz.png")
+        save_path = str(CFG.paths.OUTPUT_DIR / "predictions_viz.png")
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"[Viz] Saved predictions visualization to {save_path}")
