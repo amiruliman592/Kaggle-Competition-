@@ -2,177 +2,174 @@
 eda.py — Exploratory Data Analysis for Solar Filament Segmentation.
 
 Run this first to understand the dataset:
-  python src/eda.py
+  python src/eda.py [--no-images]
 
-Outputs visualizations to output/eda/
+Outputs plots and eda_summary.json to output/eda/. Key analyses:
+  - Annotation structure: COCO entries vs physical files (multi-annotator sets)
+  - GONG station & year distribution (filename suffix: B/C/L/M/T/U + 'h')
+  - Instance area distribution with the PQ size bins
+  - Inter-annotator agreement: PQ of annotator k vs annotator 0 on files with
+    several sets — a practical human ceiling for our model's PQ
 """
 
+import argparse
 import json
-import os
 import random
+from collections import Counter
 from pathlib import Path
 
 import cv2
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
-from pycocotools.coco import COCO
-from collections import Counter
 
+from annotations import anns_to_rles, load_annotation_sets, select_annotations
 from config import CFG
+from evaluate import evaluate, size_bin
+
+STATIONS = {
+    "B": "Big Bear (USA)", "C": "Cerro Tololo (Chile)", "L": "Learmonth (Australia)",
+    "M": "Mauna Loa (USA)", "T": "El Teide (Spain)", "U": "Udaipur (India)",
+}
+CAT_COLORS = {
+    1: (1.0, 0.2, 0.2, 0.5),   # Left - red
+    2: (0.2, 0.5, 1.0, 0.5),   # Right - blue
+    3: (0.2, 1.0, 0.2, 0.5),   # Unidentifiable - green
+    4: (1.0, 1.0, 0.2, 0.5),   # Ambiguous - yellow
+}
+CAT_NAMES = {1: "Left", 2: "Right", 3: "Unidentifiable", 4: "Ambiguous"}
 
 
-def load_coco(annotation_path: Path) -> COCO:
-    """Load COCO-format annotations."""
-    coco = COCO(str(annotation_path))
-    return coco
+def station_of(stem: str) -> str:
+    return stem[14] if len(stem) > 14 else "?"
 
 
-def plot_sample_images(coco: COCO, img_dir: Path, n: int = 6, save_dir: Path = None):
-    """Plot sample images with their filament masks overlaid."""
-    save_dir = save_dir or CFG.OUTPUT_DIR / "eda"
-    save_dir.mkdir(parents=True, exist_ok=True)
+def plot_sample_images(selected, img_dir: Path, save_dir: Path, n: int = 6):
+    """Plot sample training images with their (selected) filament masks overlaid."""
+    from pycocotools import mask as coco_mask
 
-    img_ids = coco.getImgIds()
-    sample_ids = random.sample(img_ids, min(n, len(img_ids)))
-
+    sample = random.sample(sorted(selected), min(n, len(selected)))
     fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-    axes = axes.flatten()
-
-    # Category colors
-    cat_colors = {
-        1: (1.0, 0.2, 0.2, 0.5),   # Left - red
-        2: (0.2, 0.5, 1.0, 0.5),   # Right - blue
-        3: (0.2, 1.0, 0.2, 0.5),   # Unidentifiable - green
-        4: (1.0, 1.0, 0.2, 0.5),   # Ambiguous - yellow
-    }
-    cat_names = {1: "Left", 2: "Right", 3: "Unidentifiable", 4: "Ambiguous"}
-
-    for ax, img_id in zip(axes, sample_ids):
-        img_info = coco.loadImgs(img_id)[0]
-        img_path = img_dir / img_info["file_name"]
-        img = cv2.imread(str(img_path))
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        ax.imshow(img, cmap="gray")
-
-        ann_ids = coco.getAnnIds(imgIds=img_id)
-        anns = coco.loadAnns(ann_ids)
-
-        for ann in anns:
-            mask = coco.annToMask(ann)
-            cat_id = ann["category_id"]
-            color = cat_colors.get(cat_id, (1, 1, 1, 0.5))
-
-            # Overlay colored mask
-            colored_mask = np.zeros((*mask.shape, 4))
-            colored_mask[mask == 1] = color
-            ax.imshow(colored_mask)
-
-        ax.set_title(f"{img_info['file_name']}\n{len(anns)} filaments", fontsize=9)
+    for ax, stem in zip(axes.flatten(), sample):
+        img = cv2.cvtColor(cv2.imread(str(img_dir / f"{stem}.jpeg")), cv2.COLOR_BGR2RGB)
+        ax.imshow(img)
+        overlay = np.zeros((*img.shape[:2], 4))
+        for ann, rle in zip(selected[stem], anns_to_rles(selected[stem])):
+            overlay[coco_mask.decode(rle) == 1] = CAT_COLORS.get(ann["category_id"], (1, 1, 1, 0.5))
+        ax.imshow(overlay)
+        ax.set_title(f"{stem} [{STATIONS.get(station_of(stem), '?')}]\n{len(selected[stem])} filaments", fontsize=9)
         ax.axis("off")
-
-    # Legend
-    patches = [mpatches.Patch(color=c[:3], label=cat_names[k]) for k, c in cat_colors.items()]
+    patches = [mpatches.Patch(color=c[:3], label=CAT_NAMES[k]) for k, c in CAT_COLORS.items()]
     fig.legend(handles=patches, loc="lower center", ncol=4, fontsize=12)
-
-    plt.suptitle("Sample Training Images with Filament Masks", fontsize=16, y=1.02)
+    plt.suptitle("Sample Training Images with Filament Masks", fontsize=16)
     plt.tight_layout()
-    plt.savefig(save_dir / "sample_images.png", dpi=150, bbox_inches="tight")
+    plt.savefig(save_dir / "sample_images.png", dpi=110, bbox_inches="tight")
     plt.close()
-    print(f"[EDA] Saved sample images to {save_dir / 'sample_images.png'}")
+    print(f"[EDA] Saved {save_dir / 'sample_images.png'}")
 
 
-def plot_filament_stats(coco: COCO, save_dir: Path = None):
-    """Plot filament area distribution and filament-count-per-image distribution."""
-    save_dir = save_dir or CFG.OUTPUT_DIR / "eda"
-    save_dir.mkdir(parents=True, exist_ok=True)
+def plot_stats(selected, areas: np.ndarray, save_dir: Path):
+    """Area distribution, filaments/image, station and year distributions."""
+    stems = sorted(selected)
+    counts = [len(selected[s]) for s in stems]
+    fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-    anns = coco.loadAnns(coco.getAnnIds())
+    ax = axes[0, 0]
+    ax.hist(np.log10(areas), bins=60, color="darkorange", edgecolor="black", alpha=0.8)
+    for edge in (200, 2000):
+        ax.axvline(np.log10(edge), color="red", linestyle="--")
+    ax.set_xlabel("log10(area px²)  [dashed: PQ size-bin edges 200 / 2000]")
+    ax.set_ylabel("Instances")
+    ax.set_title("Filament Area Distribution")
 
-    # ── Area distribution ──
-    areas = [ann["area"] for ann in anns]
-    fig, axes = plt.subplots(1, 3, figsize=(20, 5))
+    ax = axes[0, 1]
+    ax.hist(counts, bins=range(0, max(counts) + 2), color="seagreen", edgecolor="black", alpha=0.8)
+    ax.set_xlabel("Filaments per image (selected annotator set)")
+    ax.set_ylabel("Images")
+    ax.set_title("Filaments per Image")
 
-    axes[0].hist(areas, bins=80, color="steelblue", edgecolor="black", alpha=0.8)
-    axes[0].set_xlabel("Filament Area (px²)")
-    axes[0].set_ylabel("Count")
-    axes[0].set_title("Filament Area Distribution")
-    axes[0].axvline(np.median(areas), color="red", linestyle="--", label=f"Median: {np.median(areas):.0f}")
-    axes[0].legend()
+    ax = axes[1, 0]
+    st = Counter(station_of(s) for s in stems)
+    keys = sorted(st)
+    ax.bar([STATIONS.get(k, k) for k in keys], [st[k] for k in keys], color="steelblue")
+    ax.set_title("Images per GONG Station")
+    ax.tick_params(axis="x", rotation=30)
 
-    # Log-scale area
-    axes[1].hist(np.log10(np.array(areas) + 1), bins=60, color="darkorange", edgecolor="black", alpha=0.8)
-    axes[1].set_xlabel("log₁₀(Area + 1)")
-    axes[1].set_ylabel("Count")
-    axes[1].set_title("Filament Area (Log Scale)")
+    ax = axes[1, 1]
+    yr = Counter(s[:4] for s in stems)
+    ax.bar(sorted(yr), [yr[y] for y in sorted(yr)], color="slateblue")
+    ax.set_title("Images per Year")
 
-    # ── Filaments per image ──
-    img_ids = coco.getImgIds()
-    counts = [len(coco.getAnnIds(imgIds=img_id)) for img_id in img_ids]
-    axes[2].hist(counts, bins=range(0, max(counts) + 2), color="seagreen", edgecolor="black", alpha=0.8)
-    axes[2].set_xlabel("Number of Filaments")
-    axes[2].set_ylabel("Number of Images")
-    axes[2].set_title("Filaments per Image")
-
-    plt.suptitle("Dataset Statistics", fontsize=14)
     plt.tight_layout()
-    plt.savefig(save_dir / "filament_stats.png", dpi=150, bbox_inches="tight")
+    plt.savefig(save_dir / "filament_stats.png", dpi=110, bbox_inches="tight")
     plt.close()
-    print(f"[EDA] Saved stats to {save_dir / 'filament_stats.png'}")
-
-    # ── Category distribution ──
-    cat_counts = Counter(ann["category_id"] for ann in anns)
-    cat_names = {c["id"]: c["name"] for c in coco.loadCats(coco.getCatIds())}
-    print("\n[EDA] Category Distribution:")
-    for cat_id, count in sorted(cat_counts.items()):
-        print(f"  {cat_names.get(cat_id, cat_id):>20s}: {count:>5d} ({100*count/len(anns):.1f}%)")
-
-    # ── Summary stats ──
-    print(f"\n[EDA] Summary:")
-    print(f"  Total images:      {len(img_ids)}")
-    print(f"  Total annotations: {len(anns)}")
-    print(f"  Avg filaments/img: {np.mean(counts):.1f}")
-    print(f"  Min/Max count:     {min(counts)} / {max(counts)}")
-    print(f"  Area min/max/mean: {min(areas):.0f} / {max(areas):.0f} / {np.mean(areas):.0f} px²")
-    print(f"  Area median:       {np.median(areas):.0f} px²")
+    print(f"[EDA] Saved {save_dir / 'filament_stats.png'}")
 
 
-def plot_category_distribution(coco: COCO, save_dir: Path = None):
-    """Pie chart of filament categories."""
-    save_dir = save_dir or CFG.OUTPUT_DIR / "eda"
-    save_dir.mkdir(parents=True, exist_ok=True)
-
-    anns = coco.loadAnns(coco.getAnnIds())
-    cat_counts = Counter(ann["category_id"] for ann in anns)
-    cat_names = {c["id"]: c["name"] for c in coco.loadCats(coco.getCatIds())}
-
-    labels = [cat_names[k] for k in sorted(cat_counts.keys())]
-    sizes = [cat_counts[k] for k in sorted(cat_counts.keys())]
-    colors = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f"]
-
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.pie(sizes, labels=labels, colors=colors, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 12})
-    ax.set_title("Filament Category Distribution", fontsize=14)
-    plt.savefig(save_dir / "category_distribution.png", dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"[EDA] Saved category pie chart to {save_dir / 'category_distribution.png'}")
+def inter_annotator_agreement(sets) -> dict:
+    """PQ of each extra annotator set vs set 0, pooled over multi-annotated files."""
+    multi = {s: v for s, v in sets.items() if len(v) > 1}
+    gt, pred = {}, {}
+    for stem, v in multi.items():
+        ref = anns_to_rles(v[0])
+        for k, other in enumerate(v[1:], start=1):
+            key = f"{stem}#{k}"
+            gt[key], pred[key] = ref, anns_to_rles(other)
+    res = evaluate(gt, pred, verbose=False)
+    return {"files": len(multi), "comparisons": len(gt),
+            **{k: res[k] for k in ("PQ", "SQ", "RQ", "mean_semantic_Dice",
+                                   "fragmented_gt_1toN", "merged_pred_Mto1")}}
 
 
 def main():
-    """Run full EDA pipeline."""
+    parser = argparse.ArgumentParser(description="Exploratory data analysis")
+    parser.add_argument("--no-images", action="store_true", help="Skip the sample-image figure")
+    args = parser.parse_args()
+
     random.seed(CFG.SEED)
     print("=" * 60)
     print("  Solar Filament Segmentation — Exploratory Data Analysis")
     print("=" * 60)
+    save_dir = CFG.paths.OUTPUT_DIR / "eda"
+    save_dir.mkdir(parents=True, exist_ok=True)
 
-    coco = load_coco(CFG.ANNOTATION_FILE)
+    sets = load_annotation_sets()
+    selected = select_annotations(sets)
+    all_anns = [a for v in sets.values() for s in v for a in s]
+    sel_anns = [a for v in selected.values() for a in v]
+    areas = np.array([float(a["area"]) for a in sel_anns])
+    counts = np.array([len(v) for v in selected.values()])
 
-    plot_sample_images(coco, CFG.TRAIN_IMG_DIR, n=6)
-    plot_filament_stats(coco)
-    plot_category_distribution(coco)
+    summary = {
+        "coco_image_entries": sum(len(v) for v in sets.values()),
+        "physical_files": len(sets),
+        "files_by_num_annotator_sets": dict(sorted(Counter(len(v) for v in sets.values()).items())),
+        "annotations_total_all_sets": len(all_anns),
+        "annotations_selected_policy": len(sel_anns),
+        "annotator_policy": CFG.data.ANNOTATOR_POLICY,
+        "filaments_per_image": {"mean": round(float(counts.mean()), 2), "min": int(counts.min()),
+                                "max": int(counts.max())},
+        "area_px2": {"min": float(areas.min()), "median": float(np.median(areas)),
+                     "mean": round(float(areas.mean()), 1), "max": float(areas.max())},
+        "instances_per_size_bin": dict(Counter(size_bin(a) for a in areas)),
+        "instances_below_50px2": int((areas < 50).sum()),
+        "categories": {CAT_NAMES[k]: v for k, v in sorted(Counter(a["category_id"] for a in sel_anns).items())},
+        "stations": {STATIONS.get(k, k): v for k, v in sorted(Counter(station_of(s) for s in sets).items())},
+        "years": dict(sorted(Counter(s[:4] for s in sets).items())),
+        "unique_dates": len({s[:8] for s in sets}),
+    }
+    print("[EDA] Computing inter-annotator agreement (human PQ ceiling)...")
+    summary["inter_annotator_agreement"] = inter_annotator_agreement(sets)
 
-    print("\n[EDA] Done! Check output/eda/ for all visualizations.")
+    plot_stats(selected, areas, save_dir)
+    if not args.no_images:
+        plot_sample_images(selected, CFG.paths.TRAIN_IMG_DIR, save_dir)
+
+    (save_dir / "eda_summary.json").write_text(json.dumps(summary, indent=1))
+    print(json.dumps(summary, indent=1))
+    print(f"\n[EDA] Done! See {save_dir}")
 
 
 if __name__ == "__main__":

@@ -1,190 +1,306 @@
 """
-evaluate.py — Local evaluation: compute PQ, Dice, and IoU on the validation set.
+evaluate.py — Local evaluation engine: PQ / SQ / RQ, Dice, IoU distribution,
+fragmentation & over-merging counters, size-stratified PQ.
 
-This mirrors the competition's scoring methodology so you can iterate
-locally without burning Kaggle submissions.
+Definitions (Kirillov et al., CVPR 2019 — the official competition metric):
+  - A prediction p and ground truth g match iff IoU(p, g) > 0.5.
+    Matching is one-to-one, greedy by descending IoU (equivalent to the
+    unique matching whenever predictions do not overlap).
+  - PQ is POOLED over the whole dataset (all TP/FP/FN from all images):
+        SQ = sum_TP IoU / |TP|,  RQ = |TP| / (|TP| + 0.5|FP| + 0.5|FN|)
+    A per-image mean PQ is also reported, as a secondary number.
+  - Fragmentation (1->N): a GT that has >= 2 predictions each lying mostly
+    (>= 50% of the prediction's area) inside it.
+  - Over-merging (M->1): a prediction that covers >= 50% of the area of
+    >= 2 different GTs.
+  - Size bins (px²): small < 200 <= medium <= 2000 < large. TP/FN are binned
+    by GT area, FP by predicted area.
+  - Semantic Dice: per image, Dice of union(pred) vs union(GT), averaged over
+    images (binary torchmetrics DiceScore equivalent).
+
+All masks are compressed COCO RLE dicts, so evaluation never holds dense
+2048×2048 arrays.
+
+Official mode (`evaluate_official`) reproduces the organisers' Kaggle metric
+(SelfEvaluationResult/official_metric.py, see FINDINGS.md there). It is the
+number to use for model selection:
+  - every annotator set is its own GT entry ("<annotator>-<stem>"), scored
+    against the image's predictions and pooled; entries without GT are skipped
+  - matching is NOT one-to-one: every pair with IoU > 0.5 is a TP, a
+    prediction/GT is FP/FN only if it has no such pair
 
 Usage:
-  python src/evaluate.py
+  python src/evaluate.py --pred submissions/submission_x.csv        # val split
+  python src/evaluate.py --gt-vs-gt                                 # sanity: PQ == 1
 """
 
-import numpy as np
-import torch
+import argparse
+import json
+from collections import defaultdict
+from pathlib import Path
 from typing import Dict, List, Tuple
-from pycocotools.coco import COCO
+
+import numpy as np
 from pycocotools import mask as coco_mask
 
 from config import CFG
+from utils.rle import counts_to_rle
+
+SIZE_BINS = {"small": (0, 200), "medium": (200, 2000), "large": (2000, float("inf"))}
+MATCH_IOU = 0.5
+COVER_FRAC = 0.5
 
 
-def compute_iou(mask_a: np.ndarray, mask_b: np.ndarray) -> float:
-    """Compute Intersection-over-Union between two binary masks."""
-    intersection = np.logical_and(mask_a, mask_b).sum()
-    union = np.logical_or(mask_a, mask_b).sum()
-    if union == 0:
-        return 0.0
-    return intersection / union
+def size_bin(area: float) -> str:
+    for name, (lo, hi) in SIZE_BINS.items():
+        if lo <= area < hi or (name == "medium" and area == hi):
+            return name
+    return "large"
 
 
-def compute_dice(mask_a: np.ndarray, mask_b: np.ndarray) -> float:
-    """Compute Dice score between two binary masks."""
-    intersection = np.logical_and(mask_a, mask_b).sum()
-    total = mask_a.sum() + mask_b.sum()
-    if total == 0:
-        return 0.0
-    return 2.0 * intersection / total
+def match_image(gt: List[dict], pred: List[dict]) -> Dict:
+    """Match one image's predictions to its ground truth."""
+    gt_area = coco_mask.area(gt).astype(float) if gt else np.zeros(0)
+    pr_area = coco_mask.area(pred).astype(float) if pred else np.zeros(0)
+    if gt and pred:
+        iou = np.asarray(coco_mask.iou(pred, gt, [0] * len(gt)), dtype=float)  # (P, G)
+        inter = iou * (pr_area[:, None] + gt_area[None, :]) / (1.0 + iou)
+    else:
+        iou = inter = np.zeros((len(pred), len(gt)))
 
+    # One-to-one greedy matching above threshold
+    tp_pairs = []
+    used_p, used_g = set(), set()
+    cand = np.argwhere(iou > MATCH_IOU)
+    for p, g in sorted(cand.tolist(), key=lambda pg: -iou[pg[0], pg[1]]):
+        if p not in used_p and g not in used_g:
+            used_p.add(p)
+            used_g.add(g)
+            tp_pairs.append((p, g))
 
-def compute_panoptic_quality(
-    gt_masks: List[np.ndarray],
-    pred_masks: List[np.ndarray],
-    iou_threshold: float = 0.5,
-) -> Dict[str, float]:
-    """
-    Compute Panoptic Quality (PQ) for a single image.
-    
-    PQ = SQ × RQ
-    where:
-      SQ = avg IoU over true positives
-      RQ = TP / (TP + 0.5*FP + 0.5*FN)
-    
-    A prediction matches a ground truth if IoU > iou_threshold.
-    
-    Args:
-        gt_masks: List of ground-truth binary masks
-        pred_masks: List of predicted binary masks
-        iou_threshold: IoU threshold for matching (default 0.5)
-    
-    Returns:
-        Dict with keys: PQ, SQ, RQ, TP, FP, FN
-    """
-    if len(gt_masks) == 0 and len(pred_masks) == 0:
-        return {"PQ": 1.0, "SQ": 1.0, "RQ": 1.0, "TP": 0, "FP": 0, "FN": 0}
-    
-    if len(gt_masks) == 0:
-        return {"PQ": 0.0, "SQ": 0.0, "RQ": 0.0, "TP": 0, "FP": len(pred_masks), "FN": 0}
-    
-    if len(pred_masks) == 0:
-        return {"PQ": 0.0, "SQ": 0.0, "RQ": 0.0, "TP": 0, "FP": 0, "FN": len(gt_masks)}
-    
-    # Compute IoU matrix (gt × pred)
-    iou_matrix = np.zeros((len(gt_masks), len(pred_masks)))
-    for i, gt in enumerate(gt_masks):
-        for j, pred in enumerate(pred_masks):
-            iou_matrix[i, j] = compute_iou(gt, pred)
-    
-    # Greedy matching: match GT to pred with highest IoU, above threshold
-    matched_gt = set()
-    matched_pred = set()
-    tp_ious = []
-    
-    while True:
-        # Find the best unmatched pair
-        best_iou = -1
-        best_i, best_j = -1, -1
-        
-        for i in range(len(gt_masks)):
-            if i in matched_gt:
-                continue
-            for j in range(len(pred_masks)):
-                if j in matched_pred:
-                    continue
-                if iou_matrix[i, j] > best_iou:
-                    best_iou = iou_matrix[i, j]
-                    best_i, best_j = i, j
-        
-        if best_iou < iou_threshold:
-            break
-        
-        matched_gt.add(best_i)
-        matched_pred.add(best_j)
-        tp_ious.append(best_iou)
-    
-    tp = len(tp_ious)
-    fp = len(pred_masks) - tp
-    fn = len(gt_masks) - tp
-    
-    sq = np.mean(tp_ious) if tp > 0 else 0.0
-    rq = tp / (tp + 0.5 * fp + 0.5 * fn) if (tp + fp + fn) > 0 else 0.0
-    pq = sq * rq
-    
-    return {"PQ": pq, "SQ": sq, "RQ": rq, "TP": tp, "FP": fp, "FN": fn}
+    with np.errstate(divide="ignore", invalid="ignore"):
+        frac_of_pred = np.where(pr_area[:, None] > 0, inter / pr_area[:, None], 0)
+        frac_of_gt = np.where(gt_area[None, :] > 0, inter / gt_area[None, :], 0)
+    preds_inside_gt = ((frac_of_pred >= COVER_FRAC) & (inter > 0)).sum(axis=0)  # per GT
+    gts_covered_by_pred = ((frac_of_gt >= COVER_FRAC) & (inter > 0)).sum(axis=1)  # per pred
+    frag = int((preds_inside_gt >= 2).sum())
+    merge = int((gts_covered_by_pred >= 2).sum())
 
+    # Semantic (union) Dice
+    if gt and pred:
+        u_gt = coco_mask.merge(gt)
+        u_pr = coco_mask.merge(pred)
+        a_gt, a_pr = float(coco_mask.area(u_gt)), float(coco_mask.area(u_pr))
+        u_iou = float(coco_mask.iou([u_pr], [u_gt], [0])[0][0])
+        u_inter = u_iou * (a_gt + a_pr) / (1.0 + u_iou)
+        dice = 2 * u_inter / (a_gt + a_pr)
+    else:
+        dice = 1.0 if not gt and not pred else 0.0
 
-def evaluate_val_set(
-    predictions: Dict[str, List[np.ndarray]],
-    coco_gt: COCO,
-    val_img_ids: List,
-) -> Dict[str, float]:
-    """
-    Evaluate predictions against ground truth on the validation set.
-    
-    Args:
-        predictions: Dict mapping image_id -> list of predicted masks
-        coco_gt: COCO API object with ground truth
-        val_img_ids: List of image IDs in the validation set
-    
-    Returns:
-        Dict with mean PQ, SQ, RQ, Dice scores
-    """
-    all_pq = []
-    all_sq = []
-    all_rq = []
-    all_dice = []
-    all_iou = []
-    
-    for img_id in val_img_ids:
-        img_info = coco_gt.loadImgs(img_id)[0]
-        file_stem = img_info["file_name"].replace(".jpeg", "")
-        
-        # Get ground truth masks
-        ann_ids = coco_gt.getAnnIds(imgIds=img_id)
-        anns = coco_gt.loadAnns(ann_ids)
-        gt_masks = [coco_gt.annToMask(ann) for ann in anns]
-        
-        # Get predictions
-        pred_masks = predictions.get(file_stem, [])
-        
-        # Compute PQ
-        pq_result = compute_panoptic_quality(gt_masks, pred_masks)
-        all_pq.append(pq_result["PQ"])
-        all_sq.append(pq_result["SQ"])
-        all_rq.append(pq_result["RQ"])
-        
-        # Compute per-pair Dice/IoU for matched pairs
-        for gt_m in gt_masks:
-            best_dice = 0
-            best_iou = 0
-            for pred_m in pred_masks:
-                d = compute_dice(gt_m, pred_m)
-                u = compute_iou(gt_m, pred_m)
-                best_dice = max(best_dice, d)
-                best_iou = max(best_iou, u)
-            all_dice.append(best_dice)
-            all_iou.append(best_iou)
-    
-    results = {
-        "mean_PQ": np.mean(all_pq) if all_pq else 0.0,
-        "mean_SQ": np.mean(all_sq) if all_sq else 0.0,
-        "mean_RQ": np.mean(all_rq) if all_rq else 0.0,
-        "mean_Dice": np.mean(all_dice) if all_dice else 0.0,
-        "mean_IoU": np.mean(all_iou) if all_iou else 0.0,
-        "num_images": len(val_img_ids),
+    return {
+        "tp_iou": [float(iou[p, g]) for p, g in tp_pairs],
+        "tp_gt_area": [float(gt_area[g]) for _, g in tp_pairs],
+        "fp_area": [float(pr_area[p]) for p in range(len(pred)) if p not in used_p],
+        "fn_area": [float(gt_area[g]) for g in range(len(gt)) if g not in used_g],
+        "best_iou_per_gt": iou.max(axis=0).tolist() if pred else [0.0] * len(gt),
+        "n_fragmented_gt": frag,
+        "n_merged_pred": merge,
+        "semantic_dice": dice,
     }
-    
+
+
+def _pq(tp_iou, n_fp, n_fn) -> Dict[str, float]:
+    tp = len(tp_iou)
+    sq = float(np.mean(tp_iou)) if tp else 0.0
+    denom = tp + 0.5 * n_fp + 0.5 * n_fn
+    rq = tp / denom if denom else 0.0
+    return {"PQ": sq * rq, "SQ": sq, "RQ": rq, "TP": tp, "FP": int(n_fp), "FN": int(n_fn)}
+
+
+def evaluate(gt: Dict[str, List[dict]], pred: Dict[str, List[dict]], verbose: bool = True) -> Dict:
+    """
+    Evaluate predictions on the images in `gt` (stem -> list of RLE dicts).
+    Images missing from `pred` count as having no predictions; prediction
+    images not in `gt` are ignored.
+    """
+    per_image = {s: match_image(gt[s], pred.get(s, [])) for s in gt}
+
+    tp_iou = [x for r in per_image.values() for x in r["tp_iou"]]
+    n_fp = sum(len(r["fp_area"]) for r in per_image.values())
+    n_fn = sum(len(r["fn_area"]) for r in per_image.values())
+    res = _pq(tp_iou, n_fp, n_fn)
+
+    img_pq = [_pq(r["tp_iou"], len(r["fp_area"]), len(r["fn_area"]))["PQ"] for r in per_image.values()]
+    best = np.array([x for r in per_image.values() for x in r["best_iou_per_gt"]])
+
+    by_size = defaultdict(lambda: {"iou": [], "fp": 0, "fn": 0})
+    for r in per_image.values():
+        for i, a in zip(r["tp_iou"], r["tp_gt_area"]):
+            by_size[size_bin(a)]["iou"].append(i)
+        for a in r["fp_area"]:
+            by_size[size_bin(a)]["fp"] += 1
+        for a in r["fn_area"]:
+            by_size[size_bin(a)]["fn"] += 1
+
+    res.update({
+        "mean_image_PQ": float(np.mean(img_pq)) if img_pq else 0.0,
+        "mean_semantic_Dice": float(np.mean([r["semantic_dice"] for r in per_image.values()])),
+        "mean_matched_Dice": float(np.mean([2 * i / (1 + i) for i in tp_iou])) if tp_iou else 0.0,
+        "IoU_p25_p50_p75": [round(float(v), 4) for v in np.percentile(best, [25, 50, 75])] if len(best) else [],
+        "fragmented_gt_1toN": sum(r["n_fragmented_gt"] for r in per_image.values()),
+        "merged_pred_Mto1": sum(r["n_merged_pred"] for r in per_image.values()),
+        "num_images": len(per_image),
+        "num_gt": sum(len(v) for v in gt.values()),
+        "num_pred": sum(len(pred.get(s, [])) for s in gt),
+    })
+    for name in SIZE_BINS:
+        b = by_size[name]
+        p = _pq(b["iou"], b["fp"], b["fn"])
+        res[f"PQ_{name}"] = p["PQ"]
+        res[f"TP/FP/FN_{name}"] = f"{p['TP']}/{p['FP']}/{p['FN']}"
+
+    if verbose:
+        print_report(res)
+    return res
+
+
+def evaluate_official(gt_entries: Dict[str, List[dict]], pred: Dict[str, List[dict]]) -> Dict:
+    """
+    Official Kaggle PQ. `gt_entries`: "<annotator>-<stem>" -> RLE dicts
+    (annotations.load_gt_entries); `pred`: stem -> RLE dicts.
+    """
+    tp_iou, n_fp, n_fn, n_entries = [], 0, 0, 0
+    for entry_id, gt in gt_entries.items():
+        if not gt:  # the official GT CSV has no rows for empty entries
+            continue
+        n_entries += 1
+        pr = pred.get(entry_id.split("-", 1)[1], [])
+        if not pr:
+            n_fn += len(gt)
+            continue
+        iou = np.asarray(coco_mask.iou(pr, gt, [0] * len(gt)), dtype=float)  # (P, G)
+        hit = iou > MATCH_IOU
+        tp_iou.extend(iou[hit].tolist())
+        n_fp += int((hit.sum(axis=1) == 0).sum())
+        n_fn += int((hit.sum(axis=0) == 0).sum())
+    res = _pq(tp_iou, n_fp, n_fn)
+    res["num_entries"] = n_entries
+    return res
+
+
+def _union_dice(gt: List[dict], pr: List[dict]) -> Tuple[float, float, float]:
+    """(intersection, |GT union|, |pred union|) of one image's foreground masks."""
+    u_gt = coco_mask.merge(gt) if len(gt) > 1 else gt[0]
+    a_gt = float(coco_mask.area(u_gt))
+    if not pr:
+        return 0.0, a_gt, 0.0
+    u_pr = coco_mask.merge(pr) if len(pr) > 1 else pr[0]
+    a_pr = float(coco_mask.area(u_pr))
+    iou = float(coco_mask.iou([u_pr], [u_gt], [0])[0][0])
+    return iou * (a_gt + a_pr) / (1.0 + iou), a_gt, a_pr
+
+
+def official_dice(gt_entries: Dict[str, List[dict]], pred: Dict[str, List[dict]]) -> Dict:
+    """
+    Dice the way the rubric names it ("mean Dice, torchmetrics.segmentation.DiceScore"),
+    over the same annotator-image entries as the official PQ. The organisers'
+    settings are unpublished, so the plausible variants are all reported:
+
+      Dice_samplewise  DiceScore(num_classes=1) on binary foreground masks
+                       (union of all filaments), one sample per entry,
+                       averaged over entries — torchmetrics' default; PRIMARY
+      Dice_global      same, aggregation_level="global" (pixels pooled)
+      pair_Dice_mean   mean Dice over every GT/pred pair with IoU > 0
+                       (the notebook's "Dice Distribution" plot)
+      pair_IoU_mean    mean IoU over the same pairs ("IoU Distribution" plot)
+    """
+    per_entry, inter_sum, area_sum = [], 0.0, 0.0
+    pair_dice, pair_iou = [], []
+    for entry_id, gt in gt_entries.items():
+        if not gt:
+            continue
+        pr = pred.get(entry_id.split("-", 1)[1], [])
+        inter, a_gt, a_pr = _union_dice(gt, pr)
+        per_entry.append(2 * inter / (a_gt + a_pr) if a_gt + a_pr else 0.0)
+        inter_sum += inter
+        area_sum += a_gt + a_pr
+        if pr:
+            iou = np.asarray(coco_mask.iou(pr, gt, [0] * len(gt)), dtype=float)
+            iou = iou[iou > 0]
+            pair_iou.extend(iou.tolist())
+            pair_dice.extend((2 * iou / (1 + iou)).tolist())
+    return {
+        "Dice_samplewise": float(np.mean(per_entry)) if per_entry else 0.0,
+        "Dice_global": 2 * inter_sum / area_sum if area_sum else 0.0,
+        "pair_Dice_mean": float(np.mean(pair_dice)) if pair_dice else 0.0,
+        "pair_IoU_mean": float(np.mean(pair_iou)) if pair_iou else 0.0,
+    }
+
+
+def print_report(res: Dict):
     print("\n" + "=" * 50)
-    print("  Validation Results")
+    print("  Validation Results (pooled PQ, IoU > 0.5; official_* = Kaggle metric)")
     print("=" * 50)
-    for k, v in results.items():
-        if isinstance(v, float):
-            print(f"  {k:>15s}: {v:.4f}")
-        else:
-            print(f"  {k:>15s}: {v}")
+    for k, v in res.items():
+        print(f"  {k:>22s}: {v:.4f}" if isinstance(v, float) else f"  {k:>22s}: {v}")
     print("=" * 50)
-    
-    return results
+
+
+def load_submission_rles(csv_path: Path) -> Dict[str, List[dict]]:
+    """Submission CSV -> stem -> list of RLE dicts."""
+    preds = defaultdict(list)
+    with open(csv_path) as f:
+        header = f.readline().strip()
+        assert header == "filament_id,segmentation_rle", f"bad header: {header}"
+        for line in f:
+            line = line.rstrip("\r\n")
+            if not line:
+                continue
+            fid, counts = line.split(",", 1)
+            preds[fid.rsplit("_", 1)[0]].append(counts_to_rle(counts, CFG.data.IMAGE_SIZE))
+    return dict(preds)
+
+
+def evaluate_split(stems: List[str], pred: Dict[str, List[dict]], verbose: bool = True) -> Dict:
+    """
+    Score predictions on file stems both ways: diagnostics vs ONE annotator set
+    (`evaluate`) plus the official multi-annotator PQ as `official_*` keys.
+    Model selection uses `official_PQ`.
+    """
+    from annotations import load_gt_entries, load_gt_rles
+
+    res = evaluate(load_gt_rles(stems), pred, verbose=False)
+    entries = load_gt_entries(stems)
+    off = {**evaluate_official(entries, pred), **official_dice(entries, pred)}
+    res = {**{f"official_{k}": v for k, v in off.items()}, **res}
+    if verbose:
+        print_report(res)
+    return res
+
+
+def main():
+    from split import load_split
+
+    parser = argparse.ArgumentParser(description="Evaluate a submission-format CSV locally")
+    parser.add_argument("--pred", type=Path, help="Submission-format CSV of predictions")
+    parser.add_argument("--split", choices=["val", "train", "all"], default="val")
+    parser.add_argument("--gt-vs-gt", action="store_true", help="Sanity check: GT scored against itself")
+    parser.add_argument("--out", type=Path, help="Optional JSON file to save results")
+    args = parser.parse_args()
+
+    train_ids, val_ids = load_split()
+    stems = {"val": val_ids, "train": train_ids, "all": train_ids + val_ids}[args.split]
+    if args.gt_vs_gt:
+        from annotations import load_gt_rles
+        res = evaluate(load_gt_rles(stems), load_gt_rles(stems))
+    elif args.pred:
+        res = evaluate_split(stems, load_submission_rles(args.pred))
+    else:
+        parser.error("pass --pred or --gt-vs-gt")
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(res, indent=1))
 
 
 if __name__ == "__main__":
-    print("Run this module through the training pipeline for val evaluation.")
-    print("See train.py for the full workflow.")
+    main()
