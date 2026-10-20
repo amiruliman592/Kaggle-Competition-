@@ -53,3 +53,6 @@ Thumbs.db
 # Generated submissions (validated copies are uploaded to Kaggle, not committed)
 submissions/*.csv
 .pytest_cache/
+
+# Preprocessed image cache (regenerable)
+preprocessed/

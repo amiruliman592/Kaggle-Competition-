@@ -55,6 +55,21 @@ overlapping masks. That is, predictions of the same filament may not overlap."* 
   overlap. `src/fix_overlaps.py` repairs an existing CSV without a GPU: 1,077 → 1,072 masks.
 - Val effect not yet measured (val predictions were not saved); next Colab val run includes the fix.
 
+## 3c. Dice (Phase 3 step 0, 2026-10-20)
+The rubric says "Mean Dice score (using torchmetrics.segmentation.DiceScore)" but the settings are unpublished.
+`evaluate.official_dice` reports every plausible variant over the official annotator-image entries:
+
+| Variant | Meaning | Metric-check pair |
+|---|---|---|
+| **Dice_samplewise** (primary, logged as `val_dice`) | `DiceScore(num_classes=1)` default: foreground union masks, one sample per entry, averaged | 0.6063 |
+| Dice_global | same, `aggregation_level="global"` | 0.6171 |
+| pair_Dice_mean | mean over GT/pred pairs with IoU > 0 = notebook "Dice Distribution" | **0.6649** (Kaggle plot 0.665 ✓) |
+| pair_IoU_mean | same pairs, IoU = notebook "IoU Distribution" | **0.5191** (Kaggle plot 0.519 ✓) |
+
+Tests (`tests/test_official_metric.py`): samplewise/global equal torchmetrics 1.9.0 `DiceScore` exactly on random masks;
+pair means reproduce the Kaggle notebook plots. Including the background class (`num_classes=2`) was ruled out as
+the primary: background is ~99% of each image and would push Dice to ~1 for any model.
+
 ## 4. Follow-ups
 - [x] Official mode added: `evaluate_official()` / `evaluate_split()` in `src/evaluate.py`,
       `load_gt_entries()` in `src/annotations.py`; `tests/test_official_metric.py` reproduces 0.3296 and

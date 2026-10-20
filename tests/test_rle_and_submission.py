@@ -89,3 +89,13 @@ def test_validator_rejects_overlapping_masks(tmp_path):
     csv = tmp_path / "overlap.csv"
     csv.write_text(f"filament_id,segmentation_rle\n{stem}_1,{mask_to_rle(m1)}\n{stem}_2,{mask_to_rle(m2)}\n")
     assert not validate_submission(csv)
+
+
+def test_remove_overlaps_drop_frac_drops_duplicates():
+    from utils.rle import encode_mask, remove_overlaps
+
+    a = np.zeros((32, 32), np.uint8); a[0:10, 0:10] = 1    # higher score
+    b = np.zeros((32, 32), np.uint8); b[0:10, 5:12] = 1    # 50/70 covered by a -> duplicate
+    c = np.zeros((32, 32), np.uint8); c[0:10, 8:30] = 1    # 20/220 covered -> carved, kept
+    out = remove_overlaps([encode_mask(a), encode_mask(b), encode_mask(c)], drop_frac=0.2)
+    assert len(out) == 2 and coco_mask.area(out[1]) == 200

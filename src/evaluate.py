@@ -38,7 +38,7 @@ import argparse
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from pycocotools import mask as coco_mask
@@ -188,6 +188,55 @@ def evaluate_official(gt_entries: Dict[str, List[dict]], pred: Dict[str, List[di
     return res
 
 
+def _union_dice(gt: List[dict], pr: List[dict]) -> Tuple[float, float, float]:
+    """(intersection, |GT union|, |pred union|) of one image's foreground masks."""
+    u_gt = coco_mask.merge(gt) if len(gt) > 1 else gt[0]
+    a_gt = float(coco_mask.area(u_gt))
+    if not pr:
+        return 0.0, a_gt, 0.0
+    u_pr = coco_mask.merge(pr) if len(pr) > 1 else pr[0]
+    a_pr = float(coco_mask.area(u_pr))
+    iou = float(coco_mask.iou([u_pr], [u_gt], [0])[0][0])
+    return iou * (a_gt + a_pr) / (1.0 + iou), a_gt, a_pr
+
+
+def official_dice(gt_entries: Dict[str, List[dict]], pred: Dict[str, List[dict]]) -> Dict:
+    """
+    Dice the way the rubric names it ("mean Dice, torchmetrics.segmentation.DiceScore"),
+    over the same annotator-image entries as the official PQ. The organisers'
+    settings are unpublished, so the plausible variants are all reported:
+
+      Dice_samplewise  DiceScore(num_classes=1) on binary foreground masks
+                       (union of all filaments), one sample per entry,
+                       averaged over entries — torchmetrics' default; PRIMARY
+      Dice_global      same, aggregation_level="global" (pixels pooled)
+      pair_Dice_mean   mean Dice over every GT/pred pair with IoU > 0
+                       (the notebook's "Dice Distribution" plot)
+      pair_IoU_mean    mean IoU over the same pairs ("IoU Distribution" plot)
+    """
+    per_entry, inter_sum, area_sum = [], 0.0, 0.0
+    pair_dice, pair_iou = [], []
+    for entry_id, gt in gt_entries.items():
+        if not gt:
+            continue
+        pr = pred.get(entry_id.split("-", 1)[1], [])
+        inter, a_gt, a_pr = _union_dice(gt, pr)
+        per_entry.append(2 * inter / (a_gt + a_pr) if a_gt + a_pr else 0.0)
+        inter_sum += inter
+        area_sum += a_gt + a_pr
+        if pr:
+            iou = np.asarray(coco_mask.iou(pr, gt, [0] * len(gt)), dtype=float)
+            iou = iou[iou > 0]
+            pair_iou.extend(iou.tolist())
+            pair_dice.extend((2 * iou / (1 + iou)).tolist())
+    return {
+        "Dice_samplewise": float(np.mean(per_entry)) if per_entry else 0.0,
+        "Dice_global": 2 * inter_sum / area_sum if area_sum else 0.0,
+        "pair_Dice_mean": float(np.mean(pair_dice)) if pair_dice else 0.0,
+        "pair_IoU_mean": float(np.mean(pair_iou)) if pair_iou else 0.0,
+    }
+
+
 def print_report(res: Dict):
     print("\n" + "=" * 50)
     print("  Validation Results (pooled PQ, IoU > 0.5; official_* = Kaggle metric)")
@@ -221,7 +270,8 @@ def evaluate_split(stems: List[str], pred: Dict[str, List[dict]], verbose: bool 
     from annotations import load_gt_entries, load_gt_rles
 
     res = evaluate(load_gt_rles(stems), pred, verbose=False)
-    off = evaluate_official(load_gt_entries(stems), pred)
+    entries = load_gt_entries(stems)
+    off = {**evaluate_official(entries, pred), **official_dice(entries, pred)}
     res = {**{f"official_{k}": v for k, v in off.items()}, **res}
     if verbose:
         print_report(res)

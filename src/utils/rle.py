@@ -7,7 +7,7 @@ The submission stores only the RLE *counts* string; size is fixed at 2048×2048.
 import gzip
 import json
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 from pycocotools import mask as coco_mask
@@ -49,12 +49,13 @@ def has_overlap(rles: List[Dict]) -> bool:
     return int(coco_mask.area(coco_mask.merge(rles))) < int(coco_mask.area(rles).sum())
 
 
-def remove_overlaps(rles: List[Dict], min_area: int = 0) -> List[Dict]:
+def remove_overlaps(rles: List[Dict], min_area: int = 0, drop_frac: Optional[float] = None) -> List[Dict]:
     """
     Make one image's masks disjoint, as Kaggle requires. `rles` must be ordered
     highest score first: each mask keeps only pixels not claimed by an earlier
     one. Masks left smaller than `min_area` (or empty) are dropped; extra keys
-    such as "score" are kept.
+    such as "score" are kept. With `drop_frac`, a mask that would lose more
+    than that fraction of its area is treated as a duplicate and dropped whole.
     """
     if not has_overlap(rles):
         return [r for r in rles if int(coco_mask.area(r)) >= max(min_area, 1)]
@@ -64,7 +65,10 @@ def remove_overlaps(rles: List[Dict], min_area: int = 0) -> List[Dict]:
         m = coco_mask.decode(r).astype(bool)
         if taken is None:
             taken = np.zeros_like(m)
+        area = m.sum()
         m &= ~taken
+        if drop_frac is not None and area and 1 - m.sum() / area > drop_frac:
+            continue
         if m.sum() < max(min_area, 1):
             continue
         taken |= m

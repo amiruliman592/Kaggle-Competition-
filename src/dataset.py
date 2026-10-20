@@ -20,34 +20,44 @@ import numpy as np
 
 from annotations import load_annotation_sets, select_annotations
 from config import CFG
+from preprocess import image_path
 from split import load_split
 
 
 def build_detectron2_dicts(
     stems: List[str],
-    img_dir: Path,
     single_class: bool = True,
+    label_policy: str = "first",
 ) -> List[Dict]:
     """
     Convert annotations of the given file stems to Detectron2 dataset dicts.
 
     Args:
         stems: Image file stems (e.g. "20140609195854Bh")
-        img_dir: Path to image directory
         single_class: If True, map all categories to class 0 (binary filament/not)
+        label_policy: "first" — one annotator set per file (CFG.data.ANNOTATOR_POLICY);
+            "all" — one dict per annotator set (same image, different labels)
+    Images come from preprocess.image_path, so CFG.data.PREPROC is respected.
     """
-    selected = select_annotations(load_annotation_sets())
+    sets = load_annotation_sets()
+    if label_policy == "all":
+        samples = [(stem, k, anns) for stem in stems for k, anns in enumerate(sets[stem])]
+    elif label_policy == "first":
+        selected = select_annotations(sets)
+        samples = [(stem, 0, selected[stem]) for stem in stems]
+    else:
+        raise ValueError(f"Unknown label policy {label_policy!r}")
     h, w = CFG.data.IMAGE_SIZE
     dataset_dicts = []
 
-    for stem in stems:
-        img_path = str(img_dir / f"{stem}.jpeg")
+    for stem, k, anns in samples:
+        img_path = str(image_path(stem, "train"))
         if not os.path.exists(img_path):
             print(f"[Dataset] Warning: Image not found: {img_path}")
             continue
 
         objs = []
-        for ann in selected[stem]:
+        for ann in anns:
             # Skip degenerate annotations
             if ann["area"] < 1:
                 continue
@@ -62,7 +72,7 @@ def build_detectron2_dicts(
 
         dataset_dicts.append({
             "file_name": img_path,
-            "image_id": stem,
+            "image_id": stem if label_policy == "first" else f"{stem}#{k}",
             "height": h,
             "width": w,
             "annotations": objs,
@@ -90,12 +100,13 @@ def register_datasets(limit: Optional[int] = None) -> Tuple[List[str], List[str]
     single_class = CFG.model.NUM_CLASSES == 1
     classes = ["filament"] if single_class else ["Left", "Right", "Unidentifiable", "Ambiguous"]
 
-    for name, stems in (("filament_train", train_ids), ("filament_val", val_ids)):
+    for name, stems, policy in (("filament_train", train_ids, CFG.data.TRAIN_LABEL_POLICY),
+                                ("filament_val", val_ids, "first")):
         if name in DatasetCatalog.list():
             DatasetCatalog.remove(name)
             MetadataCatalog.remove(name)
         DatasetCatalog.register(
-            name, lambda s=stems: build_detectron2_dicts(s, CFG.paths.TRAIN_IMG_DIR, single_class))
+            name, lambda s=stems, p=policy: build_detectron2_dicts(s, single_class, p))
         MetadataCatalog.get(name).set(thing_classes=classes)
         print(f"[Dataset] Registered '{name}' ({len(stems)} images)")
 
@@ -145,7 +156,7 @@ def apply_disk_mask(image: np.ndarray, cx: int, cy: int, r: int) -> np.ndarray:
 if __name__ == "__main__":
     # Quick test: verify dataset loading works
     train_ids, val_ids = load_split()
-    dicts = build_detectron2_dicts(train_ids[:5], CFG.paths.TRAIN_IMG_DIR)
+    dicts = build_detectron2_dicts(train_ids[:5])
     print(f"\n[Test] Loaded {len(dicts)} sample records")
     for d in dicts:
         print(f"  {d['file_name']}: {len(d['annotations'])} annotations")

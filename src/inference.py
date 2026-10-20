@@ -117,7 +117,7 @@ def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = Tr
                     rle["score"] = float(scores[idx])
                     rles.append(rle)
         if resolve_overlaps and not raw:
-            rles = remove_overlaps(rles, CFG.infer.MIN_AREA)
+            rles = remove_overlaps(rles, CFG.infer.MIN_AREA, CFG.infer.OVERLAP_DROP_FRAC)
         predictions[img_path.stem] = rles
 
     sec_per_img = (time.time() - start) / max(len(img_paths), 1)

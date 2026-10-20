@@ -48,6 +48,15 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 - [x] **Phase 2 complete (2026-10-20).** All required gates done; optional classical baseline skipped.
 - [x] Leaderboard reviewed: top 0.60–0.64 judged not comparable (above human ceiling, organisers' hacking warning); same-day label copying and external MAGFiLO labels ruled out. Kaggle limit: 5 uploads/day, 3 final picks.
 
+## Phase 3 (started 2026-10-20)
+- [x] Step 1 code: `run_pipeline.py --step dump` (raw val+test masks, score ≥ 0.2) + `notebooks/colab_phase3_dump_preds.ipynb`; `src/postprocess.py` (CPU post-processing). Colab run in progress.
+- [x] Step 0 Dice alignment: `evaluate.official_dice` (samplewise/global torchmetrics Dice, notebook pair Dice/IoU means) — matches torchmetrics exactly and the Kaggle plots (0.665 / 0.519). `val_dice` in the log is now `official_Dice_samplewise`. Details: `SelfEvaluationResult/FINDINGS.md` §3c.
+
+- [x] Step 1 Colab dump done: 1,813 raw val masks / 2,356 raw test masks (score ≥ 0.2) in `Result Phase 3/`.
+- [x] Step 2 post-processing ablations (local CPU) → `experiments/ablation_table.md`. Overlap removal costs −0.004 PQ (0.3905 → 0.3865, explains part of val–LB gap). Closing kernel, disk filter, threshold > 0.8: no gain. New overlap rule (drop mask if > 20% covered) + thr 0.65: **val PQ 0.3899, Dice 0.6349** (+0.0034 / +0.0155) — now CFG defaults. Shape filter not run (post-processing has no headroom left).
+- [x] `src/submit_from_raw.py`: submission CSV from raw test predictions on CPU → `submissions/submission_baseline_r50_pp.csv` (1,312 masks, 177/180 images, passes validator). Uploaded: **LB 0.34** (exp004).
+- [x] Step 3 code: `src/preprocess.py` (disk mask + CLAHE, cached once per run; `image_path` used by dataset/val/dump/infer), `TRAIN_LABEL_POLICY` "all" (921 samples / 6,521 instances vs 566 / 4,221), `run_pipeline.py --step preprocess --preproc --label-policy`, notebook `notebooks/colab_phase3_retrain.ipynb` (Run A `r50_clahe_disk`, Run B `r50_allann`, each saves raw val/test predictions). 29 tests pass. Colab runs not started.
+
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).
 - [x] 2026-10-20 — Baseline model chosen: **Mask R-CNN R50-FPN** first, YOLOv8-seg later as a comparison.

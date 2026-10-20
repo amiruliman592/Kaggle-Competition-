@@ -23,7 +23,8 @@ def filter_predictions(preds: Dict[str, List[dict]], score_threshold: float,
     Keep masks with score >= score_threshold, make them disjoint (higher score
     wins, as at submission time), then drop masks with area < min_area.
     """
-    return {stem: remove_overlaps([r for r in rles if r.get("score", 1.0) >= score_threshold], min_area)
+    return {stem: remove_overlaps([r for r in rles if r.get("score", 1.0) >= score_threshold], min_area,
+                                 CFG.infer.OVERLAP_DROP_FRAC)
             for stem, rles in preds.items()}
 
 

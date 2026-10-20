@@ -113,3 +113,49 @@ def test_sweep_filters_by_score_and_area():
     assert out["s"] == [small]
     out = filter_predictions({"s": [small, big]}, score_threshold=0.3, min_area=100)
     assert out["s"] == [big]
+
+
+def test_dice_matches_torchmetrics_dicescore():
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchmetrics")
+    from torchmetrics.segmentation import DiceScore
+    from pycocotools import mask as coco_mask
+    from evaluate import official_dice
+
+    rng = np.random.default_rng(7)
+    gt_entries, pred = {}, {}
+    for i in range(5):
+        gt_entries[f"a1-s{i}"] = [box(*sorted(rng.integers(0, 64, 2)), *sorted(rng.integers(0, 64, 2)))
+                                  for _ in range(rng.integers(1, 4))]
+        pred[f"s{i}"] = [box(*sorted(rng.integers(0, 64, 2)), *sorted(rng.integers(0, 64, 2)))
+                         for _ in range(rng.integers(0, 4))]
+    gt_entries = {k: [r for r in v if coco_mask.area(r) > 0] or [box(0, 4, 0, 4)] for k, v in gt_entries.items()}
+
+    def union(rles):
+        m = np.zeros(HW, np.uint8)
+        for r in rles:
+            m |= coco_mask.decode(r)
+        return m
+
+    keys = list(gt_entries)
+    t = torch.from_numpy(np.stack([union(gt_entries[k]) for k in keys]))[:, None].bool()
+    p = torch.from_numpy(np.stack([union(pred[k.split("-", 1)[1]]) for k in keys]))[:, None].bool()
+    ours = official_dice(gt_entries, pred)
+    for level, key in (("samplewise", "Dice_samplewise"), ("global", "Dice_global")):
+        tm = DiceScore(num_classes=1, aggregation_level=level)(p, t).item()
+        assert ours[key] == pytest.approx(tm, abs=1e-6), level
+
+
+def test_dice_plot_means_match_kaggle_notebook(val_sets):
+    """Notebook plots on the metric-check pair showed mean Dice 0.665 and mean IoU 0.519."""
+    from annotations import anns_to_rles, load_gt_entries
+    from evaluate import official_dice
+
+    val_ids, sets = val_sets
+    stems = [s for s in val_ids if len(sets[s]) >= 2]
+    first = {}
+    for entry_id, rles in load_gt_entries(stems).items():
+        first.setdefault(entry_id.split("-", 1)[1], (entry_id, rles))
+    r = official_dice(dict(first.values()), {s: anns_to_rles(sets[s][1]) for s in stems})
+    assert r["pair_Dice_mean"] == pytest.approx(0.665, abs=5e-4)
+    assert r["pair_IoU_mean"] == pytest.approx(0.519, abs=5e-4)

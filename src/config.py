@@ -17,7 +17,7 @@ Examples:
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 def _env_path(name: str, default: Path) -> Path:
@@ -39,6 +39,7 @@ class PathsConfig:
     SUBMISSION_DIR: Path = field(init=False)
     SPLIT_FILE: Path = field(init=False)
     EXPERIMENT_LOG: Path = field(init=False)
+    PREPROC_DIR: Path = field(init=False)
 
     def __post_init__(self):
         self.ROOT = Path(self.ROOT)
@@ -51,6 +52,8 @@ class PathsConfig:
         self.SUBMISSION_DIR = self.ROOT / "submissions"
         self.SPLIT_FILE = self.ROOT / "splits" / "val_ids.json"
         self.EXPERIMENT_LOG = self.ROOT / "experiments" / "log.csv"
+        # Preprocessed image cache (large, regenerable): keep on fast local disk, not Drive
+        self.PREPROC_DIR = _env_path("SOLAR_PREPROC_DIR", self.ROOT / "preprocessed")
 
     def ensure_output_dirs(self):
         for d in (self.OUTPUT_DIR, self.SUBMISSION_DIR):
@@ -65,6 +68,12 @@ class DataConfig:
     #   "first" — lowest entry id (deterministic, default)
     #   "most"  — the set with the most instances
     ANNOTATOR_POLICY: str = "first"
+    # Training labels only (evaluation always uses all sets, officially):
+    #   "first" — one set per file (ANNOTATOR_POLICY), Phase 2 baseline
+    #   "all"   — every annotator set is its own training sample (same image)
+    TRAIN_LABEL_POLICY: str = "first"
+    # Image preprocessing, see preprocess.py: "none" | "clahe_disk"
+    PREPROC: str = "none"
     # Leak-free split: group by ~1 solar rotation, stratify by filament count
     SPLIT_BLOCK_DAYS: int = 27
     SPLIT_N_FOLDS: int = 5  # val fold = 1/5 ≈ 20%
@@ -111,7 +120,10 @@ class TilingConfig:
 class InferConfig:
     """Inference & post-processing flags."""
     INFER_RESIZE: int = 1024
-    SCORE_THRESHOLD: float = 0.5  # Minimum confidence for predictions
+    SCORE_THRESHOLD: float = 0.65  # Phase 3 ablation (val official PQ/Dice plateau 0.65-0.8)
+    # Overlap rule: a mask losing > this fraction of its area to higher-score
+    # masks is a duplicate and dropped whole (None = only carve). Phase 3: 0.2.
+    OVERLAP_DROP_FRAC: Optional[float] = 0.2
     NMS_THRESHOLD: float = 0.3  # NMS IoU threshold
     MORPH_CLOSE: bool = True
     MORPH_KERNEL: int = 5

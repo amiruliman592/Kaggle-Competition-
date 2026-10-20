@@ -18,7 +18,7 @@ Last updated 2026-10-20 (end of Phase 2). Read this first in a new session, then
   Raw Colab outputs in `Result Phase 2/`; checkpoint on the user's Google Drive
   (`MyDrive/solar_filament/output/detectron2/baseline_r50/model_final.pth`).
 - Tests: 23 pass locally (`pytest tests`).
-- **Next: Phase 3**, starting with step 0 (Dice alignment), then preprocessing/post-processing ablations.
+- **Phase 3 in progress:** steps 0–2 done. Post-processing best: val official PQ 0.3899 / Dice 0.6349 (thr 0.65, overlap drop 0.2; `experiments/ablation_table.md`). Raw baseline predictions in `Result Phase 3/` — any post-processing or test CSV can be redone locally (`src/ablate_postprocess.py`, `src/submit_from_raw.py`). Step 3 (approved) code + `notebooks/colab_phase3_retrain.ipynb` ready: Run A `r50_clahe_disk`, Run B `r50_allann`; when raw preds arrive, score with `src/ablate_postprocess.py`-style evaluation (same post-processing as B0': thr 0.65, drop 0.2) and add rows to `experiments/ablation_table.md`.
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
@@ -54,11 +54,10 @@ Last updated 2026-10-20 (end of Phase 2). Read this first in a new session, then
 - Smallest selected GT 60 px²; only 51 instances < 200 px². Single class (`NUM_CLASSES=1`).
 
 ## 6. Open questions / TODO
-- **Dice alignment (Phase 3 step 0):** `mean_semantic_Dice` (0.609 on exp003) is not yet verified against the
-  organisers' torchmetrics `DiceScore` settings. Mirror it like the PQ check and add a test.
+- Dice settings of the organisers are unpublished; we log `official_Dice_samplewise` (torchmetrics default) and
+  report the other variants too (FINDINGS §3c). Revisit if the organisers publish their Dice code.
 - **Val–LB gap (0.39 vs 0.34):** possible causes — public LB noise (~90 images), overlap removal not yet measured on
   val, test distribution, 2-dp rounding. The next Colab val run includes overlap removal; log val→LB offset per upload.
-- Sweep best threshold 0.8 is the grid edge — add 0.85/0.9. Min area has no effect (no predicted mask < 200 px²).
 - Small filaments (< 200 px²): all 10 missed on val → Phase 4 tiling.
 - Training-label policy (first / all sets / consensus) — Phase 3 ablation.
 - YOLOv8-seg comparison run (user knows YOLO) — later.

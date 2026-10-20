@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
 from config import CFG  # noqa: E402
+from preprocess import image_path  # noqa: E402
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -86,7 +87,7 @@ def run_validation(weights: str, dry_run: bool):
         val_ids = val_ids[:4]
     predictor = build_predictor(weights)
     preds, sec_per_img = predict_images(
-        predictor, [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids])
+        predictor, [image_path(s, "train") for s in val_ids])
     res = evaluate_split(val_ids, preds)
     res["sec_per_img"] = sec_per_img
     return res
@@ -104,7 +105,7 @@ def run_sweep(weights: str, name: str, dry_run: bool):
     saved_min_area = CFG.infer.MIN_AREA
     CFG.infer.MIN_AREA = min(CFG.infer.SWEEP_MIN_AREAS)  # filter later, per grid cell
     predictor = build_predictor(weights, score_threshold=min(CFG.infer.SWEEP_SCORE_THRESHOLDS))
-    preds, _ = predict_images(predictor, [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids],
+    preds, _ = predict_images(predictor, [image_path(s, "train") for s in val_ids],
                               resolve_overlaps=False)  # resolved per grid cell, after score filtering
     CFG.infer.MIN_AREA = saved_min_area
     rows = sweep(preds, val_ids)
@@ -117,6 +118,19 @@ def run_sweep(weights: str, name: str, dry_run: bool):
     return rows
 
 
+def run_preprocess(dry_run: bool):
+    """Write preprocessed copies of all train/val + test images (CFG.data.PREPROC); skips existing."""
+    from preprocess import preprocess_files
+    from split import load_split
+
+    train_ids, val_ids = load_split()
+    test_stems = [p.stem for p in sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))]
+    if dry_run:
+        train_ids, val_ids, test_stems = train_ids[:8], val_ids[:4], test_stems[:3]
+    n = preprocess_files(train_ids + val_ids, "train") + preprocess_files(test_stems, "test")
+    print(f"[Preprocess] {CFG.data.PREPROC}: wrote {n} images -> {CFG.paths.PREPROC_DIR / CFG.data.PREPROC}")
+
+
 def run_dump(weights: str, name: str, dry_run: bool):
     """Raw (unprocessed) val + test predictions above DUMP_SCORE_THRESHOLD -> gzipped JSON."""
     from inference import build_predictor, predict_images
@@ -124,11 +138,11 @@ def run_dump(weights: str, name: str, dry_run: bool):
     from utils.rle import save_predictions
 
     _, val_ids = load_split()
-    test_images = sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))
+    test_images = [image_path(p.stem, "test") for p in sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))]
     if dry_run:
         val_ids, test_images = val_ids[:4], test_images[:3]
     predictor = build_predictor(weights, score_threshold=CFG.infer.DUMP_SCORE_THRESHOLD)
-    for split, paths in (("val", [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids]),
+    for split, paths in (("val", [image_path(s, "train") for s in val_ids]),
                          ("test", test_images)):
         preds, sec = predict_images(predictor, paths, raw=True)
         out = CFG.paths.OUTPUT_DIR / f"raw_preds_{name}_{split}.json.gz"
@@ -140,7 +154,7 @@ def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
     from inference import build_predictor, build_submission_csv, predict_images
     from validate_submission import validate_submission
 
-    test_images = sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))
+    test_images = [image_path(p.stem, "test") for p in sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))]
     if dry_run:
         test_images = test_images[:3]
     predictor = build_predictor(weights)
@@ -162,7 +176,7 @@ def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Solar Filament Segmentation Pipeline")
     parser.add_argument("--step", type=str, default="all",
-                        choices=["eda", "split", "train", "val", "sweep", "infer", "dump", "all"],
+                        choices=["eda", "split", "preprocess", "train", "val", "sweep", "infer", "dump", "all"],
                         help="Which step to run (default: all)")
     parser.add_argument("--dry-run", action="store_true",
                         help="5 iterations on 8 train / 4 val / 3 test images")
@@ -173,7 +187,15 @@ if __name__ == "__main__":
     parser.add_argument("--no-resume", action="store_true", help="Ignore existing checkpoints, start from COCO")
     parser.add_argument("--score-thr", type=float, default=None, help="Override CFG.infer.SCORE_THRESHOLD")
     parser.add_argument("--min-area", type=int, default=None, help="Override CFG.infer.MIN_AREA")
+    parser.add_argument("--preproc", choices=["none", "clahe_disk"], default=None,
+                        help="Override CFG.data.PREPROC (use the same value for preprocess/train/val/dump)")
+    parser.add_argument("--label-policy", choices=["first", "all"], default=None,
+                        help="Override CFG.data.TRAIN_LABEL_POLICY (training labels only)")
     args = parser.parse_args()
+    if args.preproc is not None:
+        CFG.data.PREPROC = args.preproc
+    if args.label_policy is not None:
+        CFG.data.TRAIN_LABEL_POLICY = args.label_policy
     if args.score_thr is not None:
         CFG.infer.SCORE_THRESHOLD = args.score_thr
     if args.min_area is not None:
@@ -198,6 +220,8 @@ if __name__ == "__main__":
         run_eda()
     if args.step in ("split", "all"):
         ensure_split()
+    if args.step in ("preprocess", "all"):
+        run_preprocess(args.dry_run)
     if args.step in ("train", "all"):
         run_training(args.dry_run, name, args.max_iter, resume=not args.no_resume)
 
@@ -215,10 +239,10 @@ if __name__ == "__main__":
     if res is not None:
         log_experiment(
             model=f"mask_rcnn_r50_{name}", resolution=CFG.infer.INFER_RESIZE,
-            preproc="none",
+            preproc=CFG.data.PREPROC + ("" if CFG.data.TRAIN_LABEL_POLICY == "first" else "+labels_all"),
             postproc=f"close{CFG.infer.MORPH_KERNEL if CFG.infer.MORPH_CLOSE else 0}_minarea{CFG.infer.MIN_AREA}",
             val_pq=res["official_PQ"], val_sq=res["official_SQ"], val_rq=res["official_RQ"],
-            val_dice=res["mean_semantic_Dice"],
+            val_dice=res["official_Dice_samplewise"],
             sec_per_img=round(res["sec_per_img"], 3),
             notes=("DRY RUN 5 iters; " if args.dry_run else "")
                   + f"val_pq=official(all annotators); first-annotator PQ={res['PQ']:.4f}; "
