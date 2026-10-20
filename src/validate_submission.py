@@ -35,10 +35,15 @@ def validate_submission(
     csv_path: Path,
     test_dir: Optional[Path] = None,
     sample: int = 25,
-    allow_missing_images: bool = False,
+    allow_missing_images: bool = True,
     seed: int = 42,
 ) -> bool:
-    """Returns True if the file passes. Prints every problem found."""
+    """
+    Returns True if the file passes. Prints every problem found.
+    Test images without rows are only a warning by default: the official
+    metric counts their GT as FN (no format error), and a high score
+    threshold can legitimately leave an image empty.
+    """
     test_dir = Path(test_dir or CFG.paths.TEST_IMG_DIR)
     test_ids = {p.stem for p in test_dir.glob("*.jpeg")}
     errors: List[str] = []
@@ -109,10 +114,10 @@ def main():
     parser.add_argument("csv", type=Path)
     parser.add_argument("--test-dir", type=Path, default=None)
     parser.add_argument("--sample", type=int, default=25, help="RLEs to fully decode")
-    parser.add_argument("--allow-missing-images", action="store_true",
-                        help="Only warn when some test images have no rows (dry runs)")
+    parser.add_argument("--strict-images", action="store_true",
+                        help="Fail (instead of warn) when some test images have no rows")
     args = parser.parse_args()
-    ok = validate_submission(args.csv, args.test_dir, args.sample, args.allow_missing_images)
+    ok = validate_submission(args.csv, args.test_dir, args.sample, not args.strict_images)
     sys.exit(0 if ok else 1)
 
 

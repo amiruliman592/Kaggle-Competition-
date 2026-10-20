@@ -30,6 +30,7 @@ Read these first; never re-run work they already record unless the code it depen
 - `HANDOVER.md` — current state, decisions, next steps, gotchas.
 - `experiments/log.csv` — every training/validation run and its scores.
 - `output/eda/eda_summary.json` — EDA numbers (do not recompute).
+- `Solar Filament Overview.txt` — saved Kaggle overview page (rules, rubric, deadlines); Kaggle pages cannot be fetched. Summary in `HANDOVER.md` §2b.
 
 Rules:
 - Do NOT re-run past phases (EDA, split, dry run, Kaggle metric check). The frozen split and metric values are final.

@@ -156,7 +156,7 @@ gantt
    - Purpose: a "classical vs learned" row for the report/ablation table, as the course workflow expects. Do **not** tune it beyond a few thresholds; expected PQ is low.
 
 ### Quality Gate & Exit Criteria
-- [ ] Baseline model trained and evaluated on the frozen validation set.
+- [x] Baseline model trained and evaluated on the frozen validation set. *(Oct 20, exp003: official val PQ 0.3905 at score 0.8 = $B_0$)*
 - [ ] First valid submission scored on Kaggle Leaderboard with 0 errors.
 - [ ] *(Optional)* Classical baseline PQ logged in `experiments/log.csv`.
 
@@ -166,6 +166,10 @@ gantt
 **Objective:** Leverage solar physics properties to eliminate false positives and boost Recognition Quality (RQ).
 
 ### Technical Workstreams
+0. **Dice alignment (do first — Dice is graded, 70% quantitative block):**
+   - The rubric uses mean Dice via `torchmetrics.segmentation.DiceScore`; our `mean_semantic_Dice` is unverified against it.
+   - Reproduce their Dice on `output/metric_check/*.csv` and on baseline val predictions; align `evaluate.py` + add a test (same approach as the PQ check).
+   - Report official PQ **and** Dice for every ablation row; a toggle that raises PQ but drops Dice must be flagged.
 1. **Solar Preprocessing Pipeline (`src/preprocess.py`):**
    - **Solar Disk Isolation:** Use Hough Circle Transform / Otsu thresholding to compute the solar center $(x_0, y_0)$ and radius $R$. Zero out all non-solar background corners to eliminate instrument/corner artifacts.
    - **CLAHE Enhancement:** Apply Contrast-Limited Adaptive Histogram Equalization (`clipLimit=2.0`, `tileGridSize=(8, 8)`) to bring out thin barbs and faint spines.
@@ -312,8 +316,11 @@ gantt
      4. Metric computation and RLE submission generation.
 3. **Repository Finalization:**
    - Complete docstrings, type annotations, and clean module organization.
-   - Publicly accessible GitHub repository with pinned `requirements.txt`.
+   - Publicly accessible GitHub repository with pinned `requirements.txt` (exact versions — use `requirements-lock.txt` from the final Colab run).
+   - Repository must be public at competition close and stay public at least until winners are announced (**Nov 30**).
+   - The committee must reproduce predictions with **no additional files**: weights downloaded automatically from a public link inside the notebook.
    - Host trained model weights on Google Drive / Hugging Face Hub with public download links.
+   - Inference uses only the provided test H-alpha images; no extra ground-truth metadata in training (competition rule).
 4. **Official Google Form Submission:**
    - Submit the Google Form by **Saturday, Nov 14** (24 hours prior to deadline) with:
      - 4-Page Technical Report PDF.

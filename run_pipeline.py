@@ -128,7 +128,7 @@ def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
     n_rows = build_submission_csv(preds, out)
     # A 5-iteration model may legitimately predict nothing; the dry run checks the plumbing
     if n_rows:
-        ok = validate_submission(out, allow_missing_images=dry_run)
+        ok = validate_submission(out)
         if not ok:
             sys.exit(1)
     return out

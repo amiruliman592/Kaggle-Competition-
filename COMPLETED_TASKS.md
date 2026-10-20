@@ -34,6 +34,16 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 - [x] `run_pipeline.py`: `--max-iter`, `--no-resume`, `--score-thr`, `--min-area`.
 - [x] Colab notebook `notebooks/colab_phase2_baseline.ipynb` (Drive-backed: train → loss plot → val → sweep → submission).
 
+## Phase 2 — baseline run (done on Colab 2026-10-20; files in `Result Phase 2/`)
+- [x] Trained Mask R-CNN R50-FPN, 6,000 iters on T4 (~1.3 h). Loss fell from 1.43 to ~0.4 early on. "No CUDA drivers" log line is TensorFlow, harmless.
+- [x] Val, default thresholds (score 0.5, min area 50) — exp002: **official PQ 0.3776** (SQ 0.651, RQ 0.580); first-annotator PQ 0.3761; frag 66, merge 37.
+- [x] Sweep (30 cells, `sweep_baseline_r50.json`): best **score 0.8**, official PQ 0.3905. Scores 0.6–0.8 are within 0.0006 (flat). **Min area has no effect** (no predicted mask is < 200 px²). 0.8 is the edge of the grid, so 0.85–0.9 is still untested.
+- [x] Val at score 0.8 — exp003: **official PQ 0.3905** (SQ 0.656, RQ 0.596; TP 903 / FP 448 / FN 778); frag 23, merge 26; 0.42 s/img. Already above the 0.35 target and the 0.336 inter-annotator ceiling.
+- [x] Size bins (first annotator): small 0/0/10 (all missed), medium PQ 0.365, large PQ 0.449.
+- [x] Submission `submission_baseline_r50.csv` (score 0.8): 1,077 rows over 176/180 images, passes the validator. 4 images have no masks; this is a warning, not an error (official metric counts them as FN). Validator changed accordingly.
+- [ ] Upload to Kaggle and record the public LB score in `experiments/log.csv` (`lb_score`, exp003).
+- [x] 2026-10-20 — Competition rules read from `Solar Filament Overview.txt` and recorded in `HANDOVER.md` §2b (deliverables, 70/30 rubric with Dice, ~50% public LB). Dice alignment added as Phase 3 step 0; repo/reproducibility rules added to Phase 8.
+
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).
 - [x] 2026-10-20 — Baseline model chosen: **Mask R-CNN R50-FPN** first, YOLOv8-seg later as a comparison.

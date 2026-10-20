@@ -56,8 +56,8 @@ def test_validator_accepts_good_and_rejects_bad(tmp_path):
     m[100:200, 100:300] = 1
     good = tmp_path / "good.csv"
     good.write_text(f"filament_id,segmentation_rle\n{stem}_1,{mask_to_rle(m)}\n")
-    assert validate_submission(good, allow_missing_images=True)
-    assert not validate_submission(good)  # 179 test images missing
+    assert validate_submission(good)  # 179 test images missing: warning only
+    assert not validate_submission(good, allow_missing_images=False)
 
     bad = tmp_path / "bad.csv"
     bad.write_text(f'filament_id,segmentation_rle\nnot_a_test_image_1,"{mask_to_rle(m)}"\n')

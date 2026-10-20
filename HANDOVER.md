@@ -11,11 +11,20 @@ Written 2026-10-19 at the end of session 1 (Phase 0 + 1 "foundation"). Read this
 ## 2. Current state (updated 2026-10-19, after Colab dry run)
 - **Phase 0: DONE.** Colab T4 dry run passed end to end (exp001 in `experiments/log.csv`: 5 iters, PQ 0, Dice 0.0036, 1.67 s/img — values meaningless, plumbing proven). Detectron2 built and imported on Colab. `requirements-lock.txt` saved from that run (torch 2.11+cu130, Python 3.13, Detectron2 commit `1e3e13b`).
 - **Phase 1: done.** The one open gate (local PQ vs the organisers' Kaggle `self-evaluation-notebook`, ±0.001) was **moved into Phase 2 by the user** — it is Phase 2 step 2A below. Still unverified.
-- **Phase 2: set up, NOT executed** (2026-10-20). Model decided (Mask R-CNN), metric aligned (2A done), official-metric mode added, training notebook written. The user runs it on Colab when they say so. See §7 and `COMPLETED_TASKS.md`.
+- **Phase 2: baseline trained and validated** (2026-10-20, Colab T4). Val official PQ **0.3905** at score 0.8 (exp003; 0.3776 at the default 0.5). Results in `Result Phase 2/` and `COMPLETED_TASKS.md`. Remaining Phase 2 gate: Kaggle upload + LB score (recommended now; user to check remaining submissions). Optional: classical baseline row.
+- **Open TODO — Dice alignment:** our `mean_semantic_Dice` (0.609 on exp003) is NOT yet verified against `torchmetrics.segmentation.DiceScore` as the organisers use it (unknown settings: per-image vs pooled, binary union masks?). Mirror it like the PQ check: compute both on `output/metric_check/*.csv` and on val predictions; add a test. Do this early in Phase 3 since Dice is graded.
 - Tests: 14/14 locally. On Colab 13/14 passed; the failure was `test_frozen_split_is_reproducible` (sklearn 1.6.1 on Colab vs 1.8.0 locally produces different folds). Replaced by `test_regenerated_split_is_valid`. The frozen file is the source of truth — never regenerate it.
 - EDA on Colab matches local numbers.
 - Commits are local only on `Dev` (user asked to commit locally first; push not yet requested). The user ran the notebook from a clone, so the remote apparently had the code — check `git status`/`git log origin/Dev` before assuming. Remote `origin` = github.com/amiruliman592/Kaggle-Competition-.
 - No real model trained, no Kaggle submission made yet.
+
+## 2b. Competition rules (from `Solar Filament Overview.txt` = saved Kaggle overview page; Kaggle pages can't be WebFetched)
+- **Nov 15, 2026:** final package via the organisers' Google form: 4-page report (Overleaf template, PDF), **public** Git repo with `requirements.txt` (pinned versions) and a Jupyter notebook showing the whole pipeline; no extra files needed to reproduce predictions. Repo must be public at competition close until winners are announced (Nov 30).
+- **Judging:** 70% quantitative — PQ, **mean Dice (torchmetrics `DiceScore`)**, Dice and IoU distributions, 1:many / many:1 counts (= the self-evaluation notebook plots). 30% qualitative — pipeline description, visual mask quality on H-alpha images, code quality (modularity, docs). LB rank is "one of the considerations".
+- **Leaderboard:** shows a score on ~50% of the test images; the rest is private. The page says both "mean Dice" (scoreboard) and PQ (ranking) — check which one the first upload shows.
+- Server has "further verification strategies" for edge cases; Aug 20 announcement warns against "hacking the system". "Any PQ > 0.35 is of great value."
+- Inference may use only the provided test H-alpha images; no extra ground-truth metadata for training.
+- Daily submission limit / number of final selections: not on the page — read the "submissions remaining" note on the Kaggle Submit page.
 
 ## 3. Key findings (not obvious from the code)
 - **Multi-annotator structure:** the JSON has 1,154 image entries for only **707 files**. 296 files were annotated 2–3 times independently (each set is a separate COCO "image", ids like `050103-20111116063134Lh`). Overlapping sets agree with median IoU ~0.56. Everything is keyed by file stem; `src/annotations.py` picks ONE set per file (`ANNOTATOR_POLICY="first"` → 5,251 instances, ~7.4/file). The 8,199 / ~7.1 figures in the plan counted all sets.
