@@ -51,13 +51,23 @@ def close_all(raw_preds: Dict[str, List[dict]], close_kernel: int) -> Dict[str, 
     for stem, rles in raw_preds.items():
         done = []
         for r in rles:
-            m = postprocess_mask(coco_mask.decode(r), close_kernel=close_kernel, min_area=0)
-            if not m.any():
+            m = coco_mask.decode(r)                      # Fortran-ordered, full size
+            x, y, w, h = (int(v) for v in coco_mask.toBbox(r))
+            if w == 0 or h == 0:
                 continue
-            ys, xs = np.nonzero(m)
+            # Closing only reaches k px beyond the mask: work on a padded crop
+            # (identical result, ~10x faster than the full 2048x2048 image)
+            pad = close_kernel + 1
+            y0, y1 = max(y - pad, 0), min(y + h + pad, m.shape[0])
+            x0, x1 = max(x - pad, 0), min(x + w + pad, m.shape[1])
+            crop = postprocess_mask(m[y0:y1, x0:x1], close_kernel=close_kernel, min_area=0)
+            if not crop.any():
+                continue
+            m[y0:y1, x0:x1] = crop                       # stays Fortran-ordered -> cheap encode
+            mo = cv2.moments(crop, binaryImage=True)
             new = encode_mask(m)
             new["score"] = r.get("score", 1.0)
-            new["centroid"] = (float(xs.mean()), float(ys.mean()))
+            new["centroid"] = (x0 + mo["m10"] / mo["m00"], y0 + mo["m01"] / mo["m00"])
             done.append(new)
         out[stem] = done
     return out

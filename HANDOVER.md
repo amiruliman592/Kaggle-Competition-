@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-20 (end of Phase 2). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
+Last updated 2026-10-20 (end of Phase 3). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
 (everything finished, with numbers) and `Project_Phase_Plan.md`. Do not re-run anything recorded there.
 
 ## 1. Goal & working setup
@@ -11,14 +11,32 @@ Last updated 2026-10-20 (end of Phase 2). Read this first in a new session, then
   reports back. Colab clones branch `Dev` from GitHub (`origin` = github.com/amiruliman592/Kaggle-Competition-),
   so changes must be **pushed** before a Colab run.
 - User is new to segmentation: explain in plain language. Commit/push only when the user asks.
+- **Workflow rule: before every new phase (or step that runs code/Colab), first EXPLAIN the plan in plain language
+  and wait for the user's explicit go-ahead. Never start executing a phase on your own.**
+- Keep helper tools simple and token-cheap (user request).
 
-## 2. Current state
-- **Phases 0, 1, 2: DONE.** Phase 2's optional classical baseline was skipped (can be added later as a report row).
-- Baseline Mask R-CNN R50-FPN (exp003): **val official PQ 0.3905** at score threshold 0.8; **public LB 0.34**.
-  Raw Colab outputs in `Result Phase 2/`; checkpoint on the user's Google Drive
-  (`MyDrive/solar_filament/output/detectron2/baseline_r50/model_final.pth`).
-- Tests: 23 pass locally (`pytest tests`).
-- **Phase 3 in progress:** steps 0–2 done. Post-processing best: val official PQ 0.3899 / Dice 0.6349 (thr 0.65, overlap drop 0.2; `experiments/ablation_table.md`). Raw baseline predictions in `Result Phase 3/` — any post-processing or test CSV can be redone locally (`src/ablate_postprocess.py`, `src/submit_from_raw.py`). Step 3 (approved) code + `notebooks/colab_phase3_retrain.ipynb` ready: Run A `r50_clahe_disk`, Run B `r50_allann`; when raw preds arrive, score with `src/ablate_postprocess.py`-style evaluation (same post-processing as B0': thr 0.65, drop 0.2) and add rows to `experiments/ablation_table.md`.
+## 2. Current state & achievements
+- **Phases 0–3: DONE.** (Phase 2 optional classical baseline skipped.)
+- **Best model: `r50_allann`** — Mask R-CNN R50-FPN trained on every annotator's labels (exp006):
+  **val official PQ 0.3979, Dice 0.6426; public LB 0.35** (thr 0.6, overlap drop 0.2).
+  Submission `submissions/submission_r50_allann_pp.csv`. Checkpoint on Drive
+  `MyDrive/solar_filament/output/detectron2/r50_allann/model_final.pth`.
+- LB history: baseline 0.34 → baseline + post-processing 0.34 → r50_allann **0.35**. Val ≈ LB + 0.04–0.05, and
+  val improvements carried over to LB, so model selection stays on local val.
+- Phase 3 findings (`experiments/ablation_table.md`): overlap removal costs −0.004; new overlap rule
+  (`OVERLAP_DROP_FRAC=0.2`) +0.003 PQ / +0.016 Dice; closing kernel, disk filter, min area, thr > 0.8: no effect;
+  CLAHE + disk masking (Run A): no PQ gain; all-annotator labels (Run B): +0.008. Gate +0.030 not met.
+- Raw predictions of all 3 models (val + test) in `Result Phase 3/Result Step 1|3/` → any post-processing,
+  scoring or test CSV is done locally (`src/ablate_postprocess.py`, `src/submit_from_raw.py`, `src/viewer.py`).
+- Tests: 31 pass (`pytest tests`, ~3 min).
+
+## 2a. Next step
+- **Phase 4 — full-resolution tiling** (`Project_Phase_Plan.md`): every model misses all small filaments (< 200 px²,
+  0/10 on val) because images are shrunk 2048 → 1024. Train/predict on 1024 tiles of the full image and stitch.
+- Start from the `r50_allann` recipe (all-annotator labels). Same workflow: Colab trains + dumps raw predictions,
+  everything else local.
+- **First explain the Phase 4 plan to the user and wait for approval — do not execute before that.**
+- Later: Phase 5 (Mask2Former / SAM 2), Phase 6 (TTA/ensembling), Phase 7 freeze (Nov 11), Phase 8 report (Nov 15).
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
@@ -56,11 +74,13 @@ Last updated 2026-10-20 (end of Phase 2). Read this first in a new session, then
 ## 6. Open questions / TODO
 - Dice settings of the organisers are unpublished; we log `official_Dice_samplewise` (torchmetrics default) and
   report the other variants too (FINDINGS §3c). Revisit if the organisers publish their Dice code.
-- **Val–LB gap (0.39 vs 0.34):** possible causes — public LB noise (~90 images), overlap removal not yet measured on
-  val, test distribution, 2-dp rounding. The next Colab val run includes overlap removal; log val→LB offset per upload.
+- Val–LB gap is steady (~0.04–0.05; overlap removal explained −0.004 of it).
 - Small filaments (< 200 px²): all 10 missed on val → Phase 4 tiling.
-- Training-label policy (first / all sets / consensus) — Phase 3 ablation.
+- Training-label policy settled: "all" (Run B). Consensus labels untested.
 - YOLOv8-seg comparison run (user knows YOLO) — later.
+
+## 6b. Tools
+- `python src/viewer.py [--run NAME] [--split test]` — one-window viewer of saved predictions vs GT (user asked to keep it simple; don't extend unless asked).
 
 ## 7. Gotchas
 - Kaggle pages and notebooks are JS-rendered: WebFetch returns only the title. Ask the user to paste content.

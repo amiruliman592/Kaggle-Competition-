@@ -6,8 +6,8 @@ Every row is scored with the official PQ and the official Dice variants
 (evaluate.evaluate_official / official_dice) on the frozen val split.
 
 Usage:
-  python src/ablate_postprocess.py --raw "Result Phase 3/raw_preds_baseline_r50_val.json.gz" \
-      --out "Result Phase 3/ablation_postproc.json"
+  python src/ablate_postprocess.py --raw "Result Phase 3/Result Step 1/raw_preds_baseline_r50_val.json.gz" \
+      --out "Result Phase 3/Result Step 1/ablation_postproc.json"
 """
 
 import argparse

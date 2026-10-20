@@ -2,8 +2,8 @@
 
 All numbers: official Kaggle PQ (`evaluate_official`) and Dice (`official_dice`, samplewise = torchmetrics
 `DiceScore` default). Model: Mask R-CNN R50-FPN baseline (exp003 checkpoint), raw predictions saved once
-(`Result Phase 3/raw_preds_baseline_r50_val.json.gz`), post-processing applied offline
-(`src/ablate_postprocess.py`, raw rows in `Result Phase 3/ablation_postproc_round{1,2}.json`).
+(`Result Phase 3/Result Step 1/raw_preds_baseline_r50_val.json.gz`), post-processing applied offline
+(`src/ablate_postprocess.py`, raw rows in `Result Phase 3/Result Step 1/ablation_postproc_round{1,2}.json`).
 
 ## Post-processing (step 2, 2026-10-20)
 | # | Setting | Official PQ | Δ PQ | Dice | Δ Dice | Verdict |
@@ -25,5 +25,19 @@ Uploaded as `submission_baseline_r50_pp.csv` (exp004): **public LB 0.34**, same 
 is below the leaderboard's 2-decimal resolution.
 Phase 3 gate (PQ ≥ B0 + 0.030 = 0.4205) is **not** reachable with post-processing; needs retraining (step 3).
 
-## Retraining (step 3)
-_Pending._
+## Retraining (step 3, 2026-10-20) — same recipe as B0 (R50-FPN, 6,000 it), one change per run
+Each model scored over thr {0.5…0.85} × overlap rule {carve, drop 0.2}; rows show each model's best and the
+plateau (raw rows: `Result Phase 3/Result Step 3/eval_step3.json`).
+
+| # | Run | Change | Best official PQ | Δ vs B0'' | Dice | Δ Dice | Plateau (thr 0.6–0.7, drop 0.2) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| B0'' | baseline_r50 | post-processing row 5 | 0.3899 (thr 0.65) | — | 0.6349 | — | 0.388–0.390 | reference |
+| A | r50_clahe_disk | disk masking + CLAHE (train + predict) | 0.3901 (thr 0.6) | +0.0002 | 0.6413 | +0.006 | 0.387–0.390 | **no PQ gain** → not adopted |
+| B | r50_allann | every annotator set = training sample (921 vs 566) | **0.3979** (thr 0.6) | **+0.0080** | **0.6426** | **+0.008** | **0.396–0.398** | **adopted** |
+
+Run B notes: higher RQ (0.608 vs 0.597; FP 617 vs 664 at similar TP), fewer fragmentations (18 vs 23 at
+thr 0.6), slightly more merges (31 vs 26). Small filaments (< 200 px²): still 0/10 for every model → Phase 4.
+Submission built from Run B raw test predictions: `submissions/submission_r50_allann_pp.csv` (thr 0.6, drop 0.2,
+1,279 masks, passes validator). **Public LB 0.35** (first gain over 0.34).
+
+**Phase 3 status:** best val official PQ 0.3979 (B0 + 0.0074); gate B0 + 0.030 = 0.4205 not met.

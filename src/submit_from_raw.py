@@ -5,7 +5,7 @@ submit_from_raw.py — Build a submission CSV from saved raw test predictions
 Defaults are the current pipeline settings in CFG.infer.
 
 Usage:
-  python src/submit_from_raw.py "Result Phase 3/raw_preds_baseline_r50_test.json.gz" \
+  python src/submit_from_raw.py "Result Phase 3/Result Step 1/raw_preds_baseline_r50_test.json.gz" \
       submissions/submission_baseline_r50_pp.csv [--score-thr 0.65] [--drop-frac 0.2]
 """
 
