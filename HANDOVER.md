@@ -36,8 +36,15 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
 - Tests: 34 pass (`pytest tests`, ~3 min).
 
 ## 2a. Next step
-- **User uploads `submissions/submission_x101_2048_pp.csv`** (and optionally `submission_r50_2048_pp.csv`) to Kaggle;
-  record the LB in `experiments/log.csv` (exp008/exp007) and `COMPLETED_TASKS.md`.
+- **FIRST THING NEXT SESSION (required, before anything else): ask the user for the Kaggle public LB scores of
+  both Phase 4 submissions.** Do not start new work until both are recorded.
+  | File | Kaggle description | Val official PQ / Dice | LB |
+  |---|---|---|---|
+  | `submissions/submission_x101_2048_pp.csv` | `x101_2048: Mask R-CNN X101-FPN, native 2048, ...` | 0.4264 / 0.6417 (exp008) | **pending** |
+  | `submissions/submission_r50_2048_pp.csv` | `r50_2048: Mask R-CNN R50-FPN, native 2048, ...` | 0.4231 / 0.6484 (exp007, thr 0.6) | **pending** |
+  Record each score in `experiments/log.csv` (`lb_score` of exp008 / exp007), `COMPLETED_TASKS.md` (Phase 4) and
+  `experiments/ablation_table.md` (Phase 4 rows), and update §2 above. Expected LB ≈ 0.37–0.38 (val − 0.04–0.05);
+  if the LB does not rise above 0.35, investigate the val–LB gap before Phase 5.
 - Then decide (explain first, wait for "go"): (a) one run with a finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION`
   14 → 28; Mask R-CNN draws each mask on a 28×28 grid per box, coarse for long thin filaments) to raise SQ/Dice; or
   (b) go straight to Phase 5 (Mask2Former / SAM 2 box refinement), now starting from the 2048 models.
