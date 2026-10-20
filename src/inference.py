@@ -26,6 +26,7 @@ from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
 
 from config import CFG
+from postprocess import postprocess_mask
 from utils.rle import encode_mask, remove_overlaps, write_submission_csv
 
 
@@ -43,24 +44,6 @@ def resize_mask_to_original(mask: np.ndarray, original_size: tuple = (2048, 2048
         (original_size[1], original_size[0]),
         interpolation=cv2.INTER_NEAREST,
     )
-
-
-def postprocess_mask(mask: np.ndarray) -> np.ndarray:
-    """
-    Post-process a single predicted mask:
-      - Morphological closing to fill small gaps (CFG.infer.MORPH_CLOSE)
-      - Remove masks smaller than CFG.infer.MIN_AREA
-
-    Returns the cleaned mask, or an empty mask if below min area.
-    """
-    mask = mask.astype(np.uint8)
-    if CFG.infer.MORPH_CLOSE:
-        k = CFG.infer.MORPH_KERNEL
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    if mask.sum() < CFG.infer.MIN_AREA:
-        return np.zeros_like(mask)
-    return mask
 
 
 def build_predictor(model_weights: Optional[str] = None,
@@ -97,8 +80,8 @@ def build_predictor(model_weights: Optional[str] = None,
     return DefaultPredictor(cfg)
 
 
-def predict_images(predictor, img_paths: List[Path],
-                   resolve_overlaps: bool = True) -> Tuple[Dict[str, List[dict]], float]:
+def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = True,
+                   raw: bool = False) -> Tuple[Dict[str, List[dict]], float]:
     """
     Run inference on the given images.
 
@@ -106,6 +89,8 @@ def predict_images(predictor, img_paths: List[Path],
         resolve_overlaps: Make each image's masks disjoint (Kaggle rejects
             overlapping masks); higher-score masks keep shared pixels. The val
             sweep turns this off and resolves after its own score filtering.
+        raw: Skip post-processing and overlap removal entirely (for
+            --step dump; post-processing is then applied offline).
     Returns:
         (Dict mapping image stem -> list of RLE dicts highest score first, seconds per image)
         Each RLE dict also carries its confidence under "score" (used by the val sweep).
@@ -125,12 +110,13 @@ def predict_images(predictor, img_paths: List[Path],
             scores = instances.scores.numpy()
             for idx in np.argsort(-scores):
                 mask = resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE)
-                mask = postprocess_mask(mask)
+                if not raw:
+                    mask = postprocess_mask(mask)
                 if mask.any():
                     rle = encode_mask(mask)
                     rle["score"] = float(scores[idx])
                     rles.append(rle)
-        if resolve_overlaps:
+        if resolve_overlaps and not raw:
             rles = remove_overlaps(rles, CFG.infer.MIN_AREA)
         predictions[img_path.stem] = rles
 

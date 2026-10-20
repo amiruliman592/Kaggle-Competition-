@@ -9,6 +9,7 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
   python run_pipeline.py --step val   --name baseline_r50
   python run_pipeline.py --step sweep --name baseline_r50      # SCORE_THRESHOLD x MIN_AREA on val
   python run_pipeline.py --step infer --name baseline_r50 --score-thr 0.6 --min-area 100
+  python run_pipeline.py --step dump  --name baseline_r50      # raw val+test predictions for offline post-processing
 
 Steps:
   1. EDA                       (output/eda/)
@@ -116,6 +117,25 @@ def run_sweep(weights: str, name: str, dry_run: bool):
     return rows
 
 
+def run_dump(weights: str, name: str, dry_run: bool):
+    """Raw (unprocessed) val + test predictions above DUMP_SCORE_THRESHOLD -> gzipped JSON."""
+    from inference import build_predictor, predict_images
+    from split import load_split
+    from utils.rle import save_predictions
+
+    _, val_ids = load_split()
+    test_images = sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))
+    if dry_run:
+        val_ids, test_images = val_ids[:4], test_images[:3]
+    predictor = build_predictor(weights, score_threshold=CFG.infer.DUMP_SCORE_THRESHOLD)
+    for split, paths in (("val", [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids]),
+                         ("test", test_images)):
+        preds, sec = predict_images(predictor, paths, raw=True)
+        out = CFG.paths.OUTPUT_DIR / f"raw_preds_{name}_{split}.json.gz"
+        save_predictions(preds, out)
+        print(f"[Dump] {split}: {sum(map(len, preds.values()))} raw masks, {sec:.2f} s/img -> {out}")
+
+
 def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
     from inference import build_predictor, build_submission_csv, predict_images
     from validate_submission import validate_submission
@@ -142,7 +162,7 @@ def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Solar Filament Segmentation Pipeline")
     parser.add_argument("--step", type=str, default="all",
-                        choices=["eda", "split", "train", "val", "sweep", "infer", "all"],
+                        choices=["eda", "split", "train", "val", "sweep", "infer", "dump", "all"],
                         help="Which step to run (default: all)")
     parser.add_argument("--dry-run", action="store_true",
                         help="5 iterations on 8 train / 4 val / 3 test images")
@@ -169,7 +189,7 @@ if __name__ == "__main__":
 
     print("\n[Pipeline] Environment check:")
     ready = check_environment()
-    needs_d2 = args.step in ("train", "val", "sweep", "infer", "all")
+    needs_d2 = args.step in ("train", "val", "sweep", "infer", "dump", "all")
     if needs_d2 and not ready:
         print("[Pipeline] Detectron2 is required for this step.")
         sys.exit(1)
@@ -186,6 +206,8 @@ if __name__ == "__main__":
         res = run_validation(weights, args.dry_run)
     if args.step == "sweep":
         run_sweep(weights, name, args.dry_run)
+    if args.step == "dump":
+        run_dump(weights, name, args.dry_run)
     if args.step in ("infer", "all"):
         out = run_inference_and_submit(weights, name, args.dry_run)
         print(f"\n[Pipeline] Submission file: {out}")

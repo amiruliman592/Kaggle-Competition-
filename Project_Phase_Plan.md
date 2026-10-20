@@ -165,6 +165,13 @@ gantt
 ## Phase 3 — Solar Domain Preprocessing & Post-Processing Quick Wins (Oct 24–28)
 **Objective:** Leverage solar physics properties to eliminate false positives and boost Recognition Quality (RQ).
 
+> **Execution plan (approved Oct 20, revised after Phase 2):**
+> - **Step 0 (local):** Dice alignment (workstream 0 below).
+> - **Step 1 (Colab, ~10 min, no training):** run the baseline once on the 141 val images at a low score threshold and save the raw predictions (with scores, before post-processing) to Drive; also re-measures val PQ with overlap removal.
+> - **Step 2 (local, CPU):** post-processing ablations on the saved predictions — score threshold 0.85/0.9, disk-perimeter filter, closing kernel 3/5/7, shape filter. `MIN_AREA` (no effect, no predicted mask < 200 px²) and pixel-conflict resolution (done in Phase 2) are already settled.
+> - **Step 3 (Colab, ~1.3 h per run, 2–3 runs):** retraining ablations — CLAHE + disk masking, training-label policy (first vs all annotator sets). Combine toggles to limit runs.
+> - **Step 4:** Ablation Table v1 (official PQ + Dice per toggle); upload only the best combination; log val→LB offset.
+
 ### Technical Workstreams
 0. **Dice alignment (do first — Dice is graded, 70% quantitative block):**
    - The rubric uses mean Dice via `torchmetrics.segmentation.DiceScore`; our `mean_semantic_Dice` is unverified against it.

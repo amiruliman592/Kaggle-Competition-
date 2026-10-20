@@ -4,6 +4,8 @@ rle.py — COCO RLE helpers matching the competition submission format.
 The submission stores only the RLE *counts* string; size is fixed at 2048×2048.
 """
 
+import gzip
+import json
 from pathlib import Path
 from typing import Dict, List, Sequence
 
@@ -69,6 +71,32 @@ def remove_overlaps(rles: List[Dict], min_area: int = 0) -> List[Dict]:
         new = encode_mask(m)
         new.update({k: v for k, v in r.items() if k not in ("size", "counts")})
         out.append(new)
+    return out
+
+
+def save_predictions(predictions: Dict[str, List[Dict]], path: Path) -> None:
+    """stem -> RLE dicts (with "score") -> gzipped JSON; counts and score only."""
+    data = {stem: [[r["counts"].decode("utf-8") if isinstance(r["counts"], bytes) else r["counts"],
+                    float(r.get("score", 1.0))] for r in rles]
+            for stem, rles in predictions.items()}
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        json.dump(data, f)
+
+
+def load_predictions(path: Path, hw: Sequence[int] = IMAGE_HW) -> Dict[str, List[Dict]]:
+    """Inverse of save_predictions: stem -> RLE dicts with "score", highest score first."""
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        data = json.load(f)
+    out = {}
+    for stem, items in data.items():
+        rles = []
+        for counts, score in sorted(items, key=lambda cs: -cs[1]):
+            rle = counts_to_rle(counts, hw)
+            rle["score"] = score
+            rles.append(rle)
+        out[stem] = rles
     return out
 
 

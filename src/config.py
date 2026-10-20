@@ -122,6 +122,9 @@ class InferConfig:
         default_factory=lambda: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     )
     SWEEP_MIN_AREAS: List[int] = field(default_factory=lambda: [0, 50, 100, 200, 400])
+    # Raw prediction dump (run_pipeline.py --step dump): keep everything above
+    # this score, unprocessed, so Phase 3 post-processing runs offline on CPU.
+    DUMP_SCORE_THRESHOLD: float = 0.2
 
 
 @dataclass
