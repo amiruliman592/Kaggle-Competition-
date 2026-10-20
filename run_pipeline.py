@@ -10,6 +10,8 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
   python run_pipeline.py --step sweep --name baseline_r50      # SCORE_THRESHOLD x MIN_AREA on val
   python run_pipeline.py --step infer --name baseline_r50 --score-thr 0.6 --min-area 100
   python run_pipeline.py --step dump  --name baseline_r50      # raw val+test predictions for offline post-processing
+  python run_pipeline.py --step train --name x101_2048 --backbone x101 --resolution 2048   # Phase 4
+  (pass the same --backbone/--resolution to train, val, dump and infer of one model)
 
 Steps:
   1. EDA                       (output/eda/)
@@ -29,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
-from config import CFG  # noqa: E402
+from config import CFG, MODEL_CONFIGS  # noqa: E402
 from preprocess import image_path  # noqa: E402
 
 
@@ -173,7 +175,7 @@ def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════
 
-if __name__ == "__main__":
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Solar Filament Segmentation Pipeline")
     parser.add_argument("--step", type=str, default="all",
                         choices=["eda", "split", "preprocess", "train", "val", "sweep", "infer", "dump", "all"],
@@ -191,7 +193,19 @@ if __name__ == "__main__":
                         help="Override CFG.data.PREPROC (use the same value for preprocess/train/val/dump)")
     parser.add_argument("--label-policy", choices=["first", "all"], default=None,
                         help="Override CFG.data.TRAIN_LABEL_POLICY (training labels only)")
-    args = parser.parse_args()
+    parser.add_argument("--backbone", choices=sorted(MODEL_CONFIGS), default=None,
+                        help="Override CFG.model.MODEL_CONFIG (r50 = Phase 2/3 default)")
+    parser.add_argument("--resolution", type=int, default=None,
+                        help="Override TRAIN_RESIZE and INFER_RESIZE together (2048 = native, Phase 4)")
+    return parser.parse_args(argv)
+
+
+def apply_overrides(args):
+    """Copy command-line overrides into the global CFG."""
+    if args.backbone is not None:
+        CFG.model.MODEL_CONFIG = MODEL_CONFIGS[args.backbone]
+    if args.resolution is not None:
+        CFG.train.TRAIN_RESIZE = CFG.infer.INFER_RESIZE = args.resolution
     if args.preproc is not None:
         CFG.data.PREPROC = args.preproc
     if args.label_policy is not None:
@@ -200,6 +214,11 @@ if __name__ == "__main__":
         CFG.infer.SCORE_THRESHOLD = args.score_thr
     if args.min_area is not None:
         CFG.infer.MIN_AREA = args.min_area
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    apply_overrides(args)
 
     from utils.exp_log import log_experiment
     from utils.seed import set_seed
@@ -238,7 +257,7 @@ if __name__ == "__main__":
 
     if res is not None:
         log_experiment(
-            model=f"mask_rcnn_r50_{name}", resolution=CFG.infer.INFER_RESIZE,
+            model=f"mask_rcnn_{args.backbone or 'r50'}_{name}", resolution=CFG.infer.INFER_RESIZE,
             preproc=CFG.data.PREPROC + ("" if CFG.data.TRAIN_LABEL_POLICY == "first" else "+labels_all"),
             postproc=f"close{CFG.infer.MORPH_KERNEL if CFG.infer.MORPH_CLOSE else 0}_minarea{CFG.infer.MIN_AREA}",
             val_pq=res["official_PQ"], val_sq=res["official_SQ"], val_rq=res["official_RQ"],

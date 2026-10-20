@@ -59,6 +59,10 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 - [x] Step 3 retraining scored (exp005, exp006; `experiments/ablation_table.md`): Run A disk+CLAHE **no PQ gain** (0.3901); Run B all-annotator labels **val PQ 0.3979, Dice 0.6426** (+0.008 / +0.008) → adopted. `submissions/submission_r50_allann_pp.csv` uploaded: **LB 0.35** (best so far). Result files moved by user to `Result Phase 3/Result Step 1|3/`.
 - [x] One-window results viewer `src/viewer.py` (GT left, predictions right, TP green / FP red / FN red fill; Prev/Next, model switch, worst-PQ sort, Save PNG). `close_all` closing now on padded crops: identical masks, ~7x faster. 31 tests pass.
 
+## Phase 4 (started 2026-10-20)
+- [x] Code ready: `run_pipeline.py --backbone r50|x101 --resolution N` (sets train + infer size together; `MODEL_CONFIGS` in `src/config.py`); data-loader workers follow the CPU count; training prints peak GPU memory. Notebook `notebooks/colab_phase4_native.ipynb` (A100: sanity probe → `r50_2048` → `x101_2048`, each dumps raw val/test predictions to `MyDrive/solar_filament/Phase 4/`; stops on any failed command). `tests/test_pipeline_flags.py` (+3); 34 tests pass. Colab run not started.
+
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).
 - [x] 2026-10-20 — Baseline model chosen: **Mask R-CNN R50-FPN** first, YOLOv8-seg later as a comparison.
+- [x] 2026-10-20 — Phase 4 plan agreed (not started): full 2048 image on A100 80 GB (no tiles); one notebook runs R50 then X101 at 2048 back to back; bigger anchors only if the large bin drops (decided after results). ~40–45 of ~188 units.

@@ -170,6 +170,7 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
     print(f"  Batch size: {CFG.train.BATCH_SIZE}")
     print(f"  LR:         {CFG.train.BASE_LR}")
     print(f"  Max iter:   {cfg.SOLVER.MAX_ITER}")
+    print(f"  Resolution: {CFG.train.TRAIN_RESIZE} (workers {cfg.DATALOADER.NUM_WORKERS})")
     print(f"  Anchors:    {CFG.model.ANCHOR_SIZES} x {CFG.model.ASPECT_RATIOS}")
     print(f"  Output:     {cfg.OUTPUT_DIR}")
 
@@ -178,6 +179,8 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
     trainer.resume_or_load(resume=resume)
     trainer.train()
 
+    if torch.cuda.is_available():
+        print(f"[Train] Peak GPU memory: {torch.cuda.max_memory_allocated() / 1e9:.1f} GB")
     print(f"\n[Train] Done! Model saved to {cfg.OUTPUT_DIR}")
     return cfg
 

@@ -197,6 +197,19 @@ gantt
 ## Phase 4 — Full-Resolution 2048×2048 Tiling & Global Stitching (Oct 27–Nov 2)
 **Objective:** Process images at native $2048 \times 2048$ resolution to preserve thin barbs and tiny filaments without GPU memory exhaustion.
 
+> **Execution plan (revised and agreed Oct 20, not started — wait for the user's explicit "go"):**
+> - **Why:** all models shrink 2048 → 1024, so every small filament (< 200 px², 0/10 on val) is missed and thin edges blur. Expected gain is modest (+0.01–0.03 val PQ, better Dice/small-bin recall); the human ceiling (~0.336) limits what compute can buy.
+> - **Compute:** Colab Pro **A100, 80 GB VRAM, ~8 units/h**; ~188 units ≈ 23 A100-hours. TPUs are unusable (Detectron2 is CUDA-only); G4 is untested with our build. Close idle sessions (they keep using units). Phase 4 budget ≈ 40–45 units; ~140 are kept for Phases 5–6.
+> - **Route: full 2048×2048 image** (`TRAIN_RESIZE = INFER_RESIZE = 2048`); 80 GB makes tiling unnecessary, so there is no stitching and no border fragmentation. Tiling (workstreams 1–3 below) stays documented only as a fallback.
+> - **One Colab notebook, one session, runs in sequence:**
+>   0. **Sanity check (~5 min):** ~20 training steps at 2048, printing peak GPU memory and s/iter; the notebook stops if anything is off.
+>   1. **R50-FPN at 2048** (`r50_2048`): `r50_allann` recipe (all-annotator labels, batch 2, LR 0.0025, anchors 8–128, 6,000 iters). Dumps raw val + test predictions (score ≥ 0.2) to Drive. ~1.5–2 h, ~15 units.
+>   2. **X101-FPN at 2048** (`x101_2048`, `mask_rcnn_X_101_32x8d_FPN_3x`): same settings. Dumps raw val + test predictions. ~3 h, ~25 units. Runs without waiting for step 1's score.
+>   - Checkpoint every 1,000 iters with resume, so a disconnect loses at most 1,000 iters.
+> - **Fair comparisons:** R50@2048 vs R50@1024 (0.3979) = effect of resolution; X101@2048 vs R50@2048 = effect of backbone. Batch, LR and anchors are deliberately unchanged. X101 is useful even if it does not win: a diverse Phase 6 ensemble member.
+> - **Local scoring (CPU, 0 units):** official PQ, Dice, size bins (small/medium/large), frag/merge counts for both; ablation-table rows; a Kaggle upload only if val beats 0.3979; record results in `COMPLETED_TASKS.md` / `experiments/log.csv`.
+> - **Decide after the results (not pre-scheduled):** if the **large** size bin drops at 2048 (objects are 2× larger relative to the 8–128 anchors), one extra run with anchors 16–256 (~15 units).
+
 ### Technical Workstreams
 1. **Overlapping Tiling Grid (`src/tiling.py`):**
    - Extract $1024 \times 1024$ patches with a 256-pixel overlap (stride 768).

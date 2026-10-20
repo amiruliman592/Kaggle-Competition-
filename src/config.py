@@ -80,10 +80,17 @@ class DataConfig:
     SPLIT_VAL_FOLD: int = 0
 
 
+# Detectron2 model-zoo configs by backbone (run_pipeline.py --backbone)
+MODEL_CONFIGS = {
+    "r50": "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml",
+    "x101": "COCO-InstanceSegmentation/mask_rcnn_X_101_32x8d_FPN_3x.yaml",  # Phase 4, ~2x compute
+}
+
+
 @dataclass
 class ModelConfig:
     """Detectron2 Mask R-CNN."""
-    MODEL_CONFIG: str = "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+    MODEL_CONFIG: str = MODEL_CONFIGS["r50"]
     NUM_CLASSES: int = 1  # Single "filament" class (set 4 for Left/Right/Unidentifiable/Ambiguous)
     ANCHOR_SIZES: List[List[int]] = field(
         default_factory=lambda: [[8], [16], [32], [64], [128]]
@@ -96,11 +103,12 @@ class ModelConfig:
 
 @dataclass
 class TrainConfig:
-    TRAIN_RESIZE: int = 1024  # Images resized to this for training (saves VRAM)
+    TRAIN_RESIZE: int = 1024  # Images resized to this for training (saves VRAM); 2048 = native (Phase 4)
     BASE_LR: float = 0.0025
     MAX_ITER: int = 6000  # ~21 epochs over 566 train images at batch_size=2
     BATCH_SIZE: int = 2
-    NUM_WORKERS: int = 2
+    # 2048 JPEG decoding is CPU-bound: use the CPUs the machine has (Colab T4: 2, A100: 12)
+    NUM_WORKERS: int = field(default_factory=lambda: min(8, os.cpu_count() or 2))
     # Detectron2's COCOEvaluator is untested with string image_ids and does not
     # measure the official PQ; validate with run_pipeline.py --step val instead.
     EVAL_PERIOD: int = 0
@@ -119,7 +127,7 @@ class TilingConfig:
 @dataclass
 class InferConfig:
     """Inference & post-processing flags."""
-    INFER_RESIZE: int = 1024
+    INFER_RESIZE: int = 1024  # Must equal TRAIN_RESIZE (run_pipeline.py --resolution sets both)
     SCORE_THRESHOLD: float = 0.65  # Phase 3 ablation (val official PQ/Dice plateau 0.65-0.8)
     # Overlap rule: a mask losing > this fraction of its area to higher-score
     # masks is a duplicate and dropped whole (None = only carve). Phase 3: 0.2.

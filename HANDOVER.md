@@ -31,11 +31,18 @@ Last updated 2026-10-20 (end of Phase 3). Read this first in a new session, then
 - Tests: 31 pass (`pytest tests`, ~3 min).
 
 ## 2a. Next step
-- **Phase 4 — full-resolution tiling** (`Project_Phase_Plan.md`): every model misses all small filaments (< 200 px²,
-  0/10 on val) because images are shrunk 2048 → 1024. Train/predict on 1024 tiles of the full image and stitch.
-- Start from the `r50_allann` recipe (all-annotator labels). Same workflow: Colab trains + dumps raw predictions,
-  everything else local.
-- **First explain the Phase 4 plan to the user and wait for approval — do not execute before that.**
+- **Phase 4 — native resolution** (plan agreed Oct 20, see the "Execution plan" box in `Project_Phase_Plan.md` Phase 4):
+  every model misses all small filaments (< 200 px², 0/10 on val) because images are shrunk 2048 → 1024.
+  full 2048 image (no tiles; A100 80 GB). One Colab notebook runs in sequence: ~20-step sanity check → R50-FPN at
+  2048 (`r50_allann` recipe) → X101-FPN at 2048 (same settings), each dumping raw val+test predictions; scored locally
+  against val PQ 0.3979. A bigger-anchor run (16–256) is decided only after the results (if the large bin drops).
+- Compute: Colab Pro A100 80 GB, ~8 units/h, ~188 units (≈ 23 h). Phase 4 budget ≈ 40–45 units. No TPU/G4.
+- Status: code + notebook `notebooks/colab_phase4_native.ipynb` ready (34 tests pass); waiting for push + the
+  user's Colab run. Results come back as `Result Phase 4/raw_preds_{r50_2048,x101_2048}_{val,test}.json.gz`;
+  score with `src/ablate_postprocess.py --raw ...` and build CSVs with `src/submit_from_raw.py` (same as Phase 3).
+- Idea for after the results: Mask R-CNN's mask head predicts a 28×28 grid per box whatever the input size,
+  so long thin filaments get coarse outlines; a finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION` 14 → 28)
+  could raise SQ/Dice. Not part of the agreed runs.
 - Later: Phase 5 (Mask2Former / SAM 2), Phase 6 (TTA/ensembling), Phase 7 freeze (Nov 11), Phase 8 report (Nov 15).
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
