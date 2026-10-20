@@ -3,7 +3,7 @@
 
 > **Authoritative Project Roadmap**  
 > **Source Context:** [Solar Filament Overview.txt](Solar%20Filament%20Overview.txt), [Solar_Filament_Segmentation_Plan.md](Solar_Filament_Segmentation_Plan.md), and [CLAUDE.md](CLAUDE.md).  
-> **Current Date:** Sunday, Oct 18, 2026 | **Competition Deadline:** Sunday, Nov 15, 2026 (28 Days)  
+> **Plan written:** Sunday, Oct 18, 2026 | **Competition Deadline:** Sunday, Nov 15, 2026 | **Status (Oct 20):** Phases 0–2 done, Phase 3 next  
 > **Internal Code Freeze:** Wednesday, Nov 11, 2026 | **Final Package & Form Submission:** Saturday, Nov 14, 2026  
 > **Target Metric:** Panoptic Quality ($\text{PQ}$) $> 0.35$ | **Scoring:** 70% Quantitative + 30% Qualitative  
 
@@ -158,7 +158,7 @@ gantt
 ### Quality Gate & Exit Criteria
 - [x] Baseline model trained and evaluated on the frozen validation set. *(Oct 20, exp003: official val PQ 0.3905 at score 0.8 = $B_0$)*
 - [x] First valid submission scored on Kaggle Leaderboard with 0 errors. *(Oct 20: public LB 0.34; first try rejected for overlapping masks, fixed)*
-- [ ] *(Optional)* Classical baseline PQ logged in `experiments/log.csv`.
+- [ ] *(Optional, skipped Oct 20 — can be added later as a report row)* Classical baseline PQ logged in `experiments/log.csv`.
 
 ---
 
@@ -271,7 +271,7 @@ gantt
 ### Technical Workstreams
 1. **Model Selection Ground Rules:**
    - Final models are chosen **solely based on Local Validation PQ**, never on Public Leaderboard variance.
-2. **Submission Strategy (3 Selected Submissions — uploads are unlimited, 3 are chosen as final):**
+2. **Submission Strategy (3 Selected Submissions — max 5 uploads per day, 3 are chosen as final):**
    - *Submission 1 (High Reliability):* Best single-model tiled pipeline with tuned domain post-processing.
    - *Submission 2 (Maximum Performance):* Multi-model ensemble with full TTA and anti-fragmentation merging.
    - *Submission 3 (Safety Net):* Best-Dice variant, or the strongest earlier pipeline if 1 and 2 are close on val (Dice is graded alongside PQ).

@@ -45,6 +45,9 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 - [x] Uploaded `submission_baseline_r50_nooverlap.csv` → **public LB 0.34** (shown to 2 decimals; ~50% of test). Recorded as `lb_score` of exp003. Val 0.3905 vs LB 0.34: gap ~0.05, cause not yet known (see HANDOVER).
 - [x] 2026-10-20 — Competition rules read from `Solar Filament Overview.txt` and recorded in `HANDOVER.md` §2b (deliverables, 70/30 rubric with Dice, ~50% public LB). Dice alignment added as Phase 3 step 0; repo/reproducibility rules added to Phase 8.
 
+- [x] **Phase 2 complete (2026-10-20).** All required gates done; optional classical baseline skipped.
+- [x] Leaderboard reviewed: top 0.60–0.64 judged not comparable (above human ceiling, organisers' hacking warning); same-day label copying and external MAGFiLO labels ruled out. Kaggle limit: 5 uploads/day, 3 final picks.
+
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).
 - [x] 2026-10-20 — Baseline model chosen: **Mask R-CNN R50-FPN** first, YOLOv8-seg later as a comparison.
