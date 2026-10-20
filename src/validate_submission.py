@@ -6,6 +6,7 @@ Checks:
   2. Every filament_id is `<image_id>_<suffix>`, unique, and <image_id> is a test image
   3. RLE counts are bare strings (no quotes, brackets or size array)
   4. Every RLE parses with a non-zero area; a random sample decodes to a 2048×2048 binary mask
+  5. No two masks of the same image overlap (Kaggle rejects the whole file otherwise)
 
 Usage:
   python src/validate_submission.py submissions/submission_baseline_r50.csv
@@ -15,6 +16,7 @@ import argparse
 import random
 import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional
 
@@ -22,7 +24,7 @@ import numpy as np
 from pycocotools import mask as coco_mask
 
 from config import CFG
-from utils.rle import counts_to_rle
+from utils.rle import counts_to_rle, has_overlap
 
 HEADER = "filament_id,segmentation_rle"
 ID_RE = re.compile(r"^(?P<image>.+)_(?P<idx>[A-Za-z0-9]+)$")
@@ -74,7 +76,20 @@ def validate_submission(
         if not counts or FORBIDDEN.search(counts):
             errors.append(f"line {n}: RLE must be a bare counts string")
             continue
-        rles.append((n, counts))
+        rles.append((n, counts, m["image"]))
+
+    # Kaggle rejects the file if two masks of one image share a pixel
+    by_image = defaultdict(list)
+    for n, counts, image in rles:
+        by_image[image].append(counts_to_rle(counts, CFG.data.IMAGE_SIZE))
+    try:
+        overlapping = sorted(img for img, r in by_image.items() if has_overlap(r))
+    except Exception:  # malformed counts are reported below
+        overlapping = []
+    if overlapping:
+        errors.append(f"{len(overlapping)} images have overlapping masks (Kaggle rejects this), "
+                      f"e.g. {overlapping[0]}")
+    rles = [(n, counts) for n, counts, _ in rles]
 
     for n, counts in rles:
         try:

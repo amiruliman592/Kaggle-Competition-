@@ -4,6 +4,7 @@ rle.py — COCO RLE helpers matching the competition submission format.
 The submission stores only the RLE *counts* string; size is fixed at 2048×2048.
 """
 
+from pathlib import Path
 from typing import Dict, List, Sequence
 
 import numpy as np
@@ -37,3 +38,60 @@ def polygon_to_rle(segmentation: List[List[float]], hw: Sequence[int] = IMAGE_HW
     """COCO polygon list -> single merged compressed RLE dict."""
     rles = coco_mask.frPyObjects(segmentation, int(hw[0]), int(hw[1]))
     return coco_mask.merge(rles)
+
+
+def has_overlap(rles: List[Dict]) -> bool:
+    """True if any two masks of one image share a pixel (Kaggle rejects this)."""
+    if len(rles) < 2:
+        return False
+    return int(coco_mask.area(coco_mask.merge(rles))) < int(coco_mask.area(rles).sum())
+
+
+def remove_overlaps(rles: List[Dict], min_area: int = 0) -> List[Dict]:
+    """
+    Make one image's masks disjoint, as Kaggle requires. `rles` must be ordered
+    highest score first: each mask keeps only pixels not claimed by an earlier
+    one. Masks left smaller than `min_area` (or empty) are dropped; extra keys
+    such as "score" are kept.
+    """
+    if not has_overlap(rles):
+        return [r for r in rles if int(coco_mask.area(r)) >= max(min_area, 1)]
+    taken = None
+    out = []
+    for r in rles:
+        m = coco_mask.decode(r).astype(bool)
+        if taken is None:
+            taken = np.zeros_like(m)
+        m &= ~taken
+        if m.sum() < max(min_area, 1):
+            continue
+        taken |= m
+        new = encode_mask(m)
+        new.update({k: v for k, v in r.items() if k not in ("size", "counts")})
+        out.append(new)
+    return out
+
+
+def write_submission_csv(predictions: Dict[str, List[Dict]], output_path: Path) -> int:
+    """
+    Write predictions in the competition format (no quotes, counts only):
+      filament_id,segmentation_rle
+      20150125172714Mh_1,f8uSDds...VQNC
+    Rows of an image keep the list order (highest score first).
+    Returns the number of rows written.
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with open(output_path, "w", newline="") as f:
+        f.write("filament_id,segmentation_rle" + chr(10))
+        for stem in sorted(predictions):
+            for i, rle in enumerate(predictions[stem], start=1):
+                counts = rle["counts"]
+                counts = counts.decode("utf-8") if isinstance(counts, bytes) else counts
+                f.write(f"{stem}_{i},{counts}" + chr(10))
+                n += 1
+    print(f"[Submission] Saved {n} rows ({len(predictions)} images) to {output_path}")
+    if n == 0:
+        print("[Submission] WARNING: No predictions generated! Check model/threshold.")
+    return n

@@ -62,3 +62,30 @@ def test_validator_accepts_good_and_rejects_bad(tmp_path):
     bad = tmp_path / "bad.csv"
     bad.write_text(f'filament_id,segmentation_rle\nnot_a_test_image_1,"{mask_to_rle(m)}"\n')
     assert not validate_submission(bad, allow_missing_images=True)
+
+
+def test_remove_overlaps_higher_score_wins():
+    from utils.rle import encode_mask, has_overlap, remove_overlaps
+
+    a = np.zeros((32, 32), np.uint8); a[0:10, 0:10] = 1    # area 100, first = higher score
+    b = np.zeros((32, 32), np.uint8); b[5:15, 5:15] = 1    # overlaps a by 25 px
+    c = np.zeros((32, 32), np.uint8); c[2:4, 2:4] = 1      # fully inside a -> dropped
+    ra, rb, rc = encode_mask(a), encode_mask(b), encode_mask(c)
+    rb["score"] = 0.7
+    out = remove_overlaps([ra, rb, rc])
+    assert len(out) == 2 and not has_overlap(out)
+    assert coco_mask.area(out[0]) == 100 and coco_mask.area(out[1]) == 75
+    assert out[1]["score"] == 0.7
+    assert len(remove_overlaps([ra, rb], min_area=80)) == 1
+
+
+def test_validator_rejects_overlapping_masks(tmp_path):
+    from config import CFG
+    from validate_submission import validate_submission
+
+    stem = sorted(p.stem for p in CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))[0]
+    m1 = np.zeros((2048, 2048), np.uint8); m1[100:200, 100:300] = 1
+    m2 = np.zeros((2048, 2048), np.uint8); m2[150:250, 100:300] = 1
+    csv = tmp_path / "overlap.csv"
+    csv.write_text(f"filament_id,segmentation_rle\n{stem}_1,{mask_to_rle(m1)}\n{stem}_2,{mask_to_rle(m2)}\n")
+    assert not validate_submission(csv)

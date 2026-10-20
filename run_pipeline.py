@@ -103,7 +103,8 @@ def run_sweep(weights: str, name: str, dry_run: bool):
     saved_min_area = CFG.infer.MIN_AREA
     CFG.infer.MIN_AREA = min(CFG.infer.SWEEP_MIN_AREAS)  # filter later, per grid cell
     predictor = build_predictor(weights, score_threshold=min(CFG.infer.SWEEP_SCORE_THRESHOLDS))
-    preds, _ = predict_images(predictor, [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids])
+    preds, _ = predict_images(predictor, [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids],
+                              resolve_overlaps=False)  # resolved per grid cell, after score filtering
     CFG.infer.MIN_AREA = saved_min_area
     rows = sweep(preds, val_ids)
     print_sweep(rows)

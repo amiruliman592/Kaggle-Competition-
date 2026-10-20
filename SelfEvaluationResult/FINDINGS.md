@@ -45,6 +45,16 @@ These plots count **any** overlap, unlike our IoU-based counters, so the numbers
   be seen as gaming, and the organisers may fix it). Our pipeline outputs non-overlapping masks (NMS),
   so our local score still has to mirror official matching to predict the leaderboard correctly.
 
+## 3b. Kaggle server rejects overlapping masks (2026-10-20)
+First upload (`submission_baseline_r50.csv`) was refused: *"Invalid Submission! Submissions may not contain
+overlapping masks. That is, predictions of the same filament may not overlap."* This is the server-side
+"verification strategy" from the overview page, and it also closes loophole B above.
+- Baseline CSV had 20 overlapping pairs in 18/176 images (median 792 px overlap).
+- Fix: `utils.rle.remove_overlaps` (higher-score mask keeps shared pixels; masks left < `MIN_AREA` dropped),
+  applied in `predict_images` and per grid cell in the sweep; `validate_submission.py` now fails on any
+  overlap. `src/fix_overlaps.py` repairs an existing CSV without a GPU: 1,077 → 1,072 masks.
+- Val effect not yet measured (val predictions were not saved); next Colab val run includes the fix.
+
 ## 4. Follow-ups
 - [x] Official mode added: `evaluate_official()` / `evaluate_split()` in `src/evaluate.py`,
       `load_gt_entries()` in `src/annotations.py`; `tests/test_official_metric.py` reproduces 0.3296 and

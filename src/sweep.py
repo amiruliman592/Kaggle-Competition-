@@ -11,24 +11,20 @@ Usage (from run_pipeline.py --step sweep):
 
 from typing import Dict, List, Optional
 
-from pycocotools import mask as coco_mask
-
 from annotations import load_gt_entries
 from config import CFG
 from evaluate import evaluate_official
+from utils.rle import remove_overlaps
 
 
 def filter_predictions(preds: Dict[str, List[dict]], score_threshold: float,
                        min_area: int) -> Dict[str, List[dict]]:
-    """Keep masks with score >= score_threshold and area >= min_area."""
-    out = {}
-    for stem, rles in preds.items():
-        keep = [r for r in rles if r.get("score", 1.0) >= score_threshold]
-        if keep and min_area:
-            areas = coco_mask.area(keep)
-            keep = [r for r, a in zip(keep, areas) if a >= min_area]
-        out[stem] = keep
-    return out
+    """
+    Keep masks with score >= score_threshold, make them disjoint (higher score
+    wins, as at submission time), then drop masks with area < min_area.
+    """
+    return {stem: remove_overlaps([r for r in rles if r.get("score", 1.0) >= score_threshold], min_area)
+            for stem, rles in preds.items()}
 
 
 def sweep(preds: Dict[str, List[dict]], stems: List[str],

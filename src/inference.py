@@ -26,7 +26,7 @@ from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
 
 from config import CFG
-from utils.rle import encode_mask
+from utils.rle import encode_mask, remove_overlaps, write_submission_csv
 
 
 def resize_mask_to_original(mask: np.ndarray, original_size: tuple = (2048, 2048)) -> np.ndarray:
@@ -97,10 +97,15 @@ def build_predictor(model_weights: Optional[str] = None,
     return DefaultPredictor(cfg)
 
 
-def predict_images(predictor, img_paths: List[Path]) -> Tuple[Dict[str, List[dict]], float]:
+def predict_images(predictor, img_paths: List[Path],
+                   resolve_overlaps: bool = True) -> Tuple[Dict[str, List[dict]], float]:
     """
     Run inference on the given images.
 
+    Args:
+        resolve_overlaps: Make each image's masks disjoint (Kaggle rejects
+            overlapping masks); higher-score masks keep shared pixels. The val
+            sweep turns this off and resolves after its own score filtering.
     Returns:
         (Dict mapping image stem -> list of RLE dicts highest score first, seconds per image)
         Each RLE dict also carries its confidence under "score" (used by the val sweep).
@@ -125,6 +130,8 @@ def predict_images(predictor, img_paths: List[Path]) -> Tuple[Dict[str, List[dic
                     rle = encode_mask(mask)
                     rle["score"] = float(scores[idx])
                     rles.append(rle)
+        if resolve_overlaps:
+            rles = remove_overlaps(rles, CFG.infer.MIN_AREA)
         predictions[img_path.stem] = rles
 
     sec_per_img = (time.time() - start) / max(len(img_paths), 1)
@@ -134,27 +141,8 @@ def predict_images(predictor, img_paths: List[Path]) -> Tuple[Dict[str, List[dic
     return predictions, sec_per_img
 
 
-def build_submission_csv(predictions: Dict[str, List[dict]], output_path: Path) -> int:
-    """
-    Write predictions in the competition format (no quotes, counts only):
-      filament_id,segmentation_rle
-      20150125172714Mh_1,f8uSDds...VQNC
-    Returns the number of rows written.
-    """
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    n = 0
-    with open(output_path, "w", newline="") as f:
-        f.write("filament_id,segmentation_rle\n")
-        for stem in sorted(predictions):
-            for i, rle in enumerate(predictions[stem], start=1):
-                counts = rle["counts"]
-                f.write(f"{stem}_{i},{counts.decode('utf-8') if isinstance(counts, bytes) else counts}\n")
-                n += 1
-    print(f"[Submission] Saved {n} rows ({len(predictions)} images) to {output_path}")
-    if n == 0:
-        print("[Submission] WARNING: No predictions generated! Check model/threshold.")
-    return n
+# Lives in utils.rle (no Detectron2 needed); kept under this name for callers
+build_submission_csv = write_submission_csv
 
 
 def main():

@@ -41,7 +41,8 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 - [x] Val at score 0.8 — exp003: **official PQ 0.3905** (SQ 0.656, RQ 0.596; TP 903 / FP 448 / FN 778); frag 23, merge 26; 0.42 s/img. Already above the 0.35 target and the 0.336 inter-annotator ceiling.
 - [x] Size bins (first annotator): small 0/0/10 (all missed), medium PQ 0.365, large PQ 0.449.
 - [x] Submission `submission_baseline_r50.csv` (score 0.8): 1,077 rows over 176/180 images, passes the validator. 4 images have no masks; this is a warning, not an error (official metric counts them as FN). Validator changed accordingly.
-- [ ] Upload to Kaggle and record the public LB score in `experiments/log.csv` (`lb_score`, exp003).
+- [x] First Kaggle upload REJECTED: overlapping masks not allowed (18 images). Fixed in code (`remove_overlaps`, validator check) and the CSV repaired locally → `submissions/submission_baseline_r50_nooverlap.csv` (1,072 masks, passes validator). See `SelfEvaluationResult/FINDINGS.md` §3b.
+- [x] Uploaded `submission_baseline_r50_nooverlap.csv` → **public LB 0.34** (shown to 2 decimals; ~50% of test). Recorded as `lb_score` of exp003. Val 0.3905 vs LB 0.34: gap ~0.05, cause not yet known (see HANDOVER).
 - [x] 2026-10-20 — Competition rules read from `Solar Filament Overview.txt` and recorded in `HANDOVER.md` §2b (deliverables, 70/30 rubric with Dice, ~50% public LB). Dice alignment added as Phase 3 step 0; repo/reproducibility rules added to Phase 8.
 
 ## Planning & decisions

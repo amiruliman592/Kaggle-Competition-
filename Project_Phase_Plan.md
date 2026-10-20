@@ -157,7 +157,7 @@ gantt
 
 ### Quality Gate & Exit Criteria
 - [x] Baseline model trained and evaluated on the frozen validation set. *(Oct 20, exp003: official val PQ 0.3905 at score 0.8 = $B_0$)*
-- [ ] First valid submission scored on Kaggle Leaderboard with 0 errors.
+- [x] First valid submission scored on Kaggle Leaderboard with 0 errors. *(Oct 20: public LB 0.34; first try rejected for overlapping masks, fixed)*
 - [ ] *(Optional)* Classical baseline PQ logged in `experiments/log.csv`.
 
 ---
@@ -271,9 +271,10 @@ gantt
 ### Technical Workstreams
 1. **Model Selection Ground Rules:**
    - Final models are chosen **solely based on Local Validation PQ**, never on Public Leaderboard variance.
-2. **Submission Strategy (2 Selected Submissions):**
+2. **Submission Strategy (3 Selected Submissions — uploads are unlimited, 3 are chosen as final):**
    - *Submission 1 (High Reliability):* Best single-model tiled pipeline with tuned domain post-processing.
    - *Submission 2 (Maximum Performance):* Multi-model ensemble with full TTA and anti-fragmentation merging.
+   - *Submission 3 (Safety Net):* Best-Dice variant, or the strongest earlier pipeline if 1 and 2 are close on val (Dice is graded alongside PQ).
 3. **Computational Efficiency Profiling:**
    - Measure and record:
      1. Per-image inference latency (seconds).
@@ -288,7 +289,7 @@ gantt
    - No code or hyperparameter modifications permitted after this milestone; only documentation and report writing.
 
 ### Quality Gate & Exit Criteria
-- [ ] Final 2 submissions selected on the Kaggle platform.
+- [ ] Final 3 submissions selected on the Kaggle platform.
 - [ ] Reproduction verified on a clean machine.
 
 ---
