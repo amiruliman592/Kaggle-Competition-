@@ -41,3 +41,21 @@ Submission built from Run B raw test predictions: `submissions/submission_r50_al
 1,279 masks, passes validator). **Public LB 0.35** (first gain over 0.34).
 
 **Phase 3 status:** best val official PQ 0.3979 (B0 + 0.0074); gate B0 + 0.030 = 0.4205 not met.
+
+## Phase 4 — native resolution 2048 (2026-10-20, Colab A100 80 GB)
+`r50_allann` recipe (all-annotator labels, 6,000 it, batch 2, anchors 8–128), only resolution / backbone changed.
+Scored like step 3: closing 5, `MIN_AREA` 50, overlap drop 0.2, thr {0.5…0.9} (raw rows:
+`Result Phase 4/eval_phase4.json`). Sanity probe: X101 at 2048 peaks at 20.2 GB GPU memory; prediction 0.5–0.7 s/img.
+
+| # | Run | Change | Best official PQ | Δ vs B | Dice | Plateau (thr 0.6–0.8) | Small TP/FP/FN | PQ medium / large | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| B | r50_allann | 1024 (reference) | 0.3979 (thr 0.6) | — | 0.6426 | 0.390–0.398 | 0/0/10 | 0.372 / 0.434 | reference |
+| C | r50_2048 | resolution 1024 → 2048 | 0.4250 (thr 0.7) | **+0.027** | 0.6380 (0.6484 at thr 0.6, PQ 0.4231) | 0.415–0.425 | 0/0/10 | 0.397 / 0.471 | **adopted** |
+| D | x101_2048 | + backbone R50 → X101 | **0.4264** (thr 0.6) | **+0.029** | 0.6417 | **0.426–0.426** | 2/1/8 (thr 0.6) | 0.406 / 0.467 | **best**, flattest plateau |
+
+Notes: the gain comes from both size bins (medium +0.03, large +0.04) and from SQ (+0.013) and RQ (+0.03), not
+from small filaments, which are still almost all missed (X101 finds 2/10 at thr ≤ 0.6). Large-bin PQ rose, so the
+conditional bigger-anchor run is **not needed**. X101 vs R50 at 2048 is within noise on PQ (+0.0014) but has a wider
+plateau (thr 0.6–0.8 all 0.426) and fewer merges (25 vs 28 at thr 0.6). Phase 3 gate (0.4205) is now passed.
+Submissions (thr 0.6, drop 0.2, pass validator, not yet uploaded): `submission_x101_2048_pp.csv` (1,317 masks),
+`submission_r50_2048_pp.csv` (1,313 masks).

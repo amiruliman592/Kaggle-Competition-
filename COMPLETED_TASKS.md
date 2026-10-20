@@ -60,7 +60,10 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 - [x] One-window results viewer `src/viewer.py` (GT left, predictions right, TP green / FP red / FN red fill; Prev/Next, model switch, worst-PQ sort, Save PNG). `close_all` closing now on padded crops: identical masks, ~7x faster. 31 tests pass.
 
 ## Phase 4 (started 2026-10-20)
-- [x] Code ready: `run_pipeline.py --backbone r50|x101 --resolution N` (sets train + infer size together; `MODEL_CONFIGS` in `src/config.py`); data-loader workers follow the CPU count; training prints peak GPU memory. Notebook `notebooks/colab_phase4_native.ipynb` (A100: sanity probe → `r50_2048` → `x101_2048`, each dumps raw val/test predictions to `MyDrive/solar_filament/Phase 4/`; stops on any failed command). `tests/test_pipeline_flags.py` (+3); 34 tests pass. Colab run not started.
+- [x] Code ready: `run_pipeline.py --backbone r50|x101 --resolution N` (sets train + infer size together; `MODEL_CONFIGS` in `src/config.py`); data-loader workers follow the CPU count; training prints peak GPU memory. Notebook `notebooks/colab_phase4_native.ipynb` (A100: sanity probe → `r50_2048` → `x101_2048`, each dumps raw val/test predictions to `MyDrive/solar_filament/Phase 4/`; stops on any failed command). `tests/test_pipeline_flags.py` (+3); 34 tests pass.
+- [x] Colab A100 run done (raw preds in `Result Phase 4/`). Sanity probe: X101 at 2048 peaks at 20.2 GB, 0.5–0.7 s/img prediction.
+- [x] Scored locally (exp007, exp008; `experiments/ablation_table.md`, `Result Phase 4/eval_phase4.json`): **r50_2048 val PQ 0.4250** (thr 0.7) / 0.4231 Dice 0.6484 (thr 0.6); **x101_2048 val PQ 0.4264, Dice 0.6417** (thr 0.6, plateau 0.426 over thr 0.6–0.8). +0.029 vs r50_allann; medium and large bins both up; small filaments still mostly missed (X101 2/10). Bigger-anchor run not needed (large bin improved). Phase 3 gate 0.4205 now passed.
+- [x] Submissions built (thr 0.6, drop 0.2, pass validator, **not uploaded yet**): `submission_x101_2048_pp.csv` (1,317 masks), `submission_r50_2048_pp.csv` (1,313).
 
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).

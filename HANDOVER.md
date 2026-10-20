@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-20 (end of Phase 3). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
+Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
 (everything finished, with numbers) and `Project_Phase_Plan.md`. Do not re-run anything recorded there.
 
 ## 1. Goal & working setup
@@ -16,34 +16,36 @@ Last updated 2026-10-20 (end of Phase 3). Read this first in a new session, then
 - Keep helper tools simple and token-cheap (user request).
 
 ## 2. Current state & achievements
-- **Phases 0–3: DONE.** (Phase 2 optional classical baseline skipped.)
-- **Best model: `r50_allann`** — Mask R-CNN R50-FPN trained on every annotator's labels (exp006):
-  **val official PQ 0.3979, Dice 0.6426; public LB 0.35** (thr 0.6, overlap drop 0.2).
-  Submission `submissions/submission_r50_allann_pp.csv`. Checkpoint on Drive
-  `MyDrive/solar_filament/output/detectron2/r50_allann/model_final.pth`.
+- **Phases 0–3: DONE. Phase 4: both runs done and scored; Kaggle upload pending.**
+- **Best model: `x101_2048`** — Mask R-CNN X101-FPN at native 2048, all annotators' labels (exp008):
+  **val official PQ 0.4264, Dice 0.6417** (thr 0.6, overlap drop 0.2; PQ 0.426 flat over thr 0.6–0.8).
+  Close second `r50_2048` (exp007): PQ 0.4250 (thr 0.7); thr 0.6 gives PQ 0.4231 / Dice 0.6484 (best Dice).
+  Checkpoints on Drive `MyDrive/solar_filament/output/detectron2/{x101_2048,r50_2048}/model_final.pth`.
+- Previous best `r50_allann` (1024): val PQ 0.3979, Dice 0.6426, **public LB 0.35** (`submission_r50_allann_pp.csv`).
 - LB history: baseline 0.34 → baseline + post-processing 0.34 → r50_allann **0.35**. Val ≈ LB + 0.04–0.05, and
   val improvements carried over to LB, so model selection stays on local val.
 - Phase 3 findings (`experiments/ablation_table.md`): overlap removal costs −0.004; new overlap rule
   (`OVERLAP_DROP_FRAC=0.2`) +0.003 PQ / +0.016 Dice; closing kernel, disk filter, min area, thr > 0.8: no effect;
-  CLAHE + disk masking (Run A): no PQ gain; all-annotator labels (Run B): +0.008. Gate +0.030 not met.
-- Raw predictions of all 3 models (val + test) in `Result Phase 3/Result Step 1|3/` → any post-processing,
-  scoring or test CSV is done locally (`src/ablate_postprocess.py`, `src/submit_from_raw.py`, `src/viewer.py`).
-- Tests: 31 pass (`pytest tests`, ~3 min).
+  CLAHE + disk masking (Run A): no PQ gain; all-annotator labels (Run B): +0.008.
+- Phase 4 findings: native 2048 = **+0.027 PQ** (medium and large bins both up, SQ and RQ both up); X101 adds only
+  +0.0014 PQ but has the flattest threshold plateau and fewer merges. Small filaments still mostly missed (X101 2/10).
+  Large bin improved, so the bigger-anchor run is not needed. A100 2048 training peaks at 20.2 GB (X101).
+- Raw predictions (val + test): `Result Phase 3/Result Step 1|3/`, `Result Phase 4/` → any post-processing,
+  scoring or test CSV is done locally (`src/ablate_postprocess.py`, `src/submit_from_raw.py`, `src/viewer.py`;
+  the viewer only scans `Result Phase 3/`). Phase 4 scoring table: `Result Phase 4/eval_phase4.json`.
+- Tests: 34 pass (`pytest tests`, ~3 min).
 
 ## 2a. Next step
-- **Phase 4 — native resolution** (plan agreed Oct 20, see the "Execution plan" box in `Project_Phase_Plan.md` Phase 4):
-  every model misses all small filaments (< 200 px², 0/10 on val) because images are shrunk 2048 → 1024.
-  full 2048 image (no tiles; A100 80 GB). One Colab notebook runs in sequence: ~20-step sanity check → R50-FPN at
-  2048 (`r50_allann` recipe) → X101-FPN at 2048 (same settings), each dumping raw val+test predictions; scored locally
-  against val PQ 0.3979. A bigger-anchor run (16–256) is decided only after the results (if the large bin drops).
-- Compute: Colab Pro A100 80 GB, ~8 units/h, ~188 units (≈ 23 h). Phase 4 budget ≈ 40–45 units. No TPU/G4.
-- Status: code + notebook `notebooks/colab_phase4_native.ipynb` ready (34 tests pass); waiting for push + the
-  user's Colab run. Results come back as `Result Phase 4/raw_preds_{r50_2048,x101_2048}_{val,test}.json.gz`;
-  score with `src/ablate_postprocess.py --raw ...` and build CSVs with `src/submit_from_raw.py` (same as Phase 3).
-- Idea for after the results: Mask R-CNN's mask head predicts a 28×28 grid per box whatever the input size,
-  so long thin filaments get coarse outlines; a finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION` 14 → 28)
-  could raise SQ/Dice. Not part of the agreed runs.
-- Later: Phase 5 (Mask2Former / SAM 2), Phase 6 (TTA/ensembling), Phase 7 freeze (Nov 11), Phase 8 report (Nov 15).
+- **User uploads `submissions/submission_x101_2048_pp.csv`** (and optionally `submission_r50_2048_pp.csv`) to Kaggle;
+  record the LB in `experiments/log.csv` (exp008/exp007) and `COMPLETED_TASKS.md`.
+- Then decide (explain first, wait for "go"): (a) one run with a finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION`
+  14 → 28; Mask R-CNN draws each mask on a 28×28 grid per box, coarse for long thin filaments) to raise SQ/Dice; or
+  (b) go straight to Phase 5 (Mask2Former / SAM 2 box refinement), now starting from the 2048 models.
+- Phase 4 pipeline: `run_pipeline.py --backbone x101 --resolution 2048` (same flags for train/val/dump/infer);
+  notebook `notebooks/colab_phase4_native.ipynb`. Compute: Colab Pro A100 80 GB, ~8 units/h; user had ~184 units
+  before the Phase 4 runs (check the remaining balance in Colab).
+- Later: Phase 5 (Mask2Former / SAM 2), Phase 6 (TTA/ensembling: R50+X101 at 2048 are ready members),
+  Phase 7 freeze (Nov 11), Phase 8 report (Nov 15).
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
@@ -82,7 +84,8 @@ Last updated 2026-10-20 (end of Phase 3). Read this first in a new session, then
 - Dice settings of the organisers are unpublished; we log `official_Dice_samplewise` (torchmetrics default) and
   report the other variants too (FINDINGS §3c). Revisit if the organisers publish their Dice code.
 - Val–LB gap is steady (~0.04–0.05; overlap removal explained −0.004 of it).
-- Small filaments (< 200 px²): all 10 missed on val → Phase 4 tiling.
+- Small filaments (< 200 px²): still 8–10 of 10 missed on val even at 2048 (only 51 in all of train); low priority,
+  worth ≤ ~0.005 PQ.
 - Training-label policy settled: "all" (Run B). Consensus labels untested.
 - YOLOv8-seg comparison run (user knows YOLO) — later.
 
