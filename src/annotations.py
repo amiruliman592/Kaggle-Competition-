@@ -75,3 +75,25 @@ def load_gt_rles(stems: Optional[List[str]] = None, policy: Optional[str] = None
     selected = select_annotations(load_annotation_sets(), policy)
     stems = stems if stems is not None else list(selected)
     return {s: anns_to_rles(selected[s]) for s in stems}
+
+
+def load_gt_entries(stems: Optional[List[str]] = None, path: Optional[Path] = None) -> Dict[str, List[dict]]:
+    """
+    Ground truth as the official metric sees it: EVERY annotator set is its own
+    entry, keyed by the COCO image id "<annotator>-<stem>" -> list of RLE dicts.
+    """
+    data = _load_json(str(path or CFG.paths.ANNOTATION_FILE))
+    by_entry = defaultdict(list)
+    for ann in data["annotations"]:
+        by_entry[ann["image_id"]].append(ann)
+    keep = set(stems) if stems is not None else None
+    entries = {}
+    for entry_id in sorted(im["id"] for im in data["images"]):
+        if keep is None or entry_stem(entry_id) in keep:
+            entries[entry_id] = anns_to_rles(by_entry.get(entry_id, []))
+    return entries
+
+
+def entry_stem(entry_id: str) -> str:
+    """Official annotator-image id "<annotator>-<stem>" -> file stem."""
+    return entry_id.split("-", 1)[1]

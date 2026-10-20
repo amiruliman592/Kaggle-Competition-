@@ -21,6 +21,14 @@ Definitions (Kirillov et al., CVPR 2019 — the official competition metric):
 All masks are compressed COCO RLE dicts, so evaluation never holds dense
 2048×2048 arrays.
 
+Official mode (`evaluate_official`) reproduces the organisers' Kaggle metric
+(SelfEvaluationResult/official_metric.py, see FINDINGS.md there). It is the
+number to use for model selection:
+  - every annotator set is its own GT entry ("<annotator>-<stem>"), scored
+    against the image's predictions and pooled; entries without GT are skipped
+  - matching is NOT one-to-one: every pair with IoU > 0.5 is a TP, a
+    prediction/GT is FP/FN only if it has no such pair
+
 Usage:
   python src/evaluate.py --pred submissions/submission_x.csv        # val split
   python src/evaluate.py --gt-vs-gt                                 # sanity: PQ == 1
@@ -156,9 +164,33 @@ def evaluate(gt: Dict[str, List[dict]], pred: Dict[str, List[dict]], verbose: bo
     return res
 
 
+def evaluate_official(gt_entries: Dict[str, List[dict]], pred: Dict[str, List[dict]]) -> Dict:
+    """
+    Official Kaggle PQ. `gt_entries`: "<annotator>-<stem>" -> RLE dicts
+    (annotations.load_gt_entries); `pred`: stem -> RLE dicts.
+    """
+    tp_iou, n_fp, n_fn, n_entries = [], 0, 0, 0
+    for entry_id, gt in gt_entries.items():
+        if not gt:  # the official GT CSV has no rows for empty entries
+            continue
+        n_entries += 1
+        pr = pred.get(entry_id.split("-", 1)[1], [])
+        if not pr:
+            n_fn += len(gt)
+            continue
+        iou = np.asarray(coco_mask.iou(pr, gt, [0] * len(gt)), dtype=float)  # (P, G)
+        hit = iou > MATCH_IOU
+        tp_iou.extend(iou[hit].tolist())
+        n_fp += int((hit.sum(axis=1) == 0).sum())
+        n_fn += int((hit.sum(axis=0) == 0).sum())
+    res = _pq(tp_iou, n_fp, n_fn)
+    res["num_entries"] = n_entries
+    return res
+
+
 def print_report(res: Dict):
     print("\n" + "=" * 50)
-    print("  Validation Results (pooled PQ, IoU > 0.5)")
+    print("  Validation Results (pooled PQ, IoU > 0.5; official_* = Kaggle metric)")
     print("=" * 50)
     for k, v in res.items():
         print(f"  {k:>22s}: {v:.4f}" if isinstance(v, float) else f"  {k:>22s}: {v}")
@@ -180,8 +212,23 @@ def load_submission_rles(csv_path: Path) -> Dict[str, List[dict]]:
     return dict(preds)
 
 
+def evaluate_split(stems: List[str], pred: Dict[str, List[dict]], verbose: bool = True) -> Dict:
+    """
+    Score predictions on file stems both ways: diagnostics vs ONE annotator set
+    (`evaluate`) plus the official multi-annotator PQ as `official_*` keys.
+    Model selection uses `official_PQ`.
+    """
+    from annotations import load_gt_entries, load_gt_rles
+
+    res = evaluate(load_gt_rles(stems), pred, verbose=False)
+    off = evaluate_official(load_gt_entries(stems), pred)
+    res = {**{f"official_{k}": v for k, v in off.items()}, **res}
+    if verbose:
+        print_report(res)
+    return res
+
+
 def main():
-    from annotations import load_gt_rles
     from split import load_split
 
     parser = argparse.ArgumentParser(description="Evaluate a submission-format CSV locally")
@@ -193,14 +240,13 @@ def main():
 
     train_ids, val_ids = load_split()
     stems = {"val": val_ids, "train": train_ids, "all": train_ids + val_ids}[args.split]
-    gt = load_gt_rles(stems)
     if args.gt_vs_gt:
-        pred = gt
+        from annotations import load_gt_rles
+        res = evaluate(load_gt_rles(stems), load_gt_rles(stems))
     elif args.pred:
-        pred = load_submission_rles(args.pred)
+        res = evaluate_split(stems, load_submission_rles(args.pred))
     else:
         parser.error("pass --pred or --gt-vs-gt")
-    res = evaluate(gt, pred)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(res, indent=1))

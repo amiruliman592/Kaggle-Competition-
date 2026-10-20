@@ -23,6 +23,7 @@
 11. [Phase 8 — Deliverables, 4-Page Report & Open-Source Release (Nov 7–14)](#phase-8--deliverables-4-page-report--open-source-release-nov-714)
 12. [Risk Management & Contingency Matrix](#12-risk-management--contingency-matrix)
 13. [Team Role Assignments & Weekly Checkpoints](#13-team-role-assignments--weekly-checkpoints)
+14. [Appendix — Lecture-Note Method Review (MCTA 4364)](#14-appendix--lecture-note-method-review-mcta-4364)
 
 ---
 
@@ -120,12 +121,16 @@ gantt
 
 ### Quality Gate & Exit Criteria
 - [x] `splits/val_ids.json` generated and permanently frozen. *(566 train / 141 val, 27-day time blocks)*
-- [ ] Local evaluator matches official Kaggle notebook output within $\pm 0.001$ PQ.
+- [x] Local evaluator matches official Kaggle notebook output within $\pm 0.001$ PQ. *(Oct 20: both 0.3296 on 62 val files, annotator 1 as GT vs annotator 2 as pred; `src/make_metric_check_csvs.py`)*
 
 ---
 
 ## Phase 2 — Baseline Model & Kaggle Verification (Oct 21–25)
 **Objective:** Establish a working anchor-based baseline model and verify the complete Kaggle submission lifecycle.
+
+> **Decision (Oct 20):** Baseline model = **Detectron2 Mask R-CNN R50-FPN** (already proven by the Colab dry run). YOLOv8-seg deferred to a later comparison run.
+>
+> **Metric (Oct 20):** val PQ is measured with the official Kaggle rules (every annotator set scored, non-unique matching; `evaluate_official`, see `SelfEvaluationResult/FINDINGS.md`). Runner: `notebooks/colab_phase2_baseline.ipynb`.
 
 ### Technical Workstreams
 1. **Detectron2 Mask R-CNN Customization:**
@@ -146,10 +151,14 @@ gantt
 4. **First Kaggle Submission:**
    - Upload `submissions/submission_baseline_r50.csv`.
    - Record Baseline Validation PQ ($B_0$) and compare against Public Leaderboard PQ.
+5. **Classical Baseline (Lecture W03–W04, W14 §3) — timeboxed 0.5 day, CPU only, optional:**
+   - Disk mask → median-blur background subtraction (dark features) → adaptive threshold → morphological closing → connected components → `MIN_AREA` filter.
+   - Purpose: a "classical vs learned" row for the report/ablation table, as the course workflow expects. Do **not** tune it beyond a few thresholds; expected PQ is low.
 
 ### Quality Gate & Exit Criteria
 - [ ] Baseline model trained and evaluated on the frozen validation set.
 - [ ] First valid submission scored on Kaggle Leaderboard with 0 errors.
+- [ ] *(Optional)* Classical baseline PQ logged in `experiments/log.csv`.
 
 ---
 
@@ -160,9 +169,10 @@ gantt
 1. **Solar Preprocessing Pipeline (`src/preprocess.py`):**
    - **Solar Disk Isolation:** Use Hough Circle Transform / Otsu thresholding to compute the solar center $(x_0, y_0)$ and radius $R$. Zero out all non-solar background corners to eliminate instrument/corner artifacts.
    - **CLAHE Enhancement:** Apply Contrast-Limited Adaptive Histogram Equalization (`clipLimit=2.0`, `tileGridSize=(8, 8)`) to bring out thin barbs and faint spines.
-   - **Limb Darkening Radial Normalization:** Correct for the natural darkening of the solar disk towards the edges.
+   - **Limb Darkening Radial Normalization (conditional):** Correct for the natural darkening of the solar disk towards the edges. *Check first:* the EDA sample images already look radially flat (GONG products are typically limb-corrected). Plot the median radial intensity profile of ~20 train images; implement only if it drops > ~10% near the limb.
 2. **Domain Post-Processing Pipeline (`src/postprocess.py`):**
-   - **Small Instance Pruning (`MIN_AREA`):** Discard predicted instances with area $< 30-50\text{ px}^2$. Because false positives degrade RQ, pruning low-confidence noise yields substantial metric gains.
+   - **Small Instance Pruning (`MIN_AREA`):** Discard predicted instances with area $< 30-50\text{ px}^2$. Because false positives degrade RQ, pruning low-confidence noise yields substantial metric gains. *Data note:* the smallest selected GT instance is 60 px² (0 below 50), so sweeping `MIN_AREA` in {50, 60, 80, 100} is safe.
+   - **Shape-Descriptor Filter (Lecture W04B §5) — ablation toggle, off by default:** Compute elongation (min-area-rect aspect ratio) and solidity per predicted mask. Drop only predictions that are **small AND compact AND very dark** (sunspot-like). Do not use a global elongation cut: small "Unidentifiable" GT filaments are often compact blobs and would be lost as FN. Keep it only if val PQ improves.
    - **Disk Perimeter Filtering:** Drop any predicted mask whose centroid lies outside the detected solar radius ($r > 0.98 \times R$).
    - **Morphological Spine Healing:** Apply morphological closing (`cv2.morphologyEx` with an elliptical kernel $3 \times 3$ or $5 \times 5$) along predicted masks to bridge narrow breaks.
    - **Pixel Conflict Resolution:** For overlapping masks, assign contested pixels to the instance with the higher confidence score.
@@ -208,10 +218,13 @@ gantt
    - Benefits: Replaces box proposals with object queries that directly attend to high-resolution feature maps ($1/4$ scale), capturing thin barbs far better than anchor boxes.
    - Training Config: 100 queries, AdamW optimizer (LR $1 \times 10^{-4}$, backbone LR $1 \times 10^{-5}$, weight decay 0.05), trained on tiles.
 2. **SAM 2 (Segment Anything 2) Exploration (Parallel Track, 2 Days Max):**
-   - Run SAM 2 in zero-shot automatic mask generator mode on the validation set.
-   - Filter predictions using absorption contrast (filaments are darker than background).
-   - Evaluate zero-shot PQ to establish an exploratory benchmark.
-3. **Go / No-Go Decision Gate (Wednesday, Nov 4):**
+   - **Primary: box-prompt mask refinement (Lecture W11B §2 — "boxes are the most reliable prompt; detector + SAM").** Feed the best detector's boxes to SAM 2 and replace (or average with) its masks. No training needed; evaluate on val. Keep only if SQ rises without RQ dropping. Caveat: GT outlines are coarse (inter-annotator SQ ≈ 0.63), so sharper-than-label masks may not help.
+   - *Secondary (only if time remains):* zero-shot automatic mask generator, filtered by absorption contrast (filaments are darker than background). Expect many FPs, since AMG segments everything.
+3. **U-Net + Connected Components Fallback (Lecture W11A §3–4) — only if Mask2Former is No-Go or slips past Nov 2:**
+   - `segmentation_models_pytorch` U-Net (ResNet-34 encoder), CE + Dice loss (handles thin-structure class imbalance), trained on 512–1024 tiles. Much cheaper and more stable to set up than Mask2Former.
+   - Instances = connected components of the probability map after closing + `MIN_AREA`. Works because filaments are usually well separated on the disk; main risk is fragmentation of faint spines (mitigated by Phase 6 merging).
+   - Different error profile from Mask R-CNN → useful ensemble member in Phase 6.
+4. **Go / No-Go Decision Gate (Wednesday, Nov 4):**
    - Compare Mask2Former against the optimized Mask R-CNN on the frozen validation set.
    - If $\text{PQ}_{\text{M2F}} > \text{PQ}_{\text{MaskRCNN}}$: Promote Mask2Former to the primary architecture.
    - If competitive within $0.015$: Retain both models for ensembling.
@@ -231,7 +244,8 @@ gantt
      1. For each pair of predicted masks, compute the shortest Euclidean distance between their outer contours.
      2. Extract the principal orientation axis of each mask using Principal Component Analysis (PCA).
      3. If distance $< d_{\text{thresh}}$ (e.g. 15 px) **and** orientation angle difference $\Delta \theta < 20^\circ$, connect and merge the segments along their shared axis.
-2. **Anti-Merging Constriction Separation:**
+2. **Anti-Merging Constriction Separation (validation-gated):**
+   - *Only implement if val shows a meaningful M→1 count.* Filaments naturally have narrow bottlenecks along the spine, so watershed (Lecture W04B §3) can split true single filaments. That creates fragmentation (1→N), which costs more than a merge. Restrict it to the largest predictions and test it as an ablation toggle.
    - For oversized predictions that appear to bridge two separate filaments:
      1. Compute distance transform map $\to$ identify multiple interior maxima.
      2. Apply watershed segmentation along narrow bottlenecks to restore physically distinct filaments.
@@ -261,9 +275,12 @@ gantt
      1. Per-image inference latency (seconds).
      2. Peak GPU memory footprint during $2048 \times 2048$ inference.
      3. Total throughput across the 180 test images (for inclusion in the technical report).
-4. **Clean-Room Reproduction Check:**
+   - Latency: report median and p95 after warm-up, including pre- and post-processing (Lecture W14 §4 checklist).
+4. **Robustness Breakdown (Lecture W14 §4) — near-zero cost:**
+   - Report val PQ per GONG station (B, C, L, M, T, U; station = filename char 15) and per size bin. This shows generalisation across instruments and seeing conditions.
+5. **Clean-Room Reproduction Check:**
    - Verify that running the pipeline from a fresh git clone reproduces the exact submission CSV file.
-5. **Strict Code Freeze (Nov 11, 23:59):**
+6. **Strict Code Freeze (Nov 11, 23:59):**
    - No code or hyperparameter modifications permitted after this milestone; only documentation and report writing.
 
 ### Quality Gate & Exit Criteria
@@ -284,7 +301,9 @@ gantt
    - *Visual Figures:*
      - End-to-end pipeline diagram.
      - Qualitative morphology comparison: Original vs Baseline vs Final vs Ground Truth.
+     - **Error gallery (Lecture W14 §3.3):** typical failures grouped as fragmentation, over-merge, faint/missed, limb, false positive (e.g. sunspot/plage), with a one-line explanation each.
      - Dice and IoU histogram distribution charts.
+   - Use the W14 evaluation checklist as a final review of the report (baseline row, split by situation, test used once, latency, robustness, uncertainty).
 2. **Reproducible Pipeline Notebook (`notebooks/full_pipeline.ipynb`):**
    - Self-contained, fully runnable notebook showing:
      1. Environment setup and dataset registration.
@@ -333,3 +352,26 @@ gantt
 - **Week 2 (Sun, Nov 1):** Preprocessing/post-processing ablation table, tiled inference pipeline operational.
 - **Week 3 (Sun, Nov 8):** Mask2Former evaluation resolved, continuity algorithms implemented, report outline drafted.
 - **Week 4 (Sat, Nov 14):** Code frozen, final submissions locked, 4-page report complete, **Google Form submitted**.
+
+---
+
+## 14. Appendix — Lecture-Note Method Review (MCTA 4364)
+
+Each method from the course notes was judged on expected PQ gain vs. implementation/compute cost. Verdicts are reasoned from the EDA, not yet measured; each "add" item is an ablation toggle that must earn its place on val PQ.
+
+| Method (lecture) | Verdict | Where | Reason |
+|:---|:---:|:---|:---|
+| CLAHE, Hough disk mask, morph closing, `MIN_AREA` (W03–W04) | ✅ Already planned | Phase 3 | Cheap, standard, directly targets FP/fragmentation |
+| Classical baseline (W04, W14) | ✅ Add (timeboxed) | Phase 2 | ~0.5 day CPU; gives report a baseline row; no PQ gain itself |
+| Flat-field / limb-darkening (W03A) | ⚠️ Conditional | Phase 3 | Images look already limb-corrected; check radial profile first |
+| Shape-descriptor filter (W04B) | ⚠️ Toggle | Phase 3 | Free to compute; global cut would delete compact small GT |
+| Watershed split (W04B) | ⚠️ Gated | Phase 6 | Risk of fragmenting true filaments (1→N costs more than merges) |
+| SAM box-prompt refinement (W11B) | ✅ Replace AMG | Phase 5 | Same 2-day slot; box prompts far better than automatic masks |
+| U-Net + CE/Dice + CC (W11A) | ✅ Fallback | Phase 5 | Cheaper than Mask2Former; diverse ensemble member |
+| Per-station robustness, latency p50/p95 (W14) | ✅ Add | Phase 7 | Near-zero cost, high report value |
+| Error gallery, W14 checklist (W14) | ✅ Add | Phase 8 | Near-zero cost, high report value |
+| Augmentation / transfer / LR schedules (W06B) | ✅ Already planned | Phase 2 | Flips + brightness/contrast; no colour jitter (monochrome) |
+| Label noise & leakage (W09A) | ✅ Already done | Phase 1 | Supports annotator policy and the 27-day split in the report |
+| Synthetic / copy-paste data (W13B) | ❌ Skip | — | Real data are sufficient; high effort, uncertain gain |
+| CLIP / VLM auto-labelling (W13A) | ❌ Skip | — | Labels already exist; zero-shot is weak on solar imagery |
+| Optics, calibration, stitching, motion, 3D (W01–W02, W05B, W10, W12) | ❌ N/A | — | Not relevant to single-image segmentation |

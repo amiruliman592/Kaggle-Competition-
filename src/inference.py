@@ -63,28 +63,34 @@ def postprocess_mask(mask: np.ndarray) -> np.ndarray:
     return mask
 
 
-def build_predictor(model_weights: Optional[str] = None) -> DefaultPredictor:
+def build_predictor(model_weights: Optional[str] = None,
+                    score_threshold: Optional[float] = None) -> DefaultPredictor:
     """
     Build a Detectron2 predictor for inference.
 
     Args:
         model_weights: Path to model weights file.
-                       Defaults to output/detectron2/model_final.pth
+                       Defaults to output/detectron2/baseline_r50/model_final.pth
+        score_threshold: Override CFG.infer.SCORE_THRESHOLD (the val sweep
+                         predicts at its lowest threshold and filters later)
     """
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(CFG.model.MODEL_CONFIG))
 
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = CFG.model.NUM_CLASSES
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = CFG.infer.SCORE_THRESHOLD
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = (
+        CFG.infer.SCORE_THRESHOLD if score_threshold is None else score_threshold)
     cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = CFG.infer.NMS_THRESHOLD
+    # Must match training, or the RPN head weights do not fit
     cfg.MODEL.ANCHOR_GENERATOR.SIZES = CFG.model.ANCHOR_SIZES
+    cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = CFG.model.ASPECT_RATIOS
     cfg.INPUT.MIN_SIZE_TEST = CFG.infer.INFER_RESIZE
     cfg.INPUT.MAX_SIZE_TEST = CFG.infer.INFER_RESIZE
     if not torch.cuda.is_available():
         cfg.MODEL.DEVICE = "cpu"
 
     if model_weights is None:
-        model_weights = str(CFG.paths.OUTPUT_DIR / "detectron2" / "model_final.pth")
+        model_weights = str(CFG.paths.OUTPUT_DIR / "detectron2" / "baseline_r50" / "model_final.pth")
     cfg.MODEL.WEIGHTS = model_weights
 
     print(f"[Inference] Loading model from: {model_weights}")
@@ -97,6 +103,7 @@ def predict_images(predictor, img_paths: List[Path]) -> Tuple[Dict[str, List[dic
 
     Returns:
         (Dict mapping image stem -> list of RLE dicts highest score first, seconds per image)
+        Each RLE dict also carries its confidence under "score" (used by the val sweep).
     """
     print(f"[Inference] Processing {len(img_paths)} images...")
     predictions = {}
@@ -110,11 +117,14 @@ def predict_images(predictor, img_paths: List[Path]) -> Tuple[Dict[str, List[dic
         rles = []
         if len(instances) > 0:
             pred_masks = instances.pred_masks.numpy()  # (N, H, W) boolean
-            for idx in np.argsort(-instances.scores.numpy()):
+            scores = instances.scores.numpy()
+            for idx in np.argsort(-scores):
                 mask = resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE)
                 mask = postprocess_mask(mask)
                 if mask.any():
-                    rles.append(encode_mask(mask))
+                    rle = encode_mask(mask)
+                    rle["score"] = float(scores[idx])
+                    rles.append(rle)
         predictions[img_path.stem] = rles
 
     sec_per_img = (time.time() - start) / max(len(img_paths), 1)

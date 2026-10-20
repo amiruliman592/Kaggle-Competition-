@@ -23,6 +23,21 @@ filament-segmentation-2026/MAGFiLO_1.0_Kaggle_2026/
   - NEVER list or read files in `train_images/` or `test_images/`. Treat image files as opaque paths loaded only by Python `DataLoader`.
   - NEVER print or read the raw `MAGFiLO_1.0_Annotations_kaggle2026_train.json` (48 MB) into context; parse it only via Python scripts.
 
+## 2b. Check Past Results Before Running Anything (STRICT — saves time and tokens)
+Read these first; never re-run work they already record unless the code it depends on has changed:
+- `COMPLETED_TASKS.md` — every finished task by phase (Phase 0, 1 and metric alignment are DONE).
+- `SelfEvaluationResult/FINDINGS.md` — official Kaggle metric analysis; `official_metric.py` is the organisers' code (verbatim).
+- `HANDOVER.md` — current state, decisions, next steps, gotchas.
+- `experiments/log.csv` — every training/validation run and its scores.
+- `output/eda/eda_summary.json` — EDA numbers (do not recompute).
+
+Rules:
+- Do NOT re-run past phases (EDA, split, dry run, Kaggle metric check). The frozen split and metric values are final.
+- Run only the tests covering code you changed (e.g. `pytest tests/test_official_metric.py`); the full suite only before a commit.
+- Known values to reuse, not recompute: inter-annotator PQ 0.336; metric check 0.3296 (Kaggle = ours); a copy of one annotator scores 0.7394 official PQ on val.
+- After any new run, record its result in `COMPLETED_TASKS.md` (and `experiments/log.csv` / `FINDINGS.md` where relevant).
+- **Model selection uses `official_PQ`** (all annotator sets, Kaggle matching), not the single-annotator `PQ`.
+
 ## 3. Evaluation Metric: Panoptic Quality (PQ)
 - $\text{PQ} = \text{SQ} \times \text{RQ}$
   - $\text{SQ} = \frac{\sum_{(p, g) \in \text{TP}} \text{IoU}(p, g)}{|\text{TP}|}$ (mean IoU of true positives where $\text{IoU} > 0.5$)

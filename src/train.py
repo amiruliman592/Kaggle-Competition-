@@ -63,13 +63,15 @@ class FilamentTrainer(DefaultTrainer):
         return build_detection_train_loader(cfg, mapper=mapper)
 
 
-def build_detectron2_config(max_iter: Optional[int] = None, eval_period: Optional[int] = None) -> "CfgNode":
+def build_detectron2_config(max_iter: Optional[int] = None, eval_period: Optional[int] = None,
+                            name: str = "baseline_r50") -> "CfgNode":
     """
     Build Detectron2 config for Mask R-CNN.
 
     Args:
         max_iter: Override CFG.train.MAX_ITER (e.g. 5 for a dry run)
         eval_period: Override CFG.train.EVAL_PERIOD (0 disables periodic eval)
+        name: Experiment name; checkpoints go to OUTPUT_DIR/detectron2/<name>
     Returns a fully configured CfgNode ready for training.
     """
     max_iter = max_iter or CFG.train.MAX_ITER
@@ -95,6 +97,7 @@ def build_detectron2_config(max_iter: Optional[int] = None, eval_period: Optiona
 
     # ── Anchors (tuned for small filaments) ────────────────────────────
     cfg.MODEL.ANCHOR_GENERATOR.SIZES = CFG.model.ANCHOR_SIZES
+    cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = CFG.model.ASPECT_RATIOS
 
     # ── Training schedule ──────────────────────────────────────────────
     cfg.SOLVER.IMS_PER_BATCH = CFG.train.BATCH_SIZE
@@ -116,7 +119,7 @@ def build_detectron2_config(max_iter: Optional[int] = None, eval_period: Optiona
     cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = CFG.infer.NMS_THRESHOLD
 
     # ── Output ─────────────────────────────────────────────────────────
-    cfg.OUTPUT_DIR = str(CFG.paths.OUTPUT_DIR / "detectron2")
+    cfg.OUTPUT_DIR = str(checkpoint_dir(name))
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
     # ── Evaluation ─────────────────────────────────────────────────────
@@ -125,7 +128,12 @@ def build_detectron2_config(max_iter: Optional[int] = None, eval_period: Optiona
     return cfg
 
 
-def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_period: Optional[int] = None):
+def checkpoint_dir(name: str):
+    return CFG.paths.OUTPUT_DIR / "detectron2" / name
+
+
+def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_period: Optional[int] = None,
+          name: str = "baseline_r50", resume: bool = True):
     """
     Run the full training pipeline.
 
@@ -133,6 +141,9 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
         max_iter: Override number of iterations (dry run: 5)
         limit: Use only the first N images of each split (dry run)
         eval_period: Override periodic evaluation (0 = off)
+        name: Experiment name (checkpoint folder)
+        resume: Continue from the last checkpoint in the folder if one exists
+                (Colab sessions die); otherwise start from COCO weights
     """
     print("=" * 60)
     print("  Solar Filament Segmentation — Mask R-CNN Training")
@@ -150,7 +161,7 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
     register_datasets(limit=limit)
 
     # Build config
-    cfg = build_detectron2_config(max_iter=max_iter, eval_period=eval_period)
+    cfg = build_detectron2_config(max_iter=max_iter, eval_period=eval_period, name=name)
     if not torch.cuda.is_available():
         cfg.MODEL.DEVICE = "cpu"
     print(f"\n[Train] Config:")
@@ -159,11 +170,12 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
     print(f"  Batch size: {CFG.train.BATCH_SIZE}")
     print(f"  LR:         {CFG.train.BASE_LR}")
     print(f"  Max iter:   {cfg.SOLVER.MAX_ITER}")
+    print(f"  Anchors:    {CFG.model.ANCHOR_SIZES} x {CFG.model.ASPECT_RATIOS}")
     print(f"  Output:     {cfg.OUTPUT_DIR}")
 
     # Train
     trainer = FilamentTrainer(cfg)
-    trainer.resume_or_load(resume=False)
+    trainer.resume_or_load(resume=resume)
     trainer.train()
 
     print(f"\n[Train] Done! Model saved to {cfg.OUTPUT_DIR}")

@@ -11,7 +11,7 @@ Written 2026-10-19 at the end of session 1 (Phase 0 + 1 "foundation"). Read this
 ## 2. Current state (updated 2026-10-19, after Colab dry run)
 - **Phase 0: DONE.** Colab T4 dry run passed end to end (exp001 in `experiments/log.csv`: 5 iters, PQ 0, Dice 0.0036, 1.67 s/img — values meaningless, plumbing proven). Detectron2 built and imported on Colab. `requirements-lock.txt` saved from that run (torch 2.11+cu130, Python 3.13, Detectron2 commit `1e3e13b`).
 - **Phase 1: done.** The one open gate (local PQ vs the organisers' Kaggle `self-evaluation-notebook`, ±0.001) was **moved into Phase 2 by the user** — it is Phase 2 step 2A below. Still unverified.
-- **Phase 2: NOT started. The user said: do not execute Phase 2 until they ask.**
+- **Phase 2: set up, NOT executed** (2026-10-20). Model decided (Mask R-CNN), metric aligned (2A done), official-metric mode added, training notebook written. The user runs it on Colab when they say so. See §7 and `COMPLETED_TASKS.md`.
 - Tests: 14/14 locally. On Colab 13/14 passed; the failure was `test_frozen_split_is_reproducible` (sklearn 1.6.1 on Colab vs 1.8.0 locally produces different folds). Replaced by `test_regenerated_split_is_valid`. The frozen file is the source of truth — never regenerate it.
 - EDA on Colab matches local numbers.
 - Commits are local only on `Dev` (user asked to commit locally first; push not yet requested). The user ran the notebook from a clone, so the remote apparently had the code — check `git status`/`git log origin/Dev` before assuming. Remote `origin` = github.com/amiruliman592/Kaggle-Competition-.
@@ -59,7 +59,7 @@ Bugs fixed in old code: `total_mem` (should be `total_memory`) crash; inference 
 - Windows Python is 3.13 locally; Colab will differ.
 
 ## 6. Decisions made / open
-- Baseline model: Detectron2 Mask R-CNN R50-FPN with anchors 8–128 (per plan). The user knows YOLOv8-seg and was asked whether to prefer it; **unanswered** (default stays Mask R-CNN).
+- Baseline model: Detectron2 Mask R-CNN R50-FPN with anchors 8–128 (per plan). **Decided 2026-10-20 by the user: Mask R-CNN first; YOLOv8-seg later as a comparison.**
 - `ANNOTATOR_POLICY="first"`; alternatives ("most", or training on all sets) to compare in Phase 2.
 - The user explicitly wants Claude to commit/push only on request; no attribution decisions pending beyond the standard co-author trailer.
 - User is new to segmentation; explanations so far have been plain-language (exam analogy: train = textbook, 141 val = practice test, 180 test = real exam scored by Kaggle).
@@ -68,13 +68,14 @@ Bugs fixed in old code: `total_mem` (should be `total_memory`) crash; inference 
 1. ~~Commit~~ (done, local). Push `Dev` when the user asks.
 2. ~~Colab dry run~~ (done, exp001). ~~Lock file~~ (saved). Phase 0 and the split gate are ticked in `Project_Phase_Plan.md`.
 3. **Phase 2 — Baseline model, metric alignment & first Kaggle submission (WAITING for user go-ahead; do not start on your own).**
-   - **2-0 Decide model** with the user: Mask R-CNN R50-FPN (default, already proven by the dry run) vs YOLOv8-seg (user knows it). Recommendation given: Mask R-CNN first, YOLOv8-seg later as a comparison.
-   - **2A Kaggle self-check / metric alignment (carried over from Phase 1).**
+   - ~~**2-0 Decide model**~~ — **DONE 2026-10-20:** Mask R-CNN R50-FPN first, YOLOv8-seg later as a comparison.
+   - **2A — DONE 2026-10-20 (single-annotator case).** Official notebook PQ 0.3296 = ours 0.3296 on `output/metric_check/{gt,pred}.csv` (from `src/make_metric_check_csvs.py`; 62 val files, set 0 = GT, set 1 = pred). Findings: official GT ids are `<annotator>-<stem>_<i>` (COCO entry id), code splits on the first `-`; predictions use the plain stem. **Official code + analysis: see [`SelfEvaluationResult/FINDINGS.md`](SelfEvaluationResult/FINDINGS.md)** (verbatim code in `SelfEvaluationResult/official_metric.py`). Key: each annotator set is scored separately and pooled (a perfect copy of set 0 scores only 0.7394 officially on val), and matching is not one-to-one (duplicating predictions raises PQ 0.3296→0.3729 — loophole, not exploited). Next: `--official` mode in `evaluate.py`. Original plan below kept for reference.
      1. User opens https://www.kaggle.com/code/azimahmadzadeh/self-evaluation-notebook → Copy & Edit, runs it unchanged, records which GT/prediction files it reads and the PQ/SQ/RQ/Dice it prints.
      2. User pastes its PQ/matching cell(s) + printed numbers to Claude.
      3. Claude compares against `src/evaluate.py`: pooled vs per-image PQ, `IoU > 0.5` vs `>= 0.5`, matching of overlapping predictions, which Dice it uses (torchmetrics DiceScore settings), how it treats multi-annotator GT. Adjust `evaluate.py` + tests until the same inputs give the same PQ within ±0.001.
      4. If possible, run the official notebook on our own validation predictions (CSV from 2C) and compare numbers directly. Gate: tick the ±0.001 checkbox (Phase 1 section) in `Project_Phase_Plan.md`.
      - 2A can run in parallel with 2B; it must be done before trusting val PQ for model selection.
+   - **2B/2C/2D SET UP 2026-10-20, NOT RUN (user: "don't execute yet").** Code + `notebooks/colab_phase2_baseline.ipynb` are ready; Colab clones `Dev` from GitHub, so the changes must be **committed and pushed** before the user runs it. Notebook flow: mount Drive (`MyDrive/solar_filament/output` via `SOLAR_OUTPUT_DIR`) → clone → install → tests (21) → `--step train` (resumable) → loss plot → `--step val` → `--step sweep` → val + infer with the best sweep cell → downloads. Checkpoints in `output/detectron2/<name>/`. `val_pq` in the log is now the **official** PQ; first-annotator PQ goes in `notes`. Untested on GPU: aspect-ratio RPN re-init (expect a "skip loading, shape mismatch" warning), resume, sweep. Original plan text below.
    - **2B Real baseline training on Colab:** Claude writes a Phase 2 Colab notebook (e.g. `notebooks/colab_phase2_baseline.ipynb`). Per plan: R50-FPN, anchors 8–128, aspect ratios `[0.2, 0.5, 1.0, 2.0, 5.0]` (not yet in config), 1024 input, LR 0.0025, batch 2, 5–7k iters, flips + brightness/contrast. Save checkpoints to Google Drive (Colab sessions die). Untested so far: periodic COCOEvaluator with string `image_id`s — consider setting `EVAL_PERIOD=0` and using our PQ instead.
    - **2C Validation:** `python run_pipeline.py --step val --weights <ckpt> --name baseline_r50` → val PQ/SQ/RQ, frag/merge, size-bin PQ; logged to `experiments/log.csv`. Consider a quick sweep of `SCORE_THRESHOLD` / `MIN_AREA` on val.
    - **2D Submission:** `python run_pipeline.py --step infer --weights <ckpt> --name baseline_r50` → `submissions/submission_baseline_r50.csv`, passes `validate_submission.py` (all 180 test images), user uploads to Kaggle, records public LB score in `lb_score` of the log row.
@@ -84,3 +85,24 @@ Bugs fixed in old code: `total_mem` (should be `total_memory`) crash; inference 
 ## 8. Standing rules (from CLAUDE.md)
 - Never list/read files in `train_images/` or `test_images/`; never print the 48 MB annotations JSON (parse only in Python).
 - Seeds 42; submissions go to `submissions/submission_<name>.csv`; validate before upload.
+
+---
+
+## 9. Update 2026-10-20 — Lecture-notes review (MCTA 4364 Machine Vision)
+No code changed and Phase 2 is still **not started**. Only `Project_Phase_Plan.md` and this file were edited.
+
+**Context:** the user added `lecturenotesMachineVision/` (course notes W00–W14, 28 notebooks; `notebooks/` inside it duplicates the `W*` folders). The competition was originally this subject's final project. All weeks were reviewed for relevance. Verdicts are reasoned from the EDA summary and sample images, **not measured** — the user declined a data-analysis run to save quota. Each added method is an ablation toggle that must earn its place on frozen-val PQ.
+
+**Changes to `Project_Phase_Plan.md`:**
+- **Phase 2:** added optional timeboxed (0.5 day, CPU) classical baseline (disk mask → background subtraction → adaptive threshold → closing → connected components → `MIN_AREA`) as a report comparison row; new optional exit-gate checkbox.
+- **Phase 3:** limb-darkening normalisation made *conditional* (sample images already look radially flat; check a radial intensity profile first). Added shape-descriptor filter (elongation/solidity), off by default, only drop small + compact + very dark blobs (a global elongation cut would delete compact "Unidentifiable" GT). Added data note: smallest selected GT is 60 px², so `MIN_AREA` sweep 50–100 is safe.
+- **Phase 5:** SAM 2 track now primarily box-prompt mask refinement of detector boxes (automatic mask generator demoted to secondary). Added U-Net (CE+Dice) + connected-components fallback if Mask2Former is No-Go/late. Go/No-Go item renumbered 3→4.
+- **Phase 6:** watershed constriction splitting marked validation-gated (risk of creating 1→N fragmentation on naturally narrow spines).
+- **Phase 7:** latency reported as median/p95; new per-station (B/C/L/M/T/U) and per-size-bin PQ breakdown; later items renumbered 5–6.
+- **Phase 8:** error gallery (fragmentation, merge, faint, limb, FP) and W14 evaluation checklist added to report figures/review.
+- **New Section 14 (appendix):** verdict table for every lecture method. Skipped: synthetic/copy-paste data (W13B), CLIP/VLM auto-labelling (W13A), optics/calibration/stitching/motion/3D (W01–02, 05B, 10, 12).
+
+**Notes for next session:**
+- Lecture notes also contain the course report/proposal template (W14) usable for the 30% qualitative score.
+- Scratch tooling lives only in the Antigravity artifact dir (notebook text dump, an unrun GT-analysis script `analyze_gt.py` for aspect/solidity/limb-profile/watershed checks). It can be run later to validate the toggles above.
+- Prior-session `Project_Phase_Plan.md` header still says "Current Date: Oct 18"; unchanged.

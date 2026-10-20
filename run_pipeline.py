@@ -5,12 +5,17 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
 
   python run_pipeline.py --step all
   python run_pipeline.py --dry-run          # 5 iterations, few images: smoke test
+  python run_pipeline.py --step train --name baseline_r50      # resumes if a checkpoint exists
+  python run_pipeline.py --step val   --name baseline_r50
+  python run_pipeline.py --step sweep --name baseline_r50      # SCORE_THRESHOLD x MIN_AREA on val
+  python run_pipeline.py --step infer --name baseline_r50 --score-thr 0.6 --min-area 100
 
 Steps:
   1. EDA                       (output/eda/)
   2. Frozen train/val split    (splits/val_ids.json, created once)
-  3. Train Mask R-CNN          (output/detectron2/)
-  4. Val PQ with local metric  (logged to experiments/log.csv)
+  3. Train Mask R-CNN          (output/detectron2/<name>/, resumable)
+  4. Val PQ                    (official Kaggle metric + diagnostics, logged to experiments/log.csv)
+     Sweep (optional)          (output/sweep_<name>.json)
   5. Test inference + CSV      (submissions/submission_<name>.csv, validated)
 """
 
@@ -62,17 +67,16 @@ def ensure_split():
         split_main()
 
 
-def run_training(dry_run: bool):
+def run_training(dry_run: bool, name: str, max_iter=None, resume: bool = True):
     from train import train
     if dry_run:
-        return train(max_iter=5, limit=8, eval_period=0)
-    return train()
+        return train(max_iter=5, limit=8, eval_period=0, name=name, resume=False)
+    return train(max_iter=max_iter, name=name, resume=resume)
 
 
 def run_validation(weights: str, dry_run: bool):
-    """Predict the val split and score it with the local PQ engine."""
-    from annotations import load_gt_rles
-    from evaluate import evaluate
+    """Predict the val split; official Kaggle PQ + single-annotator diagnostics."""
+    from evaluate import evaluate_split
     from inference import build_predictor, predict_images
     from split import load_split
 
@@ -82,9 +86,33 @@ def run_validation(weights: str, dry_run: bool):
     predictor = build_predictor(weights)
     preds, sec_per_img = predict_images(
         predictor, [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids])
-    res = evaluate(load_gt_rles(val_ids), preds)
+    res = evaluate_split(val_ids, preds)
     res["sec_per_img"] = sec_per_img
     return res
+
+
+def run_sweep(weights: str, name: str, dry_run: bool):
+    """Predict val once at the lowest threshold, then grid-search SCORE_THRESHOLD x MIN_AREA."""
+    from inference import build_predictor, predict_images
+    from split import load_split
+    from sweep import print_sweep, sweep
+
+    _, val_ids = load_split()
+    if dry_run:
+        val_ids = val_ids[:4]
+    saved_min_area = CFG.infer.MIN_AREA
+    CFG.infer.MIN_AREA = min(CFG.infer.SWEEP_MIN_AREAS)  # filter later, per grid cell
+    predictor = build_predictor(weights, score_threshold=min(CFG.infer.SWEEP_SCORE_THRESHOLDS))
+    preds, _ = predict_images(predictor, [CFG.paths.TRAIN_IMG_DIR / f"{s}.jpeg" for s in val_ids])
+    CFG.infer.MIN_AREA = saved_min_area
+    rows = sweep(preds, val_ids)
+    print_sweep(rows)
+    out = CFG.paths.OUTPUT_DIR / f"sweep_{name}.json"
+    out.write_text(json.dumps(rows, indent=1))
+    best = rows[0]
+    print(f"\n[Sweep] Best official PQ {best['PQ']:.4f} at --score-thr {best['score_threshold']} "
+          f"--min-area {best['min_area']}  (saved {out})")
+    return rows
 
 
 def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
@@ -113,13 +141,22 @@ def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Solar Filament Segmentation Pipeline")
     parser.add_argument("--step", type=str, default="all",
-                        choices=["eda", "split", "train", "val", "infer", "all"],
+                        choices=["eda", "split", "train", "val", "sweep", "infer", "all"],
                         help="Which step to run (default: all)")
     parser.add_argument("--dry-run", action="store_true",
                         help="5 iterations on 8 train / 4 val / 3 test images")
     parser.add_argument("--name", type=str, default=None, help="Submission/experiment name")
-    parser.add_argument("--weights", type=str, default=None, help="Model weights for val/infer")
+    parser.add_argument("--weights", type=str, default=None,
+                        help="Model weights for val/sweep/infer (default: output/detectron2/<name>/model_final.pth)")
+    parser.add_argument("--max-iter", type=int, default=None, help="Override CFG.train.MAX_ITER")
+    parser.add_argument("--no-resume", action="store_true", help="Ignore existing checkpoints, start from COCO")
+    parser.add_argument("--score-thr", type=float, default=None, help="Override CFG.infer.SCORE_THRESHOLD")
+    parser.add_argument("--min-area", type=int, default=None, help="Override CFG.infer.MIN_AREA")
     args = parser.parse_args()
+    if args.score_thr is not None:
+        CFG.infer.SCORE_THRESHOLD = args.score_thr
+    if args.min_area is not None:
+        CFG.infer.MIN_AREA = args.min_area
 
     from utils.exp_log import log_experiment
     from utils.seed import set_seed
@@ -127,11 +164,11 @@ if __name__ == "__main__":
     set_seed(CFG.SEED)
     CFG.paths.ensure_output_dirs()
     name = args.name or ("dryrun" if args.dry_run else "baseline_r50")
-    weights = args.weights or str(CFG.paths.OUTPUT_DIR / "detectron2" / "model_final.pth")
+    weights = args.weights or str(CFG.paths.OUTPUT_DIR / "detectron2" / name / "model_final.pth")
 
     print("\n[Pipeline] Environment check:")
     ready = check_environment()
-    needs_d2 = args.step in ("train", "val", "infer", "all")
+    needs_d2 = args.step in ("train", "val", "sweep", "infer", "all")
     if needs_d2 and not ready:
         print("[Pipeline] Detectron2 is required for this step.")
         sys.exit(1)
@@ -141,11 +178,13 @@ if __name__ == "__main__":
     if args.step in ("split", "all"):
         ensure_split()
     if args.step in ("train", "all"):
-        run_training(args.dry_run)
+        run_training(args.dry_run, name, args.max_iter, resume=not args.no_resume)
 
     res = None
     if args.step in ("val", "all"):
         res = run_validation(weights, args.dry_run)
+    if args.step == "sweep":
+        run_sweep(weights, name, args.dry_run)
     if args.step in ("infer", "all"):
         out = run_inference_and_submit(weights, name, args.dry_run)
         print(f"\n[Pipeline] Submission file: {out}")
@@ -155,11 +194,13 @@ if __name__ == "__main__":
             model=f"mask_rcnn_r50_{name}", resolution=CFG.infer.INFER_RESIZE,
             preproc="none",
             postproc=f"close{CFG.infer.MORPH_KERNEL if CFG.infer.MORPH_CLOSE else 0}_minarea{CFG.infer.MIN_AREA}",
-            val_pq=res["PQ"], val_sq=res["SQ"], val_rq=res["RQ"], val_dice=res["mean_semantic_Dice"],
+            val_pq=res["official_PQ"], val_sq=res["official_SQ"], val_rq=res["official_RQ"],
+            val_dice=res["mean_semantic_Dice"],
             sec_per_img=round(res["sec_per_img"], 3),
             notes=("DRY RUN 5 iters; " if args.dry_run else "")
-                  + f"frag={res['fragmented_gt_1toN']} merge={res['merged_pred_Mto1']} "
-                    f"imgs={res['num_images']}",
+                  + f"val_pq=official(all annotators); first-annotator PQ={res['PQ']:.4f}; "
+                    f"thr={CFG.infer.SCORE_THRESHOLD} frag={res['fragmented_gt_1toN']} "
+                    f"merge={res['merged_pred_Mto1']} imgs={res['num_images']}",
         )
         (CFG.paths.OUTPUT_DIR / f"val_results_{name}.json").write_text(json.dumps(res, indent=1))
 

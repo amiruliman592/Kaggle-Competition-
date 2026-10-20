@@ -79,17 +79,23 @@ class ModelConfig:
     ANCHOR_SIZES: List[List[int]] = field(
         default_factory=lambda: [[8], [16], [32], [64], [128]]
     )
+    # Elongated filaments; 5 ratios -> the COCO RPN head is re-initialised (shape mismatch)
+    ASPECT_RATIOS: List[List[float]] = field(
+        default_factory=lambda: [[0.2, 0.5, 1.0, 2.0, 5.0]]
+    )
 
 
 @dataclass
 class TrainConfig:
     TRAIN_RESIZE: int = 1024  # Images resized to this for training (saves VRAM)
     BASE_LR: float = 0.0025
-    MAX_ITER: int = 3000  # ~10 epochs over ~566 train images at batch_size=2
+    MAX_ITER: int = 6000  # ~21 epochs over 566 train images at batch_size=2
     BATCH_SIZE: int = 2
     NUM_WORKERS: int = 2
-    EVAL_PERIOD: int = 500  # Evaluate every N iterations (0 = disabled)
-    CHECKPOINT_PERIOD: int = 500
+    # Detectron2's COCOEvaluator is untested with string image_ids and does not
+    # measure the official PQ; validate with run_pipeline.py --step val instead.
+    EVAL_PERIOD: int = 0
+    CHECKPOINT_PERIOD: int = 1000  # Resume point if a Colab session dies
 
 
 @dataclass
@@ -110,6 +116,12 @@ class InferConfig:
     MORPH_CLOSE: bool = True
     MORPH_KERNEL: int = 5
     MIN_AREA: int = 50  # Drop predicted masks smaller than this (px²)
+    # Val sweep (run_pipeline.py --step sweep): predict once at the lowest
+    # threshold, then filter offline. Smallest selected GT is 60 px².
+    SWEEP_SCORE_THRESHOLDS: List[float] = field(
+        default_factory=lambda: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    )
+    SWEEP_MIN_AREAS: List[int] = field(default_factory=lambda: [0, 50, 100, 200, 400])
 
 
 @dataclass
