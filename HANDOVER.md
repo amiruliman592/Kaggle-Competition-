@@ -16,14 +16,15 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
 - Keep helper tools simple and token-cheap (user request).
 
 ## 2. Current state & achievements
-- **Phases 0–3: DONE. Phase 4: both runs done and scored; Kaggle upload pending.**
+- **Phases 0–4: DONE.** Best public LB **0.37** (`x101_2048`, 2026-10-21). Phase 5 not started.
 - **Best model: `x101_2048`** — Mask R-CNN X101-FPN at native 2048, all annotators' labels (exp008):
   **val official PQ 0.4264, Dice 0.6417** (thr 0.6, overlap drop 0.2; PQ 0.426 flat over thr 0.6–0.8).
   Close second `r50_2048` (exp007): PQ 0.4250 (thr 0.7); thr 0.6 gives PQ 0.4231 / Dice 0.6484 (best Dice).
   Checkpoints on Drive `MyDrive/solar_filament/output/detectron2/{x101_2048,r50_2048}/model_final.pth`.
 - Previous best `r50_allann` (1024): val PQ 0.3979, Dice 0.6426, **public LB 0.35** (`submission_r50_allann_pp.csv`).
-- LB history: baseline 0.34 → baseline + post-processing 0.34 → r50_allann **0.35**. Val ≈ LB + 0.04–0.05, and
-  val improvements carried over to LB, so model selection stays on local val.
+- LB history: baseline 0.34 → baseline + post-processing 0.34 → r50_allann 0.35 → r50_2048 0.36 → x101_2048
+  **0.37**. Val ≈ LB + 0.05–0.06, and val improvements carried over to LB (same ranking), so model selection stays
+  on local val.
 - Phase 3 findings (`experiments/ablation_table.md`): overlap removal costs −0.004; new overlap rule
   (`OVERLAP_DROP_FRAC=0.2`) +0.003 PQ / +0.016 Dice; closing kernel, disk filter, min area, thr > 0.8: no effect;
   CLAHE + disk masking (Run A): no PQ gain; all-annotator labels (Run B): +0.008.
@@ -36,16 +37,19 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
 - Tests: 34 pass (`pytest tests`, ~3 min).
 
 ## 2a. Next step
-- **FIRST THING NEXT SESSION (required, before anything else): ask the user for the Kaggle public LB scores of
-  both Phase 4 submissions.** Do not start new work until both are recorded.
-  | File | Kaggle description | Val official PQ / Dice | LB |
-  |---|---|---|---|
-  | `submissions/submission_x101_2048_pp.csv` | `x101_2048: Mask R-CNN X101-FPN, native 2048, ...` | 0.4264 / 0.6417 (exp008) | **pending** |
-  | `submissions/submission_r50_2048_pp.csv` | `r50_2048: Mask R-CNN R50-FPN, native 2048, ...` | 0.4231 / 0.6484 (exp007, thr 0.6) | **pending** |
-  Record each score in `experiments/log.csv` (`lb_score` of exp008 / exp007), `COMPLETED_TASKS.md` (Phase 4) and
-  `experiments/ablation_table.md` (Phase 4 rows), and update §2 above. Expected LB ≈ 0.37–0.38 (val − 0.04–0.05);
-  if the LB does not rise above 0.35, investigate the val–LB gap before Phase 5.
-- Then decide (explain first, wait for "go"): (a) one run with a finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION`
+- Phase 4 LB recorded (2026-10-21): `submission_x101_2048_pp.csv` **0.37** (exp008), `submission_r50_2048_pp.csv`
+  **0.36** (exp007). LB rose above 0.35, so no val–LB investigation is needed before Phase 5.
+- **Phase 5 STARTED 2026-10-21 (user said "go"; aim: higher LB).** Step 1 code + T4 notebook ready
+  (`src/sam_refine.py`, `notebooks/colab_phase5_sam2.ipynb`); results go to `Result Phase 5/`, then
+  `python src/sam_refine.py ablate ...` locally. Next to write: the A100 notebook (Mask2Former + finer mask head).
+- Phase 5 plan (agreed 2026-10-21):
+  1. SAM 2 box refinement of `x101_2048` val boxes — own light notebook on **Colab T4** (no training).
+  2. Mask2Former (HF `transformers`, Swin, COCO-instance pretrained) — separate heavy notebook on **A100**: sanity
+     probe at 2048 (fallback: train on 1024 crops, infer full 2048) → train → dump raw val/test preds.
+  3. Side run in the same A100 notebook: Mask R-CNN finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION` 14 → 28).
+  4. U-Net only if Mask2Former fails by ~Nov 2. Gate Nov 4 (beat 0.4264 → primary; within 0.015 → ensemble).
+  Estimated 50–75 units. Balance 2026-10-21: **156.94 units** (T4 ≈ 1.07 units/h, A100 ≈ 8 units/h).
+- Earlier options (now folded into the plan above): decide (explain first, wait for "go"): (a) one run with a finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION`
   14 → 28; Mask R-CNN draws each mask on a 28×28 grid per box, coarse for long thin filaments) to raise SQ/Dice; or
   (b) go straight to Phase 5 (Mask2Former / SAM 2 box refinement), now starting from the 2048 models.
 - Phase 4 pipeline: `run_pipeline.py --backbone x101 --resolution 2048` (same flags for train/val/dump/infer);
@@ -90,7 +94,10 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
 ## 6. Open questions / TODO
 - Dice settings of the organisers are unpublished; we log `official_Dice_samplewise` (torchmetrics default) and
   report the other variants too (FINDINGS §3c). Revisit if the organisers publish their Dice code.
-- Val–LB gap is steady (~0.04–0.05; overlap removal explained −0.004 of it).
+- Val–LB gap is steady (~0.05–0.06 over 5 uploads; overlap removal explained −0.004 of it). Likely causes: public LB
+  is only ~90 images (noisy, 2 dp); test may be harder or have more multi-annotated images (official PQ pools every
+  annotator set, so disagreement lowers the score); slight optimism from tuning thr on val. Not a scorer bug
+  (scorer = Kaggle code, 0.3296 check).
 - Small filaments (< 200 px²): still 8–10 of 10 missed on val even at 2048 (only 51 in all of train); low priority,
   worth ≤ ~0.005 PQ.
 - Training-label policy settled: "all" (Run B). Consensus labels untested.

@@ -57,5 +57,6 @@ Notes: the gain comes from both size bins (medium +0.03, large +0.04) and from S
 from small filaments, which are still almost all missed (X101 finds 2/10 at thr ≤ 0.6). Large-bin PQ rose, so the
 conditional bigger-anchor run is **not needed**. X101 vs R50 at 2048 is within noise on PQ (+0.0014) but has a wider
 plateau (thr 0.6–0.8 all 0.426) and fewer merges (25 vs 28 at thr 0.6). Phase 3 gate (0.4205) is now passed.
-Submissions (thr 0.6, drop 0.2, pass validator, not yet uploaded): `submission_x101_2048_pp.csv` (1,317 masks),
-`submission_r50_2048_pp.csv` (1,313 masks).
+Submissions (thr 0.6, drop 0.2, pass validator): `submission_x101_2048_pp.csv` (1,317 masks) → **public LB 0.37**
+(best so far); `submission_r50_2048_pp.csv` (1,313 masks) → **public LB 0.36**. LB gain over B: +0.02 (val +0.026–0.029);
+ranking D > C kept on LB. Val − LB gap 0.056 / 0.063 (earlier runs 0.047–0.050; LB shown to 2 dp, ±0.005).
