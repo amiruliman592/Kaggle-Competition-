@@ -97,3 +97,26 @@ only 0.74, so even the gate loses TPs. Matches the plan's caveat: the labels, no
 **Verdict: adopted** — union at thr 0.6: **PQ 0.4366 (+0.010), Dice 0.6505 (+0.009)**, RQ 0.639 → 0.652. Not a
 mask-size effect: dilating masks by 1 / 2 px instead *loses* PQ (x101: 0.4196 / 0.3571; ensemble: 0.4171 / 0.3424).
 Submission `submission_ens_x101_r50_2048_pp.csv` (1,278 masks, 177/180 images, passes validator) → **public LB 0.38** (best; +0.01 over x101 alone, as on val).
+
+## Phase 5 step 2 — Mask2Former and finer mask head (2026-10-21, A100 run, scoring on CPU)
+Raw files in `Result Step 5/Step 2/`. Close 5, min area 50, drop 0.2; official val PQ (Dice in brackets).
+
+| Model alone | thr 0.5 | thr 0.6 | thr 0.7 | thr 0.8 | Frag / merge |
+|---|---|---|---|---|---|
+| x101_2048 (exp008) | 0.4190 | 0.4264 (0.6417) | 0.4263 | – | – |
+| **x101_2048_m28** (56×56 mask head) | 0.4279 | 0.4355 (0.6496) | **0.4385** (0.6408) | 0.4359 | 10 / 32 |
+| m2f_swin_s (Mask2Former) | 0.3676 | 0.3799 | 0.3942 | 0.4020 (0.6597) | 17 / 67 |
+
+| Ensemble (best setting) | PQ | Dice |
+|---|---|---|
+| x101 + r50 (exp010) | 0.4366 | 0.6505 |
+| x101 + r50 + m28 (IoU 0.5 union thr 0.6) | 0.4375 | 0.6508 |
+| x101 + r50 + m2f (IoU 0.3 best thr 0.6) | 0.4256 | 0.6504 |
+| all 4 (IoU 0.5 best thr 0.6) | 0.4318 | 0.6463 |
+| **m28 + r50 (IoU 0.5 union thr 0.6)** | **0.4404** | **0.6501** |
+| m28 + r50 (IoU 0.5 union thr 0.7) | 0.4407 | 0.6353 |
+
+**Verdict:** the finer mask head is a clear gain (+0.012 alone, best single model); m28 + r50 is the new best
+(+0.004 over exp010; thr 0.6 kept for Dice). Mask2Former is weaker alone (−0.024, twice the merges) and lowers
+every ensemble it joins, despite the best Dice. **Public LB: both 0.37** (exp010 x101 + r50 stays best at 0.38): val gains this small do not show on the LB.
+Submissions: `submission_ens_m28_r50_2048_pp.csv` (1,277 masks), `submission_x101_2048_m28_pp.csv` (1,176); both pass the validator.

@@ -72,6 +72,37 @@ gantt
 
 ---
 
+## ⚠️ Revised plan from 2026-10-21 (replaces the Phase 5–7 timeline below)
+
+**Why:** Phases 2–4 gave real, LB-confirmed gains (LB 0.34 → 0.37; native 2048 = +0.03). Phase 5 did not: SAM 2 and
+Mask2Former were rejected, and the two best-val results (m28 alone 0.4385, m28 + r50 0.4404) both scored **LB 0.37**,
+below the x101 + r50 ensemble (0.38). Gains of +0.002–0.01 are smaller than the noise of a 141-image val set and a
+~90-image, 2-decimal public LB. We were tuning on noise. The plan now (1) measures the noise first, (2) picks the
+next lever from an error breakdown instead of guessing, and (3) spends the remaining GPU budget only on changes
+that are expected to be larger than that noise.
+
+**Phase 5 verdict (closed):** finer mask head (m28) kept as the X101 recipe (best single on val, LB equal to x101);
+Mask2Former and SAM 2 dropped; no more new model families.
+
+**Decision rule from now on:** a change is adopted only if it beats the current best by more than the noise
+threshold measured in R1 (paired bootstrap over val images). The LB is a sanity check, not the selector.
+
+| Step | When | What | Cost |
+|---|---|---|---|
+| **R1 Noise check** | Oct 22 | Paired bootstrap over the 141 val images: x101+r50 vs m28 vs m28+r50 (how often is the "better" one really better?), plus simulated ~90-image LB subsets → minimum gain that is real on val and on the LB. | CPU, 0 units |
+| **R2 Error breakdown** | Oct 22 | For every missed GT (FN) and every FP of the best model: was it (a) predicted with IoU 0.3–0.5 (near miss: outline), (b) predicted but below the score threshold (confidence), (c) never predicted (recall); is the FP a filament drawn by another annotator? Per size bin and per GONG station. Picks the lever for R3/R4. | CPU, 0 units |
+| **R3 TTA** | Oct 23–25 | Inference-only A100 session: m28 + r50 checkpoints on val + test, original + h-flip + v-flip (+ both), fused with `src/ensemble.py`. Scored on val with the R1 rule. Helps case (b). | ~1.5 h A100, ~12 units |
+| **R4 Recipe fix (only if R2 points to it)** | Oct 25–29 | One retrain of m28 on the 566 train images addressing the main error type, e.g. case (c): 90° rotations (the disk is rotation-symmetric; training now uses only flips) and/or a longer schedule. Scored on val with the R1 rule. Skipped if R2 shows no clear lever. | ~3 h A100, ~25 units |
+| **R5 Final models on all 707 images** | Oct 30–Nov 3 | Retrain the final members (m28 + r50, with any adopted R4 change) on train + val (+25% data), same iterations per image, then TTA on test. Cannot be scored on val, so it is checked on the LB only; the 566-image versions stay as the fall-back. | ~6 h A100, ~50 units |
+| **Final submissions** | Nov 4–8 | Choose 3 finals: best val pipeline (566 models), the same with all-707 models, best-Dice variant. | CPU |
+| **Phase 7 freeze** | Nov 9–11 | As below (latency, per-station table, clean-clone reproduction). | – |
+| **Phase 8 report/repo** | Nov 7–14 | As below; Phase 5 negatives (SAM 2, Mask2Former, dilation) go into the ablation table. | – |
+
+Budget: ~95 Colab units left after the Phase 5 step 2 run (user to confirm); R3 + R4 + R5 ≈ 87. If R4 is skipped
+there is a ~35-unit buffer. Each step that runs code is explained first and starts only on the user's go.
+
+---
+
 ## Phase 0 — Environment, Tooling & Architecture Audit (Oct 18–19)
 **Objective:** Establish a standardized, portable development environment across local GPU, Google Colab Pro, and Kaggle.
 

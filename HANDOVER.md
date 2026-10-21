@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-21 (Phase 5 steps 1/1b done, step 2 ready to run). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
+Last updated 2026-10-21 late (Phase 5 closed; new plan proposed, awaiting the user's approval). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
 (everything finished, with numbers) and `Project_Phase_Plan.md`. Do not re-run anything recorded there.
 
 ## 1. Goal & working setup
@@ -16,12 +16,13 @@ Last updated 2026-10-21 (Phase 5 steps 1/1b done, step 2 ready to run). Read thi
 - Keep helper tools simple and token-cheap (user request).
 
 ## 2. Current state & achievements
-- **Phases 0–4: DONE. Phase 5 in progress** (steps 1 and 1b done, step 2 code ready but not run).
+- **Phases 0–5: DONE** (Phase 5: SAM 2 and Mask2Former rejected, m28 head kept; see §2a for the new plan).
 - **Best submission: ensemble x101_2048 + r50_2048** (exp010, `src/ensemble.py`): masks of both models with IoU ≥ 0.5
   are one filament, mask = union, score = mean over both models (a missing model adds 0); then close 5, min area 50,
   thr 0.6, overlap drop 0.2. **Val official PQ 0.4366, Dice 0.6505; public LB 0.38**
   (`submissions/submission_ens_x101_r50_2048_pp.csv`; fused raw files in `Result Step 5/Step 1b/`).
-- Best single model `x101_2048` (exp008): val PQ 0.4264, Dice 0.6417, LB 0.37. `r50_2048` (exp007): val PQ 0.4231 /
+- Best single model on val `x101_2048_m28` (exp012, 56×56 mask head): val PQ 0.4385, Dice 0.6408, LB 0.37; ensemble
+  m28 + r50 (exp013) val 0.4404, LB 0.37. Previous best single `x101_2048` (exp008): val PQ 0.4264, Dice 0.6417, LB 0.37. `r50_2048` (exp007): val PQ 0.4231 /
   Dice 0.6484 at thr 0.6, LB 0.36. Checkpoints on Drive `MyDrive/solar_filament/output/detectron2/<name>/model_final.pth`.
 - LB history: 0.34 (baseline) → 0.34 (post-proc) → 0.35 (r50_allann) → 0.36 (r50_2048) → 0.37 (x101_2048) →
   **0.38 (ensemble)**. Val ≈ LB + 0.05–0.06 on every upload and val gains carry over (same ranking), so model
@@ -39,31 +40,38 @@ Last updated 2026-10-21 (Phase 5 steps 1/1b done, step 2 ready to run). Read thi
   post-processing and CSVs are done locally on CPU: `src/ablate_postprocess.py`, `src/ensemble.py`,
   `src/sam_refine.py`, `src/submit_from_raw.py`, `src/viewer.py` (viewer only scans `Result Phase 3/`).
 - Tests: 43 pass (`pytest tests`, ~1.5 min).
-- Colab balance 2026-10-21: **156.94 units**, minus ~1 for the SAM 2 run (T4 ≈ 1 unit/h, A100 ≈ 8 units/h).
+- Colab balance 2026-10-21: 156.94 units before the SAM 2 (~1) and step 2 A100 (~55–60) runs → **~95 left, to be
+  confirmed by the user** (T4 ≈ 1 unit/h, A100 ≈ 8 units/h).
 
 ## 2a. Next step (start here)
-1. **Ask the user whether the Phase 5 step 2 A100 run is done.** If not yet run, nothing else is blocked on it;
-   the user said they will run it later. Instructions for the user:
-   - `git push origin Dev` must be done first (check `git status` / `git log origin/Dev`: the step 2 code and
-     the LB 0.38 records must be on GitHub, otherwise Colab runs old code).
-   - Open `notebooks/colab_phase5_a100.ipynb`, runtime **A100 + High-RAM**, Run all (~7 h, ~55–60 units).
-     Step 0 probes both models (~15 min); step 1 Mask2Former `m2f_swin_s` (length auto-capped at ~4 h from the
-     measured s/it; if its probe fails, step 1 is skipped); step 2 `x101_2048_m28` (X101 at 2048 with the finer
-     56×56 mask head, `--mask-res 28`, ~3 h). Raw files go to `MyDrive/solar_filament/Phase 5/` after each step;
-     the user puts them in `Result Step 5/Step 2/`. Disconnect the runtime afterwards.
-2. **When the files arrive, score locally** (CPU, 0 units):
-   - each new model alone, like Phase 4 (close 5, min area 50, drop 0.2, thr 0.3–0.9 — Mask2Former scores have a
-     different scale, so sweep wider) with a short script: `postprocess.close_all` → `postprocess.select` →
-     `ablate_postprocess.score` (official PQ + Dice), plus `evaluate_split` for size bins and frag/merge counts;
-   - as extra ensemble members: `python src/ensemble.py ablate --raw <x101 val> <r50 val> <new val> --out ...`
-     (with 3+ models, also check whether `match_iou`/thresholds need re-tuning: score = mean over all models);
-   - record exp011+ in `experiments/log.csv`, `experiments/ablation_table.md`, `COMPLETED_TASKS.md`, then build the
-     best CSV with `src/ensemble.py export` + `src/submit_from_raw.py` and ask the user to upload it.
-3. **Phase 5 gate (Nov 4):** Mask2Former beats 0.4264 alone → primary model; within 0.015 or helps the ensemble →
-   keep as member; otherwise drop. U-Net fallback only if Mask2Former fails to train by ~Nov 2.
-4. Then **Phase 6** (explain first, wait for "go"): TTA (horizontal/vertical flips, needs a GPU run per model) and
-   the final ensemble; anti-fragmentation merging only if val shows many 1→N cases. Phase 7 freeze **Nov 11**,
-   Phase 8 report + public repo **Nov 14/15**.
+**Situation (end of 2026-10-21):** Phase 5 is closed. Step 2 (A100) was scored (exp011–013): `x101_2048_m28` alone
+val 0.4385, `m28 + r50` ensemble val 0.4404, Mask2Former 0.4020 (lowers every ensemble). **Both new CSVs scored
+LB 0.37**, so best LB stays exp010 (x101 + r50, 0.38). Since Phase 4 every gain (+0.002–0.01) is below the noise of
+the 141-image val and the ~90-image, 2-dp LB: we were tuning on noise. The user wants real progress, not +0.01 steps.
+
+**Target agreed in discussion:** realistic LB 0.40–0.42 (val ~0.46–0.48), stretch ~0.45. The LB top (0.60–0.69, #1 with
+15 entries) is treated as label leakage (public MAGFiLO has 1,593 labelled GONG images vs our 887 train+test; a perfect
+copy of one annotator scores only 0.74 on val). Never use MAGFiLO labels or copy labels onto test images.
+
+**New plan, proposed to the user and awaiting approval** (not yet written into `Project_Phase_Plan.md`, whose
+"Revised plan from 2026-10-21" section is an earlier draft to be replaced by this one once the user agrees).
+Idea: change the one thing never touched since Phase 2, the training recipe and data amount.
+1. **Error budget + noise check** (CPU, 0 units): split the val PQ loss into FN (near miss IoU 0.3–0.5 / below score
+   thr / never predicted), FP (drawn by another annotator or not) and SQ, per size bin and station; paired bootstrap
+   over val images and simulated ~90-image LB subsets → the minimum gain that is real. **Ask for go first.**
+2. **Training recipe trial at 1024, R50, cheap GPU (T4/L4, ~10–15 units)** vs exp006 (0.3979): (a) 3× schedule
+   (current 6,000 its × batch 2 ≈ 13 epochs over 921 samples = Detectron2 "1x", which their zoo calls heavily
+   under-trained; 3x gives ~+2 mask AP on COCO), (b) + 90° rotations and scale jitter (now only flips +
+   brightness/contrast, `src/train.py` mapper), (c) + copy-paste of GT filaments onto the disk (Ghiasi et al., CVPR 2021).
+3. **Self-training with external unlabelled GONG H-alpha images** (~15–25 units): rules allow external data but no
+   other ground-truth metadata (`Solar Filament Overview.txt` line 73). Download ~3–5k JPGs from the NSO archive
+   (https://gong2.nso.edu/ftp/HA/, use curl because of Avast), **excluding every test-image date**, pseudo-label with the
+   best model (confident masks only), train on real + pseudo labels. Diercke et al. (arXiv 2402.15407) trained a U-Net on
+   16,759 GONG images with noisy auto labels. The user may want to confirm with the organisers on the Kaggle forum.
+4. **Final 2048 run** (~45–55 units): best recipe on X101-m28 + R50, trained on all 707 files, plus flip TTA.
+5. Freeze Nov 11; report + public repo Nov 14/15 (Phase 5 negatives go into the ablation table).
+Budget ≈ 80–95 units. **Ask the user for the real Colab balance** (estimate ~95 left after the step 2 run).
+Every step that runs code is explained first and starts only on the user's explicit go.
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
@@ -81,7 +89,7 @@ Last updated 2026-10-21 (Phase 5 steps 1/1b done, step 2 ready to run). Read thi
   Our implementation matches Kaggle exactly (0.3296 = 0.3296). **Model selection uses `official_PQ`.**
 
 ## 4. Leaderboard context (2026-10-20)
-- Top teams show 0.60–0.64 with 89–123 entries; we are ~578th at 0.34 in a large cluster of 0.34 teams.
+- 2026-10-21: #1 IONode Online 0.69 with only 15 entries, then 0.64 (123), 0.62 ×3, 0.60–0.61. Earlier: top teams 0.60–0.64 with 89–123 entries; we are ~578th at 0.34 in a large cluster of 0.34 teams.
 - Treat the top as **not comparable**: human inter-annotator PQ is only ~0.336, and the organisers warned (Aug 20)
   about participants "hacking the system" ("Any PQ > 0.35 is of great value"). Likely cause (unverified): the
   public MAGFiLO dataset contains the test ground truth.
