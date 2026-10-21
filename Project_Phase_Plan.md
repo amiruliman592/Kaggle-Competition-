@@ -3,7 +3,7 @@
 
 > **Authoritative Project Roadmap**  
 > **Source Context:** [Solar Filament Overview.txt](Solar%20Filament%20Overview.txt), [Solar_Filament_Segmentation_Plan.md](Solar_Filament_Segmentation_Plan.md), and [CLAUDE.md](CLAUDE.md).  
-> **Plan written:** Sunday, Oct 18, 2026 | **Competition Deadline:** Sunday, Nov 15, 2026 | **Status (Oct 21):** Phases 0–4 done (best `x101_2048`: val PQ 0.4264, public LB 0.37); Phase 5 next  
+> **Plan written:** Sunday, Oct 18, 2026 | **Competition Deadline:** Sunday, Nov 15, 2026 | **Status (Oct 21):** Phases 0–4 done; Phase 5 in progress (SAM 2 rejected; x101+r50 ensemble val PQ 0.4366, **LB 0.38**; Mask2Former + finer mask head notebook ready)  
 > **Internal Code Freeze:** Wednesday, Nov 11, 2026 | **Final Package & Form Submission:** Saturday, Nov 14, 2026  
 > **Target Metric:** Panoptic Quality ($\text{PQ}$) $> 0.35$ | **Scoring:** 70% Quantitative + 30% Qualitative  
 

@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
+Last updated 2026-10-21 (Phase 5 steps 1/1b done, step 2 ready to run). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
 (everything finished, with numbers) and `Project_Phase_Plan.md`. Do not re-run anything recorded there.
 
 ## 1. Goal & working setup
@@ -16,52 +16,54 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
 - Keep helper tools simple and token-cheap (user request).
 
 ## 2. Current state & achievements
-- **Phases 0–4: DONE. Phase 5 in progress.** Best public LB **0.38** (x101+r50 ensemble, 2026-10-21).
-- **Best model: `x101_2048`** — Mask R-CNN X101-FPN at native 2048, all annotators' labels (exp008):
-  **val official PQ 0.4264, Dice 0.6417** (thr 0.6, overlap drop 0.2; PQ 0.426 flat over thr 0.6–0.8).
-  Close second `r50_2048` (exp007): PQ 0.4250 (thr 0.7); thr 0.6 gives PQ 0.4231 / Dice 0.6484 (best Dice).
-  Checkpoints on Drive `MyDrive/solar_filament/output/detectron2/{x101_2048,r50_2048}/model_final.pth`.
-- Previous best `r50_allann` (1024): val PQ 0.3979, Dice 0.6426, **public LB 0.35** (`submission_r50_allann_pp.csv`).
-- LB history: baseline 0.34 → baseline + post-processing 0.34 → r50_allann 0.35 → r50_2048 0.36 → x101_2048 0.37 → ensemble x101+r50
-  **0.38**. Val ≈ LB + 0.05–0.06, and val improvements carried over to LB (same ranking), so model selection stays
-  on local val.
-- Phase 3 findings (`experiments/ablation_table.md`): overlap removal costs −0.004; new overlap rule
-  (`OVERLAP_DROP_FRAC=0.2`) +0.003 PQ / +0.016 Dice; closing kernel, disk filter, min area, thr > 0.8: no effect;
-  CLAHE + disk masking (Run A): no PQ gain; all-annotator labels (Run B): +0.008.
-- Phase 4 findings: native 2048 = **+0.027 PQ** (medium and large bins both up, SQ and RQ both up); X101 adds only
-  +0.0014 PQ but has the flattest threshold plateau and fewer merges. Small filaments still mostly missed (X101 2/10).
-  Large bin improved, so the bigger-anchor run is not needed. A100 2048 training peaks at 20.2 GB (X101).
-- Raw predictions (val + test): `Result Phase 3/Result Step 1|3/`, `Result Phase 4/` → any post-processing,
-  scoring or test CSV is done locally (`src/ablate_postprocess.py`, `src/submit_from_raw.py`, `src/viewer.py`;
-  the viewer only scans `Result Phase 3/`). Phase 4 scoring table: `Result Phase 4/eval_phase4.json`.
-- Tests: 34 pass (`pytest tests`, ~3 min).
+- **Phases 0–4: DONE. Phase 5 in progress** (steps 1 and 1b done, step 2 code ready but not run).
+- **Best submission: ensemble x101_2048 + r50_2048** (exp010, `src/ensemble.py`): masks of both models with IoU ≥ 0.5
+  are one filament, mask = union, score = mean over both models (a missing model adds 0); then close 5, min area 50,
+  thr 0.6, overlap drop 0.2. **Val official PQ 0.4366, Dice 0.6505; public LB 0.38**
+  (`submissions/submission_ens_x101_r50_2048_pp.csv`; fused raw files in `Result Step 5/Step 1b/`).
+- Best single model `x101_2048` (exp008): val PQ 0.4264, Dice 0.6417, LB 0.37. `r50_2048` (exp007): val PQ 0.4231 /
+  Dice 0.6484 at thr 0.6, LB 0.36. Checkpoints on Drive `MyDrive/solar_filament/output/detectron2/<name>/model_final.pth`.
+- LB history: 0.34 (baseline) → 0.34 (post-proc) → 0.35 (r50_allann) → 0.36 (r50_2048) → 0.37 (x101_2048) →
+  **0.38 (ensemble)**. Val ≈ LB + 0.05–0.06 on every upload and val gains carry over (same ranking), so model
+  selection stays on local val.
+- Findings so far (details and numbers: `experiments/ablation_table.md`):
+  - Phase 3: overlap rule `OVERLAP_DROP_FRAC=0.2` +0.003 PQ / +0.016 Dice; all-annotator labels +0.008; closing
+    kernel, disk filter, min area, thr > 0.8, CLAHE + disk masking: no gain.
+  - Phase 4: native 2048 +0.027 PQ (medium + large bins, SQ + RQ); X101 +0.0014 over R50 at 2048. Small
+    filaments still mostly missed (low value, ≤ ~0.005 PQ).
+  - Phase 5 step 1 (exp009): **SAM 2 box refinement rejected** — every variant loses PQ and Dice (best 0.4076).
+    SAM draws ~15% tighter than the annotators: outline quality is limited by the labels, not mask sharpness.
+  - Phase 5 step 1b (exp010): **ensembling works** (+0.010 PQ, +0.009 Dice, LB +0.01). Dilating masks 1–2 px
+    hurts, so the gain is from model agreement, not mask size. Every new model should be tried as an extra member.
+- Raw predictions (val + test) for all models: `Result Phase 3/`, `Result Phase 4/`, `Result Step 5/`. All scoring,
+  post-processing and CSVs are done locally on CPU: `src/ablate_postprocess.py`, `src/ensemble.py`,
+  `src/sam_refine.py`, `src/submit_from_raw.py`, `src/viewer.py` (viewer only scans `Result Phase 3/`).
+- Tests: 43 pass (`pytest tests`, ~1.5 min).
+- Colab balance 2026-10-21: **156.94 units**, minus ~1 for the SAM 2 run (T4 ≈ 1 unit/h, A100 ≈ 8 units/h).
 
-## 2a. Next step
-- Phase 4 LB recorded (2026-10-21): `submission_x101_2048_pp.csv` **0.37** (exp008), `submission_r50_2048_pp.csv`
-  **0.36** (exp007). LB rose above 0.35, so no val–LB investigation is needed before Phase 5.
-- **Phase 5 STARTED 2026-10-21 (user said "go"; aim: higher LB).** Step 1 code + T4 notebook ready
-  (`src/sam_refine.py`, `notebooks/colab_phase5_sam2.ipynb`). **Step 1 run and scored: SAM 2 REJECTED** (all
-  variants below 0.4264; results in `Result Step 5/Step 1/`, exp009). **Step 1b CPU ensemble x101+r50 (union,
-  IoU 0.5, thr 0.6): val PQ 0.4366 / Dice 0.6505 = new best** (exp010; `src/ensemble.py`;
-  `submission_ens_x101_r50_2048_pp.csv`, **LB 0.38**). Every new model can join this ensemble.
-  **Step 2 code ready, not run:** `src/m2f.py` + `--mask-res` + `notebooks/colab_phase5_a100.ipynb` (A100, ~55–60
-  units). Results go to `Result Step 5/Step 2/`; then score each model alone (`ablate_postprocess.py`-style) and in the
-  ensemble (`src/ensemble.py ablate --raw x101 r50 <new>`). Local HF downloads fail (Avast HTTPS) → use curl. Repo alias `git cm "msg"` = add all + commit (in `.git/config`, user's request).
-- Phase 5 plan (agreed 2026-10-21):
-  1. SAM 2 box refinement of `x101_2048` val boxes — own light notebook on **Colab T4** (no training).
-  2. Mask2Former (HF `transformers`, Swin, COCO-instance pretrained) — separate heavy notebook on **A100**: sanity
-     probe at 2048 (fallback: train on 1024 crops, infer full 2048) → train → dump raw val/test preds.
-  3. Side run in the same A100 notebook: Mask R-CNN finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION` 14 → 28).
-  4. U-Net only if Mask2Former fails by ~Nov 2. Gate Nov 4 (beat 0.4264 → primary; within 0.015 → ensemble).
-  Estimated 50–75 units. Balance 2026-10-21: **156.94 units** (T4 ≈ 1.07 units/h, A100 ≈ 8 units/h).
-- Earlier options (now folded into the plan above): decide (explain first, wait for "go"): (a) one run with a finer mask head (`ROI_MASK_HEAD.POOLER_RESOLUTION`
-  14 → 28; Mask R-CNN draws each mask on a 28×28 grid per box, coarse for long thin filaments) to raise SQ/Dice; or
-  (b) go straight to Phase 5 (Mask2Former / SAM 2 box refinement), now starting from the 2048 models.
-- Phase 4 pipeline: `run_pipeline.py --backbone x101 --resolution 2048` (same flags for train/val/dump/infer);
-  notebook `notebooks/colab_phase4_native.ipynb`. Compute: Colab Pro A100 80 GB, ~8 units/h; user had ~184 units
-  before the Phase 4 runs (check the remaining balance in Colab).
-- Later: Phase 5 (Mask2Former / SAM 2), Phase 6 (TTA/ensembling: R50+X101 at 2048 are ready members),
-  Phase 7 freeze (Nov 11), Phase 8 report (Nov 15).
+## 2a. Next step (start here)
+1. **Ask the user whether the Phase 5 step 2 A100 run is done.** If not yet run, nothing else is blocked on it;
+   the user said they will run it later. Instructions for the user:
+   - `git push origin Dev` must be done first (check `git status` / `git log origin/Dev`: the step 2 code and
+     the LB 0.38 records must be on GitHub, otherwise Colab runs old code).
+   - Open `notebooks/colab_phase5_a100.ipynb`, runtime **A100 + High-RAM**, Run all (~7 h, ~55–60 units).
+     Step 0 probes both models (~15 min); step 1 Mask2Former `m2f_swin_s` (length auto-capped at ~4 h from the
+     measured s/it; if its probe fails, step 1 is skipped); step 2 `x101_2048_m28` (X101 at 2048 with the finer
+     56×56 mask head, `--mask-res 28`, ~3 h). Raw files go to `MyDrive/solar_filament/Phase 5/` after each step;
+     the user puts them in `Result Step 5/Step 2/`. Disconnect the runtime afterwards.
+2. **When the files arrive, score locally** (CPU, 0 units):
+   - each new model alone, like Phase 4 (close 5, min area 50, drop 0.2, thr 0.3–0.9 — Mask2Former scores have a
+     different scale, so sweep wider) with a short script: `postprocess.close_all` → `postprocess.select` →
+     `ablate_postprocess.score` (official PQ + Dice), plus `evaluate_split` for size bins and frag/merge counts;
+   - as extra ensemble members: `python src/ensemble.py ablate --raw <x101 val> <r50 val> <new val> --out ...`
+     (with 3+ models, also check whether `match_iou`/thresholds need re-tuning: score = mean over all models);
+   - record exp011+ in `experiments/log.csv`, `experiments/ablation_table.md`, `COMPLETED_TASKS.md`, then build the
+     best CSV with `src/ensemble.py export` + `src/submit_from_raw.py` and ask the user to upload it.
+3. **Phase 5 gate (Nov 4):** Mask2Former beats 0.4264 alone → primary model; within 0.015 or helps the ensemble →
+   keep as member; otherwise drop. U-Net fallback only if Mask2Former fails to train by ~Nov 2.
+4. Then **Phase 6** (explain first, wait for "go"): TTA (horizontal/vertical flips, needs a GPU run per model) and
+   the final ensemble; anti-fragmentation merging only if val shows many 1→N cases. Phase 7 freeze **Nov 11**,
+   Phase 8 report + public repo **Nov 14/15**.
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
@@ -117,5 +119,10 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
   then compile-check every notebook cell.
 - "Could not find cuda drivers" in Colab logs comes from TensorFlow, not PyTorch — harmless.
 - Colab ships two OpenCV builds (same `cv2`); harmless.
-- Lecture notes (`lecturenotesMachineVision/`, untracked) were reviewed; method verdicts are in
-  `Project_Phase_Plan.md` §14. The W14 folder has a report template useful for Phase 8.
+- Lecture notes (`lecturenotesMachineVision/`, now in `.gitignore` — the repo must go public) were reviewed; method
+  verdicts are in `Project_Phase_Plan.md` §14. The W14 folder has a report template useful for Phase 8.
+- Locally, Python HTTPS downloads (Hugging Face) fail with `CERTIFICATE_VERIFY_FAILED` because Avast intercepts
+  HTTPS; `curl` works. Download weights with curl into the scratchpad and pass the folder (e.g.
+  `python src/m2f.py ... --pretrained <dir>`). Colab is not affected.
+- Repo alias (user's request, in `.git/config`, not committed): `git cm "msg"` = `git add -A && git commit -m`.
+  The user commits and pushes themselves; give them the command instead of running it.
