@@ -94,6 +94,7 @@ def build_detectron2_config(max_iter: Optional[int] = None, eval_period: Optiona
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = CFG.model.NUM_CLASSES
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512  # Larger for dense predictions
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = CFG.infer.SCORE_THRESHOLD
+    cfg.MODEL.ROI_MASK_HEAD.POOLER_RESOLUTION = CFG.model.MASK_POOLER_RES
 
     # ── Anchors (tuned for small filaments) ────────────────────────────
     cfg.MODEL.ANCHOR_GENERATOR.SIZES = CFG.model.ANCHOR_SIZES

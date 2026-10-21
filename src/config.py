@@ -99,6 +99,9 @@ class ModelConfig:
     ASPECT_RATIOS: List[List[float]] = field(
         default_factory=lambda: [[0.2, 0.5, 1.0, 2.0, 5.0]]
     )
+    # ROI_MASK_HEAD.POOLER_RESOLUTION: each mask is drawn on a (2 x this)^2 grid
+    # inside its box. 14 = Detectron2 default (28x28); 28 = finer (56x56), Phase 5
+    MASK_POOLER_RES: int = 14
 
 
 @dataclass

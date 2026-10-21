@@ -64,6 +64,7 @@ def build_predictor(model_weights: Optional[str] = None,
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = (
         CFG.infer.SCORE_THRESHOLD if score_threshold is None else score_threshold)
     cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = CFG.infer.NMS_THRESHOLD
+    cfg.MODEL.ROI_MASK_HEAD.POOLER_RESOLUTION = CFG.model.MASK_POOLER_RES  # must match training
     # Must match training, or the RPN head weights do not fit
     cfg.MODEL.ANCHOR_GENERATOR.SIZES = CFG.model.ANCHOR_SIZES
     cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = CFG.model.ASPECT_RATIOS

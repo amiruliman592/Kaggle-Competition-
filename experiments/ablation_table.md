@@ -60,3 +60,40 @@ plateau (thr 0.6–0.8 all 0.426) and fewer merges (25 vs 28 at thr 0.6). Phase 
 Submissions (thr 0.6, drop 0.2, pass validator): `submission_x101_2048_pp.csv` (1,317 masks) → **public LB 0.37**
 (best so far); `submission_r50_2048_pp.csv` (1,313 masks) → **public LB 0.36**. LB gain over B: +0.02 (val +0.026–0.029);
 ranking D > C kept on LB. Val − LB gap 0.056 / 0.063 (earlier runs 0.047–0.050; LB shown to 2 dp, ±0.005).
+
+## Phase 5 step 1 — SAM 2 box refinement of x101_2048 (2026-10-21, Colab T4, no training)
+SAM 2.1 hiera-large redraws each `x101_2048` mask (score ≥ 0.5) from a square crop around its box
+(`src/sam_refine.py`; rows: `Result Step 5/Step 1/sam_ablation_x101_2048.json`). Close 5, min area 50, drop 0.2.
+
+| Prompt | Combination | Best official PQ (thr) | Δ vs D (0.4264) | Dice at that thr |
+|---|---|---|---|---|
+| — | original (D) | **0.4264** (0.6) | — | **0.6417** |
+| box | SAM replaces | 0.3577 (0.8) | −0.069 | 0.5526 |
+| box | union | 0.4076 (0.8) | −0.019 | 0.5857 |
+| box | intersection | 0.3683 (0.8) | −0.058 | 0.5782 |
+| box | gate (SAM if IoU ≥ 0.5) | 0.3831 (0.8) | −0.043 | 0.5853 |
+| box+3 pts | SAM replaces | 0.3653 (0.8) | −0.061 | 0.5550 |
+| box+3 pts | union | 0.4028 (0.8) | −0.024 | 0.5842 |
+| box+3 pts | intersection | 0.3804 (0.8) | −0.046 | 0.5828 |
+| box+3 pts | gate | 0.3884 (0.8) | −0.038 | 0.5840 |
+
+**Verdict: rejected** (every variant loses PQ and Dice). SAM masks are a median 15% smaller than ours (it traces the
+dark core; annotators draw a looser outline) and ~10% bleed out to 1.4–1.5× the area; median IoU with our masks is
+only 0.74, so even the gate loses TPs. Matches the plan's caveat: the labels, not mask sharpness, set SQ.
+
+## Phase 5 step 1b — CPU ensemble of x101_2048 + r50_2048 (2026-10-21, 0 GPU units)
+`src/ensemble.py`: masks of the two models with IoU ≥ match IoU are one filament; score = mean over both models
+(a model that missed it adds 0); mask = best member / union / intersection. Close 5, min area 50, drop 0.2
+(rows: `Result Step 5/Step 1b/ensemble_ablation_x101_r50_2048.json`).
+
+| Fusion | thr 0.5 | thr 0.6 | thr 0.7 | Dice at thr 0.6 |
+|---|---|---|---|---|
+| x101_2048 alone (D) | 0.4190 | 0.4264 | 0.4263 | 0.6417 |
+| IoU 0.5, best mask | 0.4214 | 0.4285 | 0.4298 | 0.6475 |
+| **IoU 0.5, union** | 0.4301 | **0.4366** | 0.4376 | **0.6505** |
+| IoU 0.5, intersection | 0.4120 | 0.4223 | 0.4251 | 0.6423 |
+| IoU 0.3, union | 0.4290 | 0.4357 | 0.4372 | 0.6518 |
+
+**Verdict: adopted** — union at thr 0.6: **PQ 0.4366 (+0.010), Dice 0.6505 (+0.009)**, RQ 0.639 → 0.652. Not a
+mask-size effect: dilating masks by 1 / 2 px instead *loses* PQ (x101: 0.4196 / 0.3571; ensemble: 0.4171 / 0.3424).
+Submission `submission_ens_x101_r50_2048_pp.csv` (1,278 masks, 177/180 images, passes validator) → **public LB 0.38** (best; +0.01 over x101 alone, as on val).

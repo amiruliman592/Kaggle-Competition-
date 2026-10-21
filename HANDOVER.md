@@ -16,14 +16,14 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
 - Keep helper tools simple and token-cheap (user request).
 
 ## 2. Current state & achievements
-- **Phases 0–4: DONE.** Best public LB **0.37** (`x101_2048`, 2026-10-21). Phase 5 not started.
+- **Phases 0–4: DONE. Phase 5 in progress.** Best public LB **0.38** (x101+r50 ensemble, 2026-10-21).
 - **Best model: `x101_2048`** — Mask R-CNN X101-FPN at native 2048, all annotators' labels (exp008):
   **val official PQ 0.4264, Dice 0.6417** (thr 0.6, overlap drop 0.2; PQ 0.426 flat over thr 0.6–0.8).
   Close second `r50_2048` (exp007): PQ 0.4250 (thr 0.7); thr 0.6 gives PQ 0.4231 / Dice 0.6484 (best Dice).
   Checkpoints on Drive `MyDrive/solar_filament/output/detectron2/{x101_2048,r50_2048}/model_final.pth`.
 - Previous best `r50_allann` (1024): val PQ 0.3979, Dice 0.6426, **public LB 0.35** (`submission_r50_allann_pp.csv`).
-- LB history: baseline 0.34 → baseline + post-processing 0.34 → r50_allann 0.35 → r50_2048 0.36 → x101_2048
-  **0.37**. Val ≈ LB + 0.05–0.06, and val improvements carried over to LB (same ranking), so model selection stays
+- LB history: baseline 0.34 → baseline + post-processing 0.34 → r50_allann 0.35 → r50_2048 0.36 → x101_2048 0.37 → ensemble x101+r50
+  **0.38**. Val ≈ LB + 0.05–0.06, and val improvements carried over to LB (same ranking), so model selection stays
   on local val.
 - Phase 3 findings (`experiments/ablation_table.md`): overlap removal costs −0.004; new overlap rule
   (`OVERLAP_DROP_FRAC=0.2`) +0.003 PQ / +0.016 Dice; closing kernel, disk filter, min area, thr > 0.8: no effect;
@@ -40,8 +40,13 @@ Last updated 2026-10-20 (Phase 4 runs scored). Read this first in a new session,
 - Phase 4 LB recorded (2026-10-21): `submission_x101_2048_pp.csv` **0.37** (exp008), `submission_r50_2048_pp.csv`
   **0.36** (exp007). LB rose above 0.35, so no val–LB investigation is needed before Phase 5.
 - **Phase 5 STARTED 2026-10-21 (user said "go"; aim: higher LB).** Step 1 code + T4 notebook ready
-  (`src/sam_refine.py`, `notebooks/colab_phase5_sam2.ipynb`); results go to `Result Phase 5/`, then
-  `python src/sam_refine.py ablate ...` locally. Next to write: the A100 notebook (Mask2Former + finer mask head).
+  (`src/sam_refine.py`, `notebooks/colab_phase5_sam2.ipynb`). **Step 1 run and scored: SAM 2 REJECTED** (all
+  variants below 0.4264; results in `Result Step 5/Step 1/`, exp009). **Step 1b CPU ensemble x101+r50 (union,
+  IoU 0.5, thr 0.6): val PQ 0.4366 / Dice 0.6505 = new best** (exp010; `src/ensemble.py`;
+  `submission_ens_x101_r50_2048_pp.csv`, **LB 0.38**). Every new model can join this ensemble.
+  **Step 2 code ready, not run:** `src/m2f.py` + `--mask-res` + `notebooks/colab_phase5_a100.ipynb` (A100, ~55–60
+  units). Results go to `Result Step 5/Step 2/`; then score each model alone (`ablate_postprocess.py`-style) and in the
+  ensemble (`src/ensemble.py ablate --raw x101 r50 <new>`). Local HF downloads fail (Avast HTTPS) → use curl. Repo alias `git cm "msg"` = add all + commit (in `.git/config`, user's request).
 - Phase 5 plan (agreed 2026-10-21):
   1. SAM 2 box refinement of `x101_2048` val boxes — own light notebook on **Colab T4** (no training).
   2. Mask2Former (HF `transformers`, Swin, COCO-instance pretrained) — separate heavy notebook on **A100**: sanity

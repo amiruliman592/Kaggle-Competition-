@@ -11,7 +11,8 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
   python run_pipeline.py --step infer --name baseline_r50 --score-thr 0.6 --min-area 100
   python run_pipeline.py --step dump  --name baseline_r50      # raw val+test predictions for offline post-processing
   python run_pipeline.py --step train --name x101_2048 --backbone x101 --resolution 2048   # Phase 4
-  (pass the same --backbone/--resolution to train, val, dump and infer of one model)
+  python run_pipeline.py --step train --name x101_2048_m28 --backbone x101 --resolution 2048 --mask-res 28  # Phase 5
+  (pass the same --backbone/--resolution/--mask-res to train, val, dump and infer of one model)
 
 Steps:
   1. EDA                       (output/eda/)
@@ -197,6 +198,8 @@ def parse_args(argv=None):
                         help="Override CFG.model.MODEL_CONFIG (r50 = Phase 2/3 default)")
     parser.add_argument("--resolution", type=int, default=None,
                         help="Override TRAIN_RESIZE and INFER_RESIZE together (2048 = native, Phase 4)")
+    parser.add_argument("--mask-res", type=int, default=None,
+                        help="Override CFG.model.MASK_POOLER_RES (14 = default 28x28 masks, 28 = 56x56, Phase 5)")
     return parser.parse_args(argv)
 
 
@@ -206,6 +209,8 @@ def apply_overrides(args):
         CFG.model.MODEL_CONFIG = MODEL_CONFIGS[args.backbone]
     if args.resolution is not None:
         CFG.train.TRAIN_RESIZE = CFG.infer.INFER_RESIZE = args.resolution
+    if args.mask_res is not None:
+        CFG.model.MASK_POOLER_RES = args.mask_res
     if args.preproc is not None:
         CFG.data.PREPROC = args.preproc
     if args.label_policy is not None:
