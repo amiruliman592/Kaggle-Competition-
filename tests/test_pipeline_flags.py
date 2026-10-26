@@ -77,3 +77,40 @@ def test_phase5_notebooks_compile():
     # Train and dump of the finer-head model use the same flags
     assert re.search(r"--step train --name \{NAME_M28\} \{FLAGS_M28\}", text)
     assert re.search(r"--step dump  --name \{NAME_M28\} \{FLAGS_M28\}", text)
+
+
+def test_seed_flag():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    saved = CFG.SEED
+    try:
+        apply_overrides(parse_args([]))
+        assert CFG.SEED == 42
+        apply_overrides(parse_args(["--seed", "7"]))
+        assert CFG.SEED == 7
+    finally:
+        CFG.SEED = saved
+
+
+def test_flip_flag_only_with_dump():
+    from run_pipeline import parse_args
+    assert parse_args(["--step", "dump", "--flip", "hv"]).flip == "hv"
+    assert parse_args(["--step", "dump"]).flip is None
+    with pytest.raises(SystemExit):
+        parse_args(["--step", "train", "--flip", "h"])
+
+
+def test_phase6_notebooks_compile_and_stay_in_own_folder():
+    for name, member in (("colab_phase6_syaz.ipynb", "Syaz"), ("colab_phase6_mirul.ipynb", "Mirul")):
+        cells = _code_cells(name)
+        for src in cells:
+            py = "\n".join(l[:len(l) - len(l.lstrip())] + "pass" if l.lstrip().startswith(("!", "%")) else l
+                           for l in src.splitlines())
+            ast.parse(py)
+        text = "\n".join(cells)
+        assert f'MY_DIR = f"{{DRIVE_DIR}}/Phase 6/{member}"' in text
+    syaz = "\n".join(_code_cells("colab_phase6_syaz.ipynb"))
+    # Run names carry the member prefix, so they never resume or overwrite Kimee's checkpoints
+    assert all(n.startswith("syaz_") for n in re.findall(r'"(\w*r50\w*|\w*probe\w*)"', syaz))
+    mirul = "\n".join(_code_cells("colab_phase6_mirul.ipynb"))
+    assert "--weights" in mirul and "--flip {flip}" in mirul

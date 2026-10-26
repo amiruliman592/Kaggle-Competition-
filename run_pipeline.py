@@ -12,6 +12,9 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
   python run_pipeline.py --step dump  --name baseline_r50      # raw val+test predictions for offline post-processing
   python run_pipeline.py --step train --name x101_2048 --backbone x101 --resolution 2048   # Phase 4
   python run_pipeline.py --step train --name x101_2048_m28 --backbone x101 --resolution 2048 --mask-res 28  # Phase 5
+  python run_pipeline.py --step train --name syaz_r50_seed2 --label-policy all --seed 7   # Phase 6: re-train, other seed
+  python run_pipeline.py --step dump  --name r50_2048 --resolution 2048 --weights <ckpt> --flip h
+      # Phase 6 TTA: predicts on flipped images -> raw_preds_<name>_fliph_<split>.json.gz
   (pass the same --backbone/--resolution/--mask-res to train, val, dump and infer of one model)
 
 Steps:
@@ -134,8 +137,13 @@ def run_preprocess(dry_run: bool):
     print(f"[Preprocess] {CFG.data.PREPROC}: wrote {n} images -> {CFG.paths.PREPROC_DIR / CFG.data.PREPROC}")
 
 
-def run_dump(weights: str, name: str, dry_run: bool):
-    """Raw (unprocessed) val + test predictions above DUMP_SCORE_THRESHOLD -> gzipped JSON."""
+def run_dump(weights: str, name: str, dry_run: bool, flip_mode=None):
+    """Raw (unprocessed) val + test predictions above DUMP_SCORE_THRESHOLD -> gzipped JSON.
+
+    flip_mode (h / v / hv): predict on flipped images (masks flipped back) and add
+    "_flip<mode>" to the file name, so each flip is one ensemble member (TTA).
+    """
+    import torch
     from inference import build_predictor, predict_images
     from split import load_split
     from utils.rle import save_predictions
@@ -147,10 +155,13 @@ def run_dump(weights: str, name: str, dry_run: bool):
     predictor = build_predictor(weights, score_threshold=CFG.infer.DUMP_SCORE_THRESHOLD)
     for split, paths in (("val", [image_path(s, "train") for s in val_ids]),
                          ("test", test_images)):
-        preds, sec = predict_images(predictor, paths, raw=True)
-        out = CFG.paths.OUTPUT_DIR / f"raw_preds_{name}_{split}.json.gz"
+        preds, sec = predict_images(predictor, paths, raw=True, flip_mode=flip_mode or "none")
+        tag = f"_flip{flip_mode}" if flip_mode else ""
+        out = CFG.paths.OUTPUT_DIR / f"raw_preds_{name}{tag}_{split}.json.gz"
         save_predictions(preds, out)
         print(f"[Dump] {split}: {sum(map(len, preds.values()))} raw masks, {sec:.2f} s/img -> {out}")
+    if torch.cuda.is_available():
+        print(f"[Dump] Peak GPU memory: {torch.cuda.max_memory_allocated() / 1e9:.1f} GB")
 
 
 def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
@@ -200,7 +211,14 @@ def parse_args(argv=None):
                         help="Override TRAIN_RESIZE and INFER_RESIZE together (2048 = native, Phase 4)")
     parser.add_argument("--mask-res", type=int, default=None,
                         help="Override CFG.model.MASK_POOLER_RES (14 = default 28x28 masks, 28 = 56x56, Phase 5)")
-    return parser.parse_args(argv)
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Override CFG.SEED (42); a re-train with another seed measures training noise (Phase 6)")
+    parser.add_argument("--flip", choices=["h", "v", "hv"], default=None,
+                        help="--step dump only: predict on flipped images for TTA (Phase 6)")
+    args = parser.parse_args(argv)
+    if args.flip and args.step != "dump":
+        parser.error("--flip only works with --step dump")
+    return args
 
 
 def apply_overrides(args):
@@ -219,6 +237,8 @@ def apply_overrides(args):
         CFG.infer.SCORE_THRESHOLD = args.score_thr
     if args.min_area is not None:
         CFG.infer.MIN_AREA = args.min_area
+    if args.seed is not None:
+        CFG.SEED = args.seed
 
 
 if __name__ == "__main__":
@@ -255,7 +275,7 @@ if __name__ == "__main__":
     if args.step == "sweep":
         run_sweep(weights, name, args.dry_run)
     if args.step == "dump":
-        run_dump(weights, name, args.dry_run)
+        run_dump(weights, name, args.dry_run, args.flip)
     if args.step in ("infer", "all"):
         out = run_inference_and_submit(weights, name, args.dry_run)
         print(f"\n[Pipeline] Submission file: {out}")

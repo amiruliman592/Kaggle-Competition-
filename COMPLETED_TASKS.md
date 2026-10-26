@@ -73,7 +73,18 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 - [x] Step 2 code: `src/m2f.py` (HF `transformers` 5.17 Mask2Former, Swin-S COCO-instance weights, 1 class; 1024 crops of native 2048, flips + brightness/contrast, AdamW 1e-4 / backbone 1e-5, poly LR, bf16 on A100, resumable `last.pt`; full-2048 prediction → standard raw dump). Smoke-tested locally (20 its at 256 px on GTX 1650, dump of 2 images; weights fetched with curl because Avast breaks Python HTTPS locally). Finer Mask R-CNN mask head: `CFG.model.MASK_POOLER_RES` / `--mask-res 28` (train + inference). Notebook `notebooks/colab_phase5_a100.ipynb` (probes → `m2f_swin_s` capped at ~4 h from measured speed → `x101_2048_m28`). 43 tests pass.
 - [x] Step 2 run (Colab A100, raw files in `Result Step 5/Step 2/`) and scored locally (exp011–013, `experiments/ablation_table.md`): **x101_2048_m28 alone val PQ 0.4385** (thr 0.7, Dice 0.6408; +0.012, best single); **m2f_swin_s 0.4020** (thr 0.8, Dice 0.6597; twice the merges, lowers every ensemble); **ensemble m28 + r50 (IoU 0.5 union thr 0.6) val PQ 0.4404, Dice 0.6501** (new best). Submissions built and validated: `submission_ens_m28_r50_2048_pp.csv` (1,277 masks), `submission_x101_2048_m28_pp.csv` (1,176). Uploaded 2026-10-21: **both LB 0.37** (below exp010's 0.38): the val gains (+0.004 / +0.002 over exp010) did not carry over; within LB noise (~90 images, 2 dp).
 
+## Phase 6 (Oct 27 – Nov 5; plan in `Project_Phase_Plan.md` → Phase 6)
+Each member logs only in their own subsection (avoids git conflicts).
+
+### Mirul (track M: M1 noise check + error budget, M2 flip TTA, M3 external images + pseudo-labels, M4 station table)
+- (nothing yet)
+
+### Syaz (track S: S1 seed repeat, S2 3× schedule, S3 rotation + scale, S4 copy-paste, S5 self-training)
+- (nothing yet)
+
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).
 - [x] 2026-10-20 — Baseline model chosen: **Mask R-CNN R50-FPN** first, YOLOv8-seg later as a comparison.
 - [x] 2026-10-20 — Phase 4 plan agreed (not started): full 2048 image on A100 80 GB (no tiles); one notebook runs R50 then X101 at 2048 back to back; bigger anchors only if the large bin drops (decided after results). ~40–45 of ~188 units.
+- [x] 2026-10-26 — Phase 6 planned as a two-person sprint (Mirul: noise check, TTA, external images; Syaz: training recipe on free T4s) while Kimee is on a break; Kimee runs the final 2048 A100 runs (~Nov 6–8). `HANDOVER.md` §0 (teammate setup, git, timeline) and `CLAUDE.md` §0 (session-start onboarding, team rules) written. Kaggle forum ruling recorded (host: unlabelled external H-alpha images OK if nothing within ±1 h of a test image; HANDOVER §3).
+- [x] 2026-10-26 — Phase 6 starter kit (Kimee's session): `run_pipeline.py --seed` (S1) and `--flip h|v|hv` for `--step dump` (M2 TTA; `src/utils/flip.py`, masks flipped back, files `raw_preds_<name>_flip<m>_<split>`; dump prints peak GPU memory); notebooks `colab_phase6_syaz.ipynb` (probe → S1 `syaz_r50_seed2` → S2 `syaz_r50_3x`, writes only to team Drive `Phase 6/Syaz/`) and `colab_phase6_mirul.ipynb` (probe → 2 models × 3 flips, reads Kimee's checkpoints, writes only to `Phase 6/Mirul/`), both untested on Colab; `setup_local.ps1` / `setup_local.sh` (one-command laptop setup: Python check, `.venv`, CPU torch, requirements, Jupyter kernel, tests); `PHASE6_GUIDE.md` (plain-language task guide). `tests/test_flip.py` + 3 flag/notebook tests.

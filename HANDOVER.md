@@ -1,31 +1,138 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-21 late (Phase 5 closed; new plan proposed, awaiting the user's approval). Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md`
-(everything finished, with numbers) and `Project_Phase_Plan.md`. Do not re-run anything recorded there.
+Last updated 2026-10-26 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break).
+**This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
+Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
+`Project_Phase_Plan.md` (Phase 6 = the current task list). Do not re-run anything recorded there.
+
+## 0. New teammate? Start here (Mirul, Syaz)
+**First read `PHASE6_GUIDE.md`**: the plain-language version of the project and of your tasks (what, why, how long).
+
+### 0.1 Who is who
+| Person | Role | Phase 6 track |
+|---|---|---|
+| **Kimee** (GitHub `shamsulhakimee`) | Lead; built Phases 0–5. On a break during Phase 6; comes back **when both Phase 6 tracks are finished** for the final A100 run | — |
+| **Mirul** (GitHub `amiruliman592`, repo owner) | Track M: analysis, test-time flips, external images | `Project_Phase_Plan.md` §6.2 (M1–M4) |
+| **Syaz** | Track S: training recipe on T4 | `Project_Phase_Plan.md` §6.3 (S1–S5) |
+
+Team chat = the group chat. Every push is announced there.
+
+### 0.2 Before Phase 6 starts (Kimee, once)
+- [x] Repo access: Mirul owns github.com/amiruliman592/Kaggle-Competition- and has given Kimee and Syaz write access.
+- [ ] Mirul and Syaz are on the **Kaggle team** (Kaggle → competition → Team tab). Uploads count against the team's 5/day.
+- [x] Kimee's Drive folder `solar_filament` (checkpoints `output/detectron2/x101_2048_m28/`, `.../r50_2048/`, needed for
+      M2 TTA and M3 pseudo-labels) is shared by link. Kimee sends the link in the group chat — it is **not** in the repo (§0.6).
+- When **both** tracks are done and the §2a results block is filled in, tell Kimee in the group chat: that is Kimee's
+  signal to come back. Latest hand-back **Nov 6**: the A100 runs need ~2–3 days before the Nov 11 code freeze.
+
+### 0.3 One-time setup (each member)
+1. **Accounts:** GitHub (repo access already given), Kaggle (join the team), Google university account (Google AI Plus
+   student plan) for Colab + Drive.
+2. **Get the code + data** (data is inside the repo: ~0.7 GB, images included, so the clone takes a while):
+   ```
+   git clone -b Dev https://github.com/amiruliman592/Kaggle-Competition-.git Solar_Filament_Kaggle
+   cd Solar_Filament_Kaggle
+   ```
+3. **Python on your laptop** (CPU only — scoring, ensembles, CSVs, tests). One command, from the repo folder:
+   ```
+   powershell -ExecutionPolicy Bypass -File setup_local.ps1     (Windows)
+   bash setup_local.sh                                         (Mac/Linux)
+   ```
+   It finds Python 3.10–3.13 (Windows: installs 3.12 with winget if missing; then reopen the terminal and run it
+   again), creates `.venv`, installs CPU PyTorch + `requirements.txt`, registers the Jupyter kernel
+   "Python (solar-filament)" and runs all tests (~2–3 min, all must pass). Safe to re-run. Afterwards:
+   `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Mac/Linux); in VS Code pick the `.venv` interpreter.
+   Detectron2 is **not** installed locally (it only runs on Colab); "missing import detectron2" warnings in the
+   editor are expected.
+4. **Claude Code:** install it (VS Code extension or the `claude` CLI), open the `Solar_Filament_Kaggle` folder and
+   say e.g. *"I'm Mirul, start my onboarding."* Claude reads `CLAUDE.md` automatically; it then reads this file,
+   explains the project and walks you through your tasks (see `CLAUDE.md` §0).
+5. **Colab:** Runtime → Change runtime type → **T4 GPU**. Notebooks mount your Drive and work in
+   `MyDrive/solar_filament/` = the **team Drive folder** shortcut (§0.6); checkpoints are saved there so training
+   survives disconnects. If the repo is private,
+   add a GitHub token as a Colab secret named `GITHUB_TOKEN` (key icon in the left bar) — the notebooks use it to clone.
+   Colab clones branch `Dev`, so **push before you run** a notebook that needs new code.
+
+### 0.4 Git — the only commands you need
+```
+git pull origin Dev                 # every time BEFORE you start working
+git status                          # see what you changed
+git add -A
+git commit -m "Mirul: M1 noise check"   # start the message with your name
+git pull origin Dev                 # ALWAYS pull again right before pushing
+git push origin Dev
+```
+Then post in the group chat: **"pushed new version: <what changed>"**. Others run `git pull origin Dev` when they see it.
+- If `git pull` says **CONFLICT**: stop and ask Claude to help merge — never delete someone else's lines.
+- Never use `git push --force`.
+- Claude never commits or pushes on its own; it does so only when you ask.
+
+### 0.5 Project timeline
+| Phase | Dates | Who | Status |
+|---|---|---|---|
+| 0 Environment, tooling | Oct 18–19 | Kimee | done |
+| 1 EDA, official metric, frozen val split | Oct 19–20 | Kimee | done |
+| 2 Baseline Mask R-CNN R50 (LB 0.34) | Oct 20 | Kimee | done |
+| 3 Pre/post-processing, all-annotator labels (LB 0.35) | Oct 20 | Kimee | done |
+| 4 Native 2048 resolution, X101 (LB 0.37) | Oct 20–21 | Kimee | done |
+| 5 SAM 2 ✗, ensemble ✓ (LB **0.38**), Mask2Former ✗, finer mask head | Oct 21 | Kimee | done |
+| **6 Two-person sprint** (noise, TTA, training recipe, external images) | **Oct 27 – Nov 5** | **Mirul + Syaz** | **next** |
+| Final 2048 runs on A100 with the Phase 6 recipe | after hand-back (target Nov 6–8) | Kimee | planned |
+| 7 Freeze, 3 final submissions, latency, reproduction | Nov 9–11 (code freeze Nov 11) | all | planned |
+| 8 4-page report, pipeline notebook, public repo; Google form | Nov 12–14 (deadline **Nov 15**) | all | planned |
+
+### 0.6 Team Drive folder (Kimee's `solar_filament` folder)
+Kimee shares the folder link **privately in the group chat** ("anyone with the link can edit"). **Never write the link
+into any file in this repo** — the repo goes public.
+- **Setup (once):** open the link while logged in to **your own** Google account → right-click the folder → Organize →
+  **Add shortcut** → My Drive. Colab then sees it at `/content/drive/MyDrive/solar_filament` (the path all notebooks
+  use). If you already have your own folder called `solar_filament`, rename yours first. No login to Kimee's account needed.
+- **Never change or delete anything that is already there** (Kimee's checkpoints in `output/detectron2/`, the
+  `Phase 3/4/5` folders). Read them only. (Kimee keeps a backup copy on Kimee's laptop, but restoring it costs time.)
+- **Write only inside your own folder:** `Phase 6/Mirul/` or `Phase 6/Syaz/` (Syaz's checkpoints go to
+  `Phase 6/Syaz/output/`), plus `external/` for Mirul's images + pseudo-labels. The Phase 6 notebooks are already set
+  up this way. Run names still start with your name (e.g. `syaz_r50_3x`): training resumes from a folder with the
+  same name, so this keeps runs apart in the logs too.
+
+### 0.7 Keeping this file current — MANDATORY
+Any member may open a fresh Claude Code session at any time (new laptop, new chat, context reset). That session only
+knows what is written in the repo. So **`HANDOVER.md` must always describe the real current state.**
+- **When:** after every finished task or step (M1, S2, …), after every Colab run is scored, after every Kaggle upload,
+  whenever a plan or decision changes, and **before every push** that contains results. Claude does this without
+  being asked; a task is not "done" until HANDOVER is updated.
+- **What:** your own **Live status** block in §2a (last done, numbers, next step, blockers, where files are); the
+  §2a results block when a Phase 6 question is answered; §2 if the best model/submission changes; §6/§7 for new open
+  questions or gotchas. Also the matching line in `COMPLETED_TASKS.md` and `experiments/log.csv`.
+- **Rules:** edit only your own Live status block (the other member's block is theirs); keep it short and factual;
+  update the "Last updated" line at the top; `git pull origin Dev` first so you don't overwrite the other's update.
 
 ## 1. Goal & working setup
 - Kaggle instance segmentation of solar filaments in 2048×2048 GONG H-alpha images; one CSV (`filament_id,segmentation_rle`).
 - Metric: Panoptic Quality (official Kaggle variant, see §3). Deadline **Nov 15, 2026** (code freeze Nov 11).
-- Training runs on **Google Colab** (local GPU is a 4 GB GTX 1650; Detectron2 not installed locally — IDE
-  "missing import" errors for detectron2 are expected). Claude writes code/notebooks; the user runs them and
-  reports back. Colab clones branch `Dev` from GitHub (`origin` = github.com/amiruliman592/Kaggle-Competition-),
-  so changes must be **pushed** before a Colab run.
-- User is new to segmentation: explain in plain language. Commit/push only when the user asks.
-- **Workflow rule: before every new phase (or step that runs code/Colab), first EXPLAIN the plan in plain language
-  and wait for the user's explicit go-ahead. Never start executing a phase on your own.**
-- Keep helper tools simple and token-cheap (user request).
+- Training runs on **Google Colab**. Kimee used A100s (paid units, ~95 left); Mirul and Syaz use **T4s (15 GB)**:
+  R50 at 1024 trains fine (6,000 its ≈ 1.3 h); X101 at 2048 training needs 20 GB, so 2048 training is Kimee's A100 job.
+  Prediction (no training) at 2048 should fit on a T4 — M2 probes this first. Claude writes code/notebooks; the
+  member runs them and reports back. Colab clones branch `Dev` from GitHub (`origin` = github.com/amiruliman592/Kaggle-Competition-),
+  so changes must be **pushed** before a Colab run. Mirul and Syaz use Google AI Plus student accounts (more Colab
+  quota than the free tier).
+- All members are new to segmentation: explain in plain language. Commit/push only when the member asks.
+- **Workflow rule: before every new phase/step (or anything that runs code on Colab), first EXPLAIN the plan in plain
+  language and wait for the member's explicit go-ahead. Never start a step on your own.**
+- Keep helper tools simple and token-cheap (Kimee's request).
 
 ## 2. Current state & achievements
-- **Phases 0–5: DONE** (Phase 5: SAM 2 and Mask2Former rejected, m28 head kept; see §2a for the new plan).
+- **Phases 0–5: DONE** (Phase 5: SAM 2 and Mask2Former rejected, m28 head kept).
 - **Best submission: ensemble x101_2048 + r50_2048** (exp010, `src/ensemble.py`): masks of both models with IoU ≥ 0.5
   are one filament, mask = union, score = mean over both models (a missing model adds 0); then close 5, min area 50,
   thr 0.6, overlap drop 0.2. **Val official PQ 0.4366, Dice 0.6505; public LB 0.38**
   (`submissions/submission_ens_x101_r50_2048_pp.csv`; fused raw files in `Result Step 5/Step 1b/`).
 - Best single model on val `x101_2048_m28` (exp012, 56×56 mask head): val PQ 0.4385, Dice 0.6408, LB 0.37; ensemble
   m28 + r50 (exp013) val 0.4404, LB 0.37. Previous best single `x101_2048` (exp008): val PQ 0.4264, Dice 0.6417, LB 0.37. `r50_2048` (exp007): val PQ 0.4231 /
-  Dice 0.6484 at thr 0.6, LB 0.36. Checkpoints on Drive `MyDrive/solar_filament/output/detectron2/<name>/model_final.pth`.
+  Dice 0.6484 at thr 0.6, LB 0.36. Checkpoints in the team Drive folder `solar_filament/output/detectron2/<name>/model_final.pth` (§0.6; read only).
+- 1024 reference for Phase 6 recipe trials: `r50_allann` (exp006) val PQ 0.3979, Dice 0.6426, LB 0.35
+  (raw preds `Result Phase 3/Result Step 3/`).
 - LB history: 0.34 (baseline) → 0.34 (post-proc) → 0.35 (r50_allann) → 0.36 (r50_2048) → 0.37 (x101_2048) →
-  **0.38 (ensemble)**. Val ≈ LB + 0.05–0.06 on every upload and val gains carry over (same ranking), so model
+  **0.38 (ensemble)**. Val ≈ LB + 0.05–0.06 on every upload and val gains carried over until Phase 5, so model
   selection stays on local val.
 - Findings so far (details and numbers: `experiments/ablation_table.md`):
   - Phase 3: overlap rule `OVERLAP_DROP_FRAC=0.2` +0.003 PQ / +0.016 Dice; all-annotator labels +0.008; closing
@@ -36,42 +143,61 @@ Last updated 2026-10-21 late (Phase 5 closed; new plan proposed, awaiting the us
     SAM draws ~15% tighter than the annotators: outline quality is limited by the labels, not mask sharpness.
   - Phase 5 step 1b (exp010): **ensembling works** (+0.010 PQ, +0.009 Dice, LB +0.01). Dilating masks 1–2 px
     hurts, so the gain is from model agreement, not mask size. Every new model should be tried as an extra member.
-- Raw predictions (val + test) for all models: `Result Phase 3/`, `Result Phase 4/`, `Result Step 5/`. All scoring,
-  post-processing and CSVs are done locally on CPU: `src/ablate_postprocess.py`, `src/ensemble.py`,
+  - Phase 5 step 2 (exp011–013): finer mask head +0.012 val but LB 0.37; Mask2Former 0.4020 (twice the merges,
+    lowers every ensemble) → dropped.
+- Raw predictions (val + test) for all models are **in git**: `Result Phase 3/`, `Result Phase 4/`, `Result Step 5/`.
+  All scoring, post-processing and CSVs are done locally on CPU: `src/ablate_postprocess.py`, `src/ensemble.py`,
   `src/sam_refine.py`, `src/submit_from_raw.py`, `src/viewer.py` (viewer only scans `Result Phase 3/`).
-- Tests: 43 pass (`pytest tests`, ~1.5 min).
-- Colab balance 2026-10-21: 156.94 units before the SAM 2 (~1) and step 2 A100 (~55–60) runs → **~95 left, to be
-  confirmed by the user** (T4 ≈ 1 unit/h, A100 ≈ 8 units/h).
+- Tests: 53 pass (`pytest tests`, ~1.5–3 min; checked 2026-10-26 in a fresh `.venv` made by `setup_local.ps1`).
+- Kimee's Colab balance: ~95 units (estimate, to be confirmed), reserved for the final A100 runs (Nov 6–8).
 
-## 2a. Next step (start here)
-**Situation (end of 2026-10-21):** Phase 5 is closed. Step 2 (A100) was scored (exp011–013): `x101_2048_m28` alone
-val 0.4385, `m28 + r50` ensemble val 0.4404, Mask2Former 0.4020 (lowers every ensemble). **Both new CSVs scored
-LB 0.37**, so best LB stays exp010 (x101 + r50, 0.38). Since Phase 4 every gain (+0.002–0.01) is below the noise of
-the 141-image val and the ~90-image, 2-dp LB: we were tuning on noise. The user wants real progress, not +0.01 steps.
+## 2a. Next step (start here): Phase 6, Oct 27 – Nov 5
+**Why:** since Phase 4 every gain (+0.002–0.01) is below the noise of the 141-image val and the ~90-image, 2-dp LB:
+exp012/exp013 were better on val but scored LB 0.37 < exp010's 0.38. We were tuning on noise. Target: LB 0.40–0.42
+(val ~0.46–0.48), stretch ~0.45. Idea: change what was never touched since Phase 2 — the training recipe and the
+amount of data — and measure the noise so only real gains are kept.
 
-**Target agreed in discussion:** realistic LB 0.40–0.42 (val ~0.46–0.48), stretch ~0.45. The LB top (0.60–0.69, #1 with
-15 entries) is treated as label leakage (public MAGFiLO has 1,593 labelled GONG images vs our 887 train+test; a perfect
-copy of one annotator scores only 0.74 on val). Never use MAGFiLO labels or copy labels onto test images.
+**Full task list with inputs, outputs and "done when": `Project_Phase_Plan.md` → Phase 6. Plain-language version:
+`PHASE6_GUIDE.md`.** Ready to run (built by Kimee's session, 2026-10-26): `notebooks/colab_phase6_syaz.ipynb` (S1 + S2),
+`notebooks/colab_phase6_mirul.ipynb` (M2), `run_pipeline.py --seed` and `--flip h|v|hv` (dump only),
+`setup_local.ps1` / `setup_local.sh`. Short version:
 
-**New plan, proposed to the user and awaiting approval** (not yet written into `Project_Phase_Plan.md`, whose
-"Revised plan from 2026-10-21" section is an earlier draft to be replaced by this one once the user agrees).
-Idea: change the one thing never touched since Phase 2, the training recipe and data amount.
-1. **Error budget + noise check** (CPU, 0 units): split the val PQ loss into FN (near miss IoU 0.3–0.5 / below score
-   thr / never predicted), FP (drawn by another annotator or not) and SQ, per size bin and station; paired bootstrap
-   over val images and simulated ~90-image LB subsets → the minimum gain that is real. **Ask for go first.**
-2. **Training recipe trial at 1024, R50, cheap GPU (T4/L4, ~10–15 units)** vs exp006 (0.3979): (a) 3× schedule
-   (current 6,000 its × batch 2 ≈ 13 epochs over 921 samples = Detectron2 "1x", which their zoo calls heavily
-   under-trained; 3x gives ~+2 mask AP on COCO), (b) + 90° rotations and scale jitter (now only flips +
-   brightness/contrast, `src/train.py` mapper), (c) + copy-paste of GT filaments onto the disk (Ghiasi et al., CVPR 2021).
-3. **Self-training with external unlabelled GONG H-alpha images** (~15–25 units): rules allow external data but no
-   other ground-truth metadata (`Solar Filament Overview.txt` line 73). Download ~3–5k JPGs from the NSO archive
-   (https://gong2.nso.edu/ftp/HA/, use curl because of Avast), **excluding every test-image date**, pseudo-label with the
-   best model (confident masks only), train on real + pseudo labels. Diercke et al. (arXiv 2402.15407) trained a U-Net on
-   16,759 GONG images with noisy auto labels. The user may want to confirm with the organisers on the Kaggle forum.
-4. **Final 2048 run** (~45–55 units): best recipe on X101-m28 + R50, trained on all 707 files, plus flip TTA.
-5. Freeze Nov 11; report + public repo Nov 14/15 (Phase 5 negatives go into the ablation table).
-Budget ≈ 80–95 units. **Ask the user for the real Colab balance** (estimate ~95 left after the step 2 run).
-Every step that runs code is explained first and starts only on the user's explicit go.
+| Mirul (track M) | Syaz (track S) — R50 at 1024 on T4, one change at a time vs exp006 |
+|---|---|
+| **M1** noise check (paired bootstrap, simulated LB) + error budget — CPU, first, Oct 27–29 | **S1** seed repeat of exp006 → training noise (~1.3 h) |
+| **M2** flip TTA of Kimee's m28 + r50 2048 checkpoints (T4 inference) → fuse with `src/ensemble.py`; upload if above threshold | **S2** 3× schedule, `--max-iter 18000` (~4 h) |
+| **M3** ~3,000 external GONG H-alpha images (no test/val days) + pseudo-labels from m28 → team Drive `external/` | **S3** + 90° rotations + scale jitter |
+| **M4** per-station / per-size table (if time) | **S4** + copy-paste of GT filaments · **S5** + Mirul's pseudo-labels |
+
+**Shared rules:** pull before work and before push, announce pushes in the group chat; results in
+`Result Phase 6/Mirul/` and `Result Phase 6/Syaz/`; explicit experiment IDs (**Mirul exp101+, Syaz exp201+**,
+Kimee exp014+; pass `exp_id=` to `log_experiment`); Kaggle uploads only from Mirul (≤ 2/day) for candidates above
+the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED_TASKS.md`.
+
+**Live status — each member updates ONLY their own block, after every step (mandatory, §0.7):**
+
+> **Mirul** — last updated: 2026-10-26 (not started)
+> - Done: —
+> - Now / next: setup (§0.3), then M1 (laptop). M2 notebook ready: `notebooks/colab_phase6_mirul.ipynb`
+> - Blockers / waiting on: team Drive folder link from Kimee (group chat), shortcut added (§0.6)
+> - Files: —
+
+> **Syaz** — last updated: 2026-10-26 (not started)
+> - Done: —
+> - Now / next: setup (§0.3), then S1 + S2 with `notebooks/colab_phase6_syaz.ipynb` (ready, no new code needed)
+> - Blockers / waiting on: team Drive folder link from Kimee (group chat), shortcut added (§0.6)
+> - Files: —
+
+**Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
+start the A100 run without asking, then tell Kimee in the group chat.
+
+> **Phase 6 results (to be filled by Mirul and Syaz):**
+> - Noise threshold — val: … / LB: … ; training noise (S1): …
+> - Error budget (main loss): …
+> - TTA: adopted / rejected (val PQ …, LB …, CSV …)
+> - Recipe for the final 2048 run (exact flags): …
+> - Pseudo-labels: team Drive `external/…`, size …, verdict from S5: …
+> - Open problems: …
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
@@ -80,57 +206,61 @@ Every step that runs code is explained first and starts only on the user's expli
 - **Judging:** 70% quantitative — PQ, mean Dice (`torchmetrics.segmentation.DiceScore`), Dice/IoU distributions,
   1:many / many:1 counts. 30% qualitative — pipeline description, visual mask quality, code quality.
   LB rank is only "one of the considerations".
-- **Submissions: max 5 per day; at the end 3 are selected as final.** Public LB = ~50% of test images, shown to 2 decimals.
+- **Submissions: max 5 per day per team; at the end 3 are selected as final.** Public LB = ~50% of test images, shown to 2 decimals.
 - **Kaggle rejects any file with overlapping masks in one image.** `predict_images` makes masks disjoint
   (higher score wins) and `validate_submission.py` fails on overlaps; repair old CSVs with `src/fix_overlaps.py`.
 - Inference may use only the test H-alpha images; no extra ground-truth metadata for training.
+- **External unlabelled images are allowed** (Kaggle forum, competition host Azim Ahmadzadeh, ~2026-10-21, answering
+  a question about unlabelled KSO/Meudon/BBSO H-alpha images for self-supervised pretraining): *"Your method is OK.
+  Please make sure that the new set of observations does not include the test images (or observations within
+  +/- 1 hour of those timestamps)."* Our rule for M3 is stricter: skip every **day** with a test or val image, and
+  never use external labels (MAGFiLO masks, filament catalogues). Pseudo-labels come from our own model.
 - **Official PQ** (`evaluate_official`; code + analysis in `SelfEvaluationResult/FINDINGS.md`): every annotator set
   is its own GT entry, scored against the image's predictions and pooled; IoU > 0.5; non-unique matching.
   Our implementation matches Kaggle exactly (0.3296 = 0.3296). **Model selection uses `official_PQ`.**
 
-## 4. Leaderboard context (2026-10-20)
-- 2026-10-21: #1 IONode Online 0.69 with only 15 entries, then 0.64 (123), 0.62 ×3, 0.60–0.61. Earlier: top teams 0.60–0.64 with 89–123 entries; we are ~578th at 0.34 in a large cluster of 0.34 teams.
-- Treat the top as **not comparable**: human inter-annotator PQ is only ~0.336, and the organisers warned (Aug 20)
-  about participants "hacking the system" ("Any PQ > 0.35 is of great value"). Likely cause (unverified): the
-  public MAGFiLO dataset contains the test ground truth.
+## 4. Leaderboard context (2026-10-21)
+- #1 IONode Online 0.69 with only 15 entries, then 0.64 (123), 0.62 ×3, 0.60–0.61.
+- Treat the top as **not comparable**: human inter-annotator PQ is only ~0.336, a perfect copy of one annotator scores
+  only 0.74 on val, and the organisers warned (Aug 20) about participants "hacking the system" ("Any PQ > 0.35 is of
+  great value"). Likely cause (unverified): the public MAGFiLO dataset (1,593 labelled GONG images) contains the test
+  ground truth.
 - **Do not use** either of these: (a) external MAGFiLO labels; (b) copying train labels onto the 31 test images taken
   on the same day as a train image. Both break the rules.
-- Realistic targets: val official PQ 0.42–0.45, public LB > 0.35, Dice kept high.
 
 ## 5. Key data facts (not obvious from the code)
 - JSON has 1,154 entries for **707 files**: 296 files annotated 2–3× independently (COCO image id `<annotator>-<stem>`).
-  Training uses ONE set per file (`ANNOTATOR_POLICY="first"`, 5,251 instances); evaluation uses all sets.
+  Training uses every annotator set as its own sample (`--label-policy all`, 921 samples); evaluation uses all sets.
 - Human ceiling: inter-annotator PQ ≈ 0.336 (SQ 0.63, RQ 0.53, Dice 0.61).
 - **Frozen split** `splits/val_ids.json` (566/141, 27-day blocks against same-day leakage). Never regenerate
   (sklearn versions produce different folds).
-- Test: 180 files, none in train. Stations = filename char 15 (B, C, L, M, T, U), roughly balanced.
+- Test: 180 files, none in train. File names are `YYYYMMDDhhmmss<station>h`; station = filename char 15
+  (B, C, L, M, T, U), roughly balanced.
 - Smallest selected GT 60 px²; only 51 instances < 200 px². Single class (`NUM_CLASSES=1`).
+- Training recipe so far (`src/train.py`, `src/config.py`): 6,000 its, batch 2, LR 0.0025, LR steps at 60%/85% of
+  `max_iter` (they scale with `--max-iter`), augmentations = h/v flips + brightness/contrast only, seed 42.
 
 ## 6. Open questions / TODO
 - Dice settings of the organisers are unpublished; we log `official_Dice_samplewise` (torchmetrics default) and
   report the other variants too (FINDINGS §3c). Revisit if the organisers publish their Dice code.
-- Val–LB gap is steady (~0.05–0.06 over 5 uploads; overlap removal explained −0.004 of it). Likely causes: public LB
-  is only ~90 images (noisy, 2 dp); test may be harder or have more multi-annotated images (official PQ pools every
-  annotator set, so disagreement lowers the score); slight optimism from tuning thr on val. Not a scorer bug
-  (scorer = Kaggle code, 0.3296 check).
-- Small filaments (< 200 px²): still 8–10 of 10 missed on val even at 2048 (only 51 in all of train); low priority,
-  worth ≤ ~0.005 PQ.
-- Training-label policy settled: "all" (Run B). Consensus labels untested.
-- YOLOv8-seg comparison run (user knows YOLO) — later.
+- Val–LB gap is steady (~0.05–0.06 over 7 uploads). Likely causes: public LB is only ~90 images (noisy, 2 dp); test
+  may be harder or have more multi-annotated images; slight optimism from tuning thr on val. Not a scorer bug
+  (scorer = Kaggle code, 0.3296 check). M1 quantifies the LB noise.
+- Small filaments (< 200 px²): still 8–10 of 10 missed on val even at 2048; low priority, worth ≤ ~0.005 PQ.
+- YOLOv8-seg comparison run — dropped unless Phase 6 leaves time.
 
 ## 6b. Tools
-- `python src/viewer.py [--run NAME] [--split test]` — one-window viewer of saved predictions vs GT (user asked to keep it simple; don't extend unless asked).
+- `python src/viewer.py [--run NAME] [--split test]` — one-window viewer of saved predictions vs GT (keep it simple;
+  don't extend unless asked).
 
 ## 7. Gotchas
-- Kaggle pages and notebooks are JS-rendered: WebFetch returns only the title. Ask the user to paste content.
+- Kaggle pages and notebooks are JS-rendered: WebFetch returns only the title. Ask the member to paste content or a screenshot.
 - When generating code/notebooks through a Bash heredoc, Python `\n` escapes break; use `chr(10)` or the Write tool,
   then compile-check every notebook cell.
 - "Could not find cuda drivers" in Colab logs comes from TensorFlow, not PyTorch — harmless.
 - Colab ships two OpenCV builds (same `cv2`); harmless.
-- Lecture notes (`lecturenotesMachineVision/`, now in `.gitignore` — the repo must go public) were reviewed; method
-  verdicts are in `Project_Phase_Plan.md` §14. The W14 folder has a report template useful for Phase 8.
-- Locally, Python HTTPS downloads (Hugging Face) fail with `CERTIFICATE_VERIFY_FAILED` because Avast intercepts
-  HTTPS; `curl` works. Download weights with curl into the scratchpad and pass the folder (e.g.
-  `python src/m2f.py ... --pretrained <dir>`). Colab is not affected.
-- Repo alias (user's request, in `.git/config`, not committed): `git cm "msg"` = `git add -A && git commit -m`.
-  The user commits and pushes themselves; give them the command instead of running it.
+- Lecture notes (`lecturenotesMachineVision/`, in `.gitignore` — the repo must go public) were reviewed; method
+  verdicts are in `Project_Phase_Plan.md` §14. Only on Kimee's laptop.
+- Kimee's laptop only: Avast intercepts Python HTTPS (`CERTIFICATE_VERIFY_FAILED`); download with `curl` instead.
+  Kimee also has a local alias `git cm "msg"` (not in the repo).
+- Never list/read the image folders or print the 48 MB annotation JSON (CLAUDE.md token rules).

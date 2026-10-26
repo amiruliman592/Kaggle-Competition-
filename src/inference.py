@@ -27,6 +27,7 @@ from detectron2.engine import DefaultPredictor
 
 from config import CFG
 from postprocess import postprocess_mask
+from utils.flip import flip
 from utils.rle import encode_mask, remove_overlaps, write_submission_csv
 
 
@@ -82,7 +83,7 @@ def build_predictor(model_weights: Optional[str] = None,
 
 
 def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = True,
-                   raw: bool = False) -> Tuple[Dict[str, List[dict]], float]:
+                   raw: bool = False, flip_mode: str = "none") -> Tuple[Dict[str, List[dict]], float]:
     """
     Run inference on the given images.
 
@@ -92,6 +93,8 @@ def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = Tr
             sweep turns this off and resolves after its own score filtering.
         raw: Skip post-processing and overlap removal entirely (for
             --step dump; post-processing is then applied offline).
+        flip_mode: Test-time flip (utils.flip.FLIPS): the image is flipped
+            before prediction and every mask is flipped back.
     Returns:
         (Dict mapping image stem -> list of RLE dicts highest score first, seconds per image)
         Each RLE dict also carries its confidence under "score" (used by the val sweep).
@@ -101,7 +104,7 @@ def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = Tr
     start = time.time()
 
     for img_path in tqdm(img_paths, desc="Inference"):
-        img = cv2.imread(str(img_path))
+        img = flip(cv2.imread(str(img_path)), flip_mode)
         with torch.no_grad():
             instances = predictor(img)["instances"].to("cpu")
 
@@ -110,7 +113,7 @@ def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = Tr
             pred_masks = instances.pred_masks.numpy()  # (N, H, W) boolean
             scores = instances.scores.numpy()
             for idx in np.argsort(-scores):
-                mask = resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE)
+                mask = flip(resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE), flip_mode)
                 if not raw:
                     mask = postprocess_mask(mask)
                 if mask.any():

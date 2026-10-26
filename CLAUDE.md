@@ -1,9 +1,51 @@
 # CLAUDE.md — Solar Filament Segmentation Challenge 2026
 
+## 0. Team session start (READ FIRST, every new session)
+Three people work in this repo, each with their own Claude Code: **Kimee** (lead, Phases 0–5), **Mirul** (Phase 6
+track M) and **Syaz** (Phase 6 track S). All are new to segmentation: explain in plain language, short sentences.
+
+1. **Find out who you are working with.** If the first message doesn't say, ask: "Are you Kimee, Mirul or Syaz?"
+2. **Read before answering:** `HANDOVER.md` (whole file), `PHASE6_GUIDE.md` (plain-language task explanations — use its
+   wording when explaining), then that person's part of `Project_Phase_Plan.md` → Phase 6
+   (Mirul §6.2, Syaz §6.3, shared rules §6.4), and their subsection of `COMPLETED_TASKS.md` (Phase 6).
+3. **First session for Mirul or Syaz (onboarding):** explain, in this order and briefly:
+   (a) the competition and the metric in two or three sentences; (b) the timeline and what Kimee already did
+   (`HANDOVER.md` §0.5 and §2, with the current best scores); (c) why Phase 6 exists (gains below the noise);
+   (d) their own tasks, in order, with what "done" means and roughly how long each takes; (e) how they work with
+   the others (git rules, group chat, experiment-ID range, result folder). Then check their setup with them step by
+   step (`HANDOVER.md` §0.3: clone, `setup_local.ps1`/`.sh`, Colab T4, team Drive shortcut, Kaggle team) and propose
+   their first task.
+4. **Later sessions:** run `git pull origin Dev` only if the person agrees, then say in 3–5 lines what changed since
+   their last session (both Live status blocks in `HANDOVER.md` §2a, new rows in `experiments/log.csv`,
+   `COMPLETED_TASKS.md`) and what their next task is.
+5. **MANDATORY — keep `HANDOVER.md` current (`HANDOVER.md` §0.7).** After every finished task or step, scored Colab
+   run, Kaggle upload or changed decision, and before every push with results, update the member's own **Live status**
+   block in §2a (and the results block / §2 / §6 when relevant) without being asked. A task is not done until
+   HANDOVER is updated. A fresh session must be able to onboard anyone from the repo alone.
+
+**Working rules (all members):**
+- **Explain first, run after a "go".** Before a new task or anything that runs code on Colab, explain the plan in plain
+  language and wait for an explicit go. A "yes" to a question is not a go for the next task.
+- **Don't re-run past work** — check §2b files first and reuse recorded numbers.
+- **Keep helper tools simple** — small scripts, no extra features nobody asked for.
+- **Git:** never commit or push unless the person asks. Always `git pull origin Dev` before a push; after pushing,
+  remind them to post "pushed new version: <what>" in the group chat. Never force-push. On a conflict, help merge;
+  never drop the other person's changes.
+- **Stay in your lane:** write only to the member's own files (`Result Phase 6/<Name>/`, their notebook/scripts, their
+  subsection of `COMPLETED_TASKS.md`, their rows in logs). Experiment IDs: Mirul exp101+, Syaz exp201+, Kimee exp014+
+  (pass `exp_id=` explicitly to `log_experiment`).
+- **Team Drive folder** (Kimee's `solar_filament`, shared by link): **never write the link into any repo file** (the
+  repo goes public). Never modify or delete existing files there (Kimee's trained 2048 model checkpoints); write
+  only inside `Phase 6/<Name>/` (checkpoints in `Phase 6/<Name>/output/`) or `external/`; run names start with the
+  member's name (`HANDOVER.md` §0.6).
+- Only Mirul uploads to Kaggle in Phase 6 (≤ 2/day, only for candidates above the M1 noise threshold).
+- Colab clones branch `Dev`: code must be pushed before a notebook uses it. Mirul and Syaz have **T4 GPUs only**
+  (15 GB): no 2048 training there.
+
 ## 1. Project & Objective
 - **Task**: Instance segmentation of solar filaments from ground-based GONG H-Alpha images.
 - **Goal**: Generate precise masks for individual filaments, capturing fine barbs while avoiding false positives and fragmentation.
-- **Deadline**: Nov 15, 2026. Target PQ: > 0.35.
+- **Deadline**: Nov 15, 2026 (code freeze Nov 11). Best so far: val official PQ 0.4366, public LB 0.38 (exp010). Phase 6 target: LB 0.40–0.42.
 
 ## 2. Dataset Architecture
 ```
@@ -16,7 +58,7 @@ filament-segmentation-2026/MAGFiLO_1.0_Kaggle_2026/
 ```
 - **Image Specs**: Fixed 2048 × 2048 px single-channel/RGB JPEG.
 - **Instance Properties**: Areas range from 9 px² to 37,739 px² (mean ~2,120 px²).
-- **Multi-annotator quirk (CRITICAL)**: JSON has 1,154 image entries for 707 files; 296 files were annotated 2–3× independently (each set = separate entry). Never merge sets or treat entries as images — use `src/annotations.py` (one set per file, policy `first`; ~7.4 filaments/file).
+- **Multi-annotator quirk (CRITICAL)**: JSON has 1,154 image entries for 707 files; 296 files were annotated 2–3× independently (each set = separate entry). Never merge sets or treat entries as images — use `src/annotations.py` (one set per file, policy `first`; ~7.4 filaments/file). Training since Phase 3 uses `--label-policy all` (each annotator set = its own sample); evaluation always uses all sets.
 - **Inter-annotator PQ ≈ 0.336** (human ceiling; see `output/eda/eda_summary.json`).
 - **Frozen split**: `splits/val_ids.json` (566/141, 27-day time blocks). Never regenerate.
 - **Token Saver Guardrails (STRICT)**:
@@ -66,6 +108,10 @@ def mask_to_rle(binary_mask_2048x2048: np.ndarray) -> str:
 ```
 
 ## 5. Pipeline & Modeling Strategy
+> **Original plan from Oct 18 — partly outdated.** What was actually tested and kept is in `HANDOVER.md` §2 and
+> `experiments/ablation_table.md`: CLAHE + disk masking gave no gain; native 2048 (no tiles) replaced tiling;
+> Mask2Former and SAM 2 were rejected; the pipeline is Mask R-CNN (X101-FPN with 56×56 mask head + R50-FPN) ensemble.
+
 1. **Preprocessing**:
    - **Solar Disk Masking**: Apply Hough circle transform to detect the solar disk; zero out background/corners to eliminate corner artifacts.
    - **Enhancement**: Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to reveal thin filament barbs.

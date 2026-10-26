@@ -3,7 +3,7 @@
 
 > **Authoritative Project Roadmap**  
 > **Source Context:** [Solar Filament Overview.txt](Solar%20Filament%20Overview.txt), [Solar_Filament_Segmentation_Plan.md](Solar_Filament_Segmentation_Plan.md), and [CLAUDE.md](CLAUDE.md).  
-> **Plan written:** Sunday, Oct 18, 2026 | **Competition Deadline:** Sunday, Nov 15, 2026 | **Status (Oct 21):** Phases 0–4 done; Phase 5 in progress (SAM 2 rejected; x101+r50 ensemble val PQ 0.4366, **LB 0.38**; Mask2Former + finer mask head notebook ready)  
+> **Plan written:** Sunday, Oct 18, 2026 | **Competition Deadline:** Sunday, Nov 15, 2026 | **Status (Oct 26):** Phases 0–5 done (best LB **0.38**, x101+r50 ensemble, val 0.4366); Phase 6 planned as a two-person sprint (Mirul + Syaz, Oct 27–Nov 5) while Kimee is on a break  
 > **Internal Code Freeze:** Wednesday, Nov 11, 2026 | **Final Package & Form Submission:** Saturday, Nov 14, 2026  
 > **Target Metric:** Panoptic Quality ($\text{PQ}$) $> 0.35$ | **Scoring:** 70% Quantitative + 30% Qualitative  
 
@@ -18,7 +18,7 @@
 6. [Phase 3 — Solar Domain Preprocessing & Post-Processing Quick Wins (Oct 24–28)](#phase-3--solar-domain-preprocessing--post-processing-quick-wins-oct-2428)
 7. [Phase 4 — Full-Resolution 2048×2048 Tiling & Global Stitching (Oct 27–Nov 2)](#phase-4--full-resolution-20482048-tiling--global-stitching-oct-27nov-2)
 8. [Phase 5 — Query-Based Architecture: Mask2Former & SAM 2 (Oct 29–Nov 7)](#phase-5--query-based-architecture-mask2former--sam-2-oct-29nov-7)
-9. [Phase 6 — Structural Continuity, TTA & Model Ensembling (Nov 3–9)](#phase-6--structural-continuity-tta--model-ensembling-nov-39)
+9. [Phase 6 — Two-person sprint: noise check, TTA, training recipe, external images (Oct 27 – Nov 5)](#phase-6--two-person-sprint-noise-check-tta-training-recipe-external-images-oct-27--nov-5)
 10. [Phase 7 — Pipeline Freeze & Final Model Selection (Nov 9–11)](#phase-7--pipeline-freeze--final-model-selection-nov-911)
 11. [Phase 8 — Deliverables, 4-Page Report & Open-Source Release (Nov 7–14)](#phase-8--deliverables-4-page-report--open-source-release-nov-714)
 12. [Risk Management & Contingency Matrix](#12-risk-management--contingency-matrix)
@@ -62,8 +62,9 @@ gantt
     section Phase 4 & 5: Tiling & SOTA
     P4 2048x2048 Tiling & Global Stitch  :p4, 2026-10-27, 7d
     P5 Mask2Former / SAM 2 Exploration   :p5, 2026-10-29, 10d
-    section Phase 6 & 7: Continuity & Freeze
-    P6 Anti-Fragmentation, TTA, Ensemble :p6, 2026-11-03, 7d
+    section Phase 6 & 7: Sprint & Freeze
+    P6 Mirul+Syaz: noise, TTA, recipe    :p6, 2026-10-27, 10d
+    Kimee final 2048 runs (A100)         :p6b, 2026-11-06, 3d
     P7 Code Freeze & Final Selection     :p7, 2026-11-09, 3d
     section Phase 8: Deliverables
     P8 4-Page Report, Notebook & Repo    :p8, 2026-11-07, 8d
@@ -72,34 +73,23 @@ gantt
 
 ---
 
-## ⚠️ Revised plan from 2026-10-21 (replaces the Phase 5–7 timeline below)
+## ⚠️ Revised plan from 2026-10-26 (replaces the Phase 6–7 dates and content below the original timeline)
 
 **Why:** Phases 2–4 gave real, LB-confirmed gains (LB 0.34 → 0.37; native 2048 = +0.03). Phase 5 did not: SAM 2 and
 Mask2Former were rejected, and the two best-val results (m28 alone 0.4385, m28 + r50 0.4404) both scored **LB 0.37**,
 below the x101 + r50 ensemble (0.38). Gains of +0.002–0.01 are smaller than the noise of a 141-image val set and a
-~90-image, 2-decimal public LB. We were tuning on noise. The plan now (1) measures the noise first, (2) picks the
-next lever from an error breakdown instead of guessing, and (3) spends the remaining GPU budget only on changes
-that are expected to be larger than that noise.
+~90-image, 2-decimal public LB. We were tuning on noise. Target agreed: LB 0.40–0.42 (val ~0.46–0.48), stretch ~0.45.
 
-**Phase 5 verdict (closed):** finer mask head (m28) kept as the X101 recipe (best single on val, LB equal to x101);
-Mask2Former and SAM 2 dropped; no more new model families.
+**Phase 5 verdict (closed):** finer mask head (m28) kept as the X101 recipe; Mask2Former and SAM 2 dropped; no more
+new model families. The old Phase 6 ideas (directional merging, watershed splitting, Mask2Former fusion) are dropped:
+fragmentation is already low (frag 10 / merge 32 for m28) and Mask2Former lowers every ensemble.
 
-**Decision rule from now on:** a change is adopted only if it beats the current best by more than the noise
-threshold measured in R1 (paired bootstrap over val images). The LB is a sanity check, not the selector.
-
-| Step | When | What | Cost |
+| Phase | Dates | Who | What |
 |---|---|---|---|
-| **R1 Noise check** | Oct 22 | Paired bootstrap over the 141 val images: x101+r50 vs m28 vs m28+r50 (how often is the "better" one really better?), plus simulated ~90-image LB subsets → minimum gain that is real on val and on the LB. | CPU, 0 units |
-| **R2 Error breakdown** | Oct 22 | For every missed GT (FN) and every FP of the best model: was it (a) predicted with IoU 0.3–0.5 (near miss: outline), (b) predicted but below the score threshold (confidence), (c) never predicted (recall); is the FP a filament drawn by another annotator? Per size bin and per GONG station. Picks the lever for R3/R4. | CPU, 0 units |
-| **R3 TTA** | Oct 23–25 | Inference-only A100 session: m28 + r50 checkpoints on val + test, original + h-flip + v-flip (+ both), fused with `src/ensemble.py`. Scored on val with the R1 rule. Helps case (b). | ~1.5 h A100, ~12 units |
-| **R4 Recipe fix (only if R2 points to it)** | Oct 25–29 | One retrain of m28 on the 566 train images addressing the main error type, e.g. case (c): 90° rotations (the disk is rotation-symmetric; training now uses only flips) and/or a longer schedule. Scored on val with the R1 rule. Skipped if R2 shows no clear lever. | ~3 h A100, ~25 units |
-| **R5 Final models on all 707 images** | Oct 30–Nov 3 | Retrain the final members (m28 + r50, with any adopted R4 change) on train + val (+25% data), same iterations per image, then TTA on test. Cannot be scored on val, so it is checked on the LB only; the 566-image versions stay as the fall-back. | ~6 h A100, ~50 units |
-| **Final submissions** | Nov 4–8 | Choose 3 finals: best val pipeline (566 models), the same with all-707 models, best-Dice variant. | CPU |
-| **Phase 7 freeze** | Nov 9–11 | As below (latency, per-station table, clean-clone reproduction). | – |
-| **Phase 8 report/repo** | Nov 7–14 | As below; Phase 5 negatives (SAM 2, Mask2Former, dilation) go into the ablation table. | – |
-
-Budget: ~95 Colab units left after the Phase 5 step 2 run (user to confirm); R3 + R4 + R5 ≈ 87. If R4 is skipped
-there is a ~35-unit buffer. Each step that runs code is explained first and starts only on the user's go.
+| **6** | Oct 27 – Nov 5 | Mirul + Syaz | Noise check, error budget, flip TTA, training-recipe trials on T4, external unlabelled images + pseudo-labels. Details below in **Phase 6**. |
+| Final runs | after Phase 6 (Nov 6–8) | Kimee | Best recipe on X101-m28 + R50 at 2048 (A100, ~45–55 units): 566-file versions (val-scorable) and, if time allows, all-707-file versions; TTA if adopted. |
+| **7** | Nov 9–11 | all | Freeze, 3 final submissions, latency, per-station table, clean-clone reproduction. |
+| **8** | Nov 12–14 | all | 4-page report, pipeline notebook, public repo; Phase 5–6 negatives go into the ablation table. |
 
 ---
 
@@ -290,29 +280,160 @@ there is a ~35-unit buffer. Each step that runs code is explained first and star
 
 ---
 
-## Phase 6 — Structural Continuity, TTA & Model Ensembling (Nov 3–9)
-**Objective:** Eliminate fragmentation ($1 \to N$) and over-merging ($M \to 1$) penalties, apply TTA, and blend top models.
+## Phase 6 — Two-person sprint: noise check, TTA, training recipe, external images (Oct 27 – Nov 5)
 
-### Technical Workstreams
-1. **Directional Anti-Fragmentation Merging:**
-   - Algorithm:
-     1. For each pair of predicted masks, compute the shortest Euclidean distance between their outer contours.
-     2. Extract the principal orientation axis of each mask using Principal Component Analysis (PCA).
-     3. If distance $< d_{\text{thresh}}$ (e.g. 15 px) **and** orientation angle difference $\Delta \theta < 20^\circ$, connect and merge the segments along their shared axis.
-2. **Anti-Merging Constriction Separation (validation-gated):**
-   - *Only implement if val shows a meaningful M→1 count.* Filaments naturally have narrow bottlenecks along the spine, so watershed (Lecture W04B §3) can split true single filaments. That creates fragmentation (1→N), which costs more than a merge. Restrict it to the largest predictions and test it as an ablation toggle.
-   - For oversized predictions that appear to bridge two separate filaments:
-     1. Compute distance transform map $\to$ identify multiple interior maxima.
-     2. Apply watershed segmentation along narrow bottlenecks to restore physically distinct filaments.
-3. **Test-Time Augmentation (TTA):**
-   - Run inference across Original, Horizontal Flip, and Vertical Flip orientations.
-   - Invert transformations and fuse probability masks via soft averaging.
-4. **Ensemble Fusion:**
-   - Combine predictions from Mask R-CNN and Mask2Former using Weighted Mask Fusion (WMF) with an IoU matching threshold of $0.40$.
+**Team for this phase:** **Mirul** (track M: analysis, test-time augmentation, external images) and **Syaz**
+(track S: training recipe). **Kimee** (did Phases 0–5) is on a break and comes back **when both tracks are finished**
+(target Nov 5, latest Nov 6) for the final A100 run. Both members use Colab **T4** GPUs (15 GB; Google AI Plus
+student accounts, more quota than free Colab) and their own laptops (CPU).
 
-### Quality Gate & Exit Criteria
-- [ ] Validation metric shows a clear drop in one-to-many correspondence penalties.
-- [ ] Total Validation PQ reaches target goal ($> 0.35$).
+**Why this phase:** since Phase 4 every change gave only +0.002–0.01 PQ, which is smaller than the noise of a
+141-image val set and a ~90-image public LB shown to 2 decimals (exp012/exp013 were better on val but scored LB 0.37,
+below exp010's 0.38). Phase 6 therefore (1) measures that noise, (2) finds where PQ is lost, and (3) tries the
+changes most likely to give a *large* gain: test-time flips, a better training recipe and more (unlabelled) data.
+The one thing not changed since Phase 2 is the training recipe: 6,000 iterations × batch 2, flips +
+brightness/contrast only.
+
+**Starting point (do not re-run):** best LB **0.38** = exp010 (x101_2048 + r50_2048 ensemble, val 0.4366);
+best val **0.4404** = exp013 (x101_2048_m28 + r50_2048). The 1024 reference for recipe trials is **exp006**
+`r50_allann` (R50, 1024, all-annotator labels, 6,000 its, val PQ **0.3979**, Dice 0.6426), raw predictions in
+`Result Phase 3/Result Step 3/`.
+
+**Decision rule:** a change is adopted only if it beats its reference by more than the noise threshold measured in
+M1 (paired bootstrap over val images). The LB is a sanity check, never the selector.
+
+### 6.1 Timeline
+
+| Dates | Mirul (track M) | Syaz (track S) |
+|---|---|---|
+| Oct 27 | Setup (HANDOVER §0) | Setup (HANDOVER §0) |
+| Oct 27–29 | **M1** noise check + error budget (CPU) | **S1** seed repeat of exp006 (T4 ~1.3 h) while Claude writes the S2–S4 code |
+| Oct 29–Nov 1 | **M2** flip TTA of the 2048 models (T4, ~1–3 h) | **S2** longer schedule (T4 ~4 h) |
+| Oct 30–Nov 2 | **M3** external GONG images + pseudo-labels (T4 ~2 h) | **S3** rotations + scale jitter (T4 ~4 h) |
+| Nov 1–3 | M3 hand-off to Syaz; M4 station table | **S4** copy-paste (T4 ~4 h) |
+| Nov 3–5 | help S5 / spare GPU | **S5** self-training with pseudo-labels (T4 ~5 h) |
+| **Nov 5 (latest Nov 6)** | **Both: Phase 6 results summary in `HANDOVER.md` §2a → tell Kimee in the group chat** | |
+| after hand-back (Nov 6–8) | Kimee: final 2048 runs on A100 with the adopted recipe (~45–55 units) | |
+| Nov 9–11 | Phase 7 freeze (everyone) | |
+| Nov 12–14 | Phase 8 report + public repo (everyone) | |
+
+GPU time is the main risk: Colab quota is limited (AI Plus gives more than free, but not unlimited) and sessions can disconnect. Training resumes
+from the last checkpoint on Drive. Backups: Kaggle Notebooks (free ~30 GPU h/week, T4×2 or P100; Detectron2 must be
+built there too), or the other member runs a job on their Colab when idle. If time runs short, drop S4 first.
+
+### 6.2 Track M — Mirul
+
+**M1. Noise check + error budget (CPU only, 0 GPU) — first, everything else uses its result.**
+- *Why:* tells the team how big a gain must be to be real, and where the PQ is lost.
+- *Inputs (already in git):* raw val predictions
+  `Result Step 5/Step 1b/raw_preds_ens_x101_r50_2048_union_val.json.gz` (exp010),
+  `Result Step 5/Step 2/raw_preds_x101_2048_m28_val.json.gz` (exp012),
+  `Result Step 5/Step 2/raw_preds_ens_m28_r50_union_val.json.gz` (exp013),
+  `Result Phase 3/Result Step 3/raw_preds_r50_allann_val.json.gz` (exp006, Syaz's reference).
+- *Build:* `src/bootstrap.py` — official PQ is pooled (TP/FP/FN/IoU summed over images), so compute each image's
+  components once, then resample the 141 val images with replacement (~2,000 times) and re-pool. Report for pairs of
+  runs: mean ΔPQ, 95% interval, P(B > A). Also simulate the public LB: random 90-image subsets, rounded to 2 dp,
+  how often does the ranking flip? Output: **minimum real gain on val** and on the LB.
+- *Build:* `src/error_budget.py` — for the best model: every missed GT (FN) is (a) near miss (a prediction with
+  IoU 0.3–0.5: outline problem), (b) below threshold (a raw prediction with score < thr has IoU > 0.5: confidence
+  problem), or (c) never predicted (recall problem); every FP is (d) matched by another annotator's version of that
+  image or (e) matched by nobody; plus SQ loss. Split by size bin and GONG station (filename char 15).
+- *Done when:* threshold numbers + error table are in `experiments/ablation_table.md` and `HANDOVER.md` §2a, the
+  scripts have tests, and Syaz has been told the threshold in the group chat.
+
+**M2. Flip TTA of the 2048 models (T4, inference only).**
+- *Why:* error type (b) — averaging flipped predictions usually raises confident, correct masks. No training needed.
+- *Needs:* Kimee's checkpoints `x101_2048_m28/model_final.pth` and `r50_2048/model_final.pth` in the team Drive
+  folder (`solar_filament/output/detectron2/`, shortcut setup and write rules: `HANDOVER.md` §0.6). Read only.
+- *Build:* a flip option for the dump step (e.g. `run_pipeline.py --step dump --flip none|h|v|hv`): flip the image,
+  predict, flip the masks back, write a normal raw file with a flip suffix. Test: flipping twice is the identity;
+  a fake model on a flipped image gives masks back in the right place.
+- *Run:* notebook `notebooks/colab_phase6_mirul.ipynb` (**ready**; `--flip` built and tested). First a 7-image memory/speed probe (X101 at 2048 has only
+  been run on an A100; prediction should fit in 15 GB, if not use fp16 or drop to r50 only). Then 3 flips (h, v, hv) × 2 models
+  on val + test (321 images); the un-flipped predictions are already in git. Raw files → team Drive `Phase 6/Mirul/` → download to `Result Phase 6/Mirul/` in the repo.
+- *Score (CPU):* fuse with `src/ensemble.py` (each flip = one member, score = mean): first per model, then TTA'd
+  m28 + r50. Official PQ + Dice, compared with exp010/exp013 using M1's bootstrap.
+- *If the gain is above the threshold:* build the CSV with `src/submit_from_raw.py`, check with
+  `src/validate_submission.py`, upload to Kaggle, record the LB in `experiments/log.csv`.
+
+**M3. External unlabelled GONG H-alpha images + pseudo-labels (for Syaz's S5).**
+- *Rules (checked):* external data is allowed but no other ground-truth metadata (`Solar Filament Overview.txt`
+  line 73). The competition host confirmed on the Kaggle forum (~Oct 21, reply to a question about unlabelled
+  KSO/Meudon/BBSO H-alpha images): *"Your method is OK. Please make sure that the new set of observations does not
+  include the test images (or observations within +/- 1 hour of those timestamps)."* Our labels come from our own
+  model, not from any external annotation.
+- *Our stricter rule:* skip **every calendar day that has a test image or a val image** (val too, so val stays an
+  honest check). Never use any external labels or catalogues (MAGFiLO masks, HEK filament lists, etc.).
+- *Source:* NSO GONG H-alpha archive (https://gong2.nso.edu/). First find the product that matches the competition
+  images (2048×2048 JPEG, names `YYYYMMDDhhmmss<station>h`, station letter B/C/L/M/T/U) and check a few downloads
+  against train images (size, brightness range, limb darkening) before downloading in bulk.
+- *Build:* `src/external/download_gong.py`: list → exclusion filter → resumable download → `manifest.csv`
+  (file, timestamp, station, URL). A test proves that no file in the manifest falls on an excluded day.
+- *Amount:* ~3,000 images spread over the train years and the six stations (at most ~2 per day).
+- *Pseudo-labels (T4):* predict with `x101_2048_m28` at 2048, keep masks with score ≥ 0.8 (tune on val: the
+  pseudo-label threshold should give high precision), usual post-processing (close 5, min area 50, overlap removal).
+  Drop images with no kept mask. Save COCO JSON (RLE) as `pseudo_labels_v1.json`.
+- *Storage:* images + labels go to the team Drive folder `solar_filament/external/` (Syaz and Kimee see it there) —
+  **not in git** (too large). Only the script, the manifest and a README line go into git (reproducibility).
+- *If the right archive product can't be found or doesn't match:* tell the group, skip S5.
+
+**M4 (if time). Per-station and per-size table** for the best pipeline (Phase 7 needs it for the report).
+
+### 6.3 Track S — Syaz
+
+All Syaz runs: Mask R-CNN **R50 at 1024** (fits a T4), all-annotator labels (`--label-policy all`), trained on the
+566 train files, scored on the 141 val files exactly like exp006 (raw val dump → local CPU scoring over thr 0.5–0.8,
+official PQ + Dice; see `experiments/ablation_table.md`, Phase 3 step 3). Each run also dumps raw test predictions.
+Changes are added **one at a time**, each on top of the best so far. Notebook `notebooks/colab_phase6_syaz.ipynb`
+(**ready for S1 + S2**; mount Drive → pull code → install → probe → train (resumes) → dump val/test; everything is
+written inside the team Drive `Phase 6/Syaz/`, checkpoints in `Phase 6/Syaz/output/`). S3–S5 cells are added when
+their code exists. Downloaded raw files go to `Result Phase 6/Syaz/`. Run names start with `syaz_` so they
+never collide with Kimee's checkpoint folders (`HANDOVER.md` §0.6).
+
+| Run | Change | T4 time | Compare with |
+|---|---|---|---|
+| **S1** `syaz_r50_seed2` | exp006 recipe again, different seed (`--seed 7`; default `CFG.SEED` is 42) | ~1.3 h | exp006 → **training noise**: how much PQ moves from re-training alone |
+| **S2** `syaz_r50_3x` | 18,000 iterations (`--max-iter 18000`; LR steps already scale at 60%/85%) | ~4 h | exp006 + S1 |
+| **S3** `syaz_r50_rotscale` | + random 90° rotations and scale jitter (~0.8–1.2) in the `src/train.py` mapper, behind a flag | ~4 h* | best of S2 / exp006 |
+| **S4** `syaz_r50_copypaste` | + copy-paste: paste GT filaments from other training images at random spots inside the solar disk, not on existing filaments, soft edges; flag | ~4 h* | best so far |
+| **S5** `syaz_r50_selftrain` | best recipe + Mirul's pseudo-labelled images (mix real and pseudo, e.g. 1:1 per batch with real oversampled) | ~5 h* | best so far |
+
+\*at the schedule chosen in S2. Notes:
+- S1 is also the "learn the workflow" run: it uses existing code only.
+- The image is a round solar disk with north up: 90° rotations change filament orientation statistics. That is why
+  S3 is tested, not assumed.
+- A change counts only if it beats its reference by more than **both** M1's val threshold and the S1 training
+  noise. Gains found at 1024 are assumed to carry over to 2048. Kimee's final run checks this.
+- Syaz's 1024 models are not meant for Kaggle uploads (exp006 scored LB 0.35); no LB upload is needed in track S.
+
+### 6.4 Shared rules for Phase 6
+- **Team Drive folder:** Kimee's `solar_filament` folder, shared by link in the group chat (never in the repo).
+  Read-only for everything already there; write only inside `Phase 6/<Name>/` and `external/` (`HANDOVER.md` §0.6).
+- **HANDOVER is mandatory:** after every finished step, scored run or upload, and before every push with results,
+  Claude updates the member's own **Live status** block in `HANDOVER.md` §2a (rules: `HANDOVER.md` §0.7). Any
+  member must be able to start a fresh Claude Code session and be onboarded from the repo alone.
+- **Git:** both push to `Dev`. `git pull origin Dev` before starting work and again right before every push; then
+  post "pushed: <what>" in the group chat. Never force-push. Commands: `HANDOVER.md` §0.
+- **Avoid clashes:** each member writes only in their own files and folders: new scripts/notebooks named for their
+  task, results in `Result Phase 6/Mirul/` or `Result Phase 6/Syaz/`, their own subsection in `COMPLETED_TASKS.md`
+  (Phase 6), their own rows in `experiments/ablation_table.md`.
+- **Experiment IDs:** `src/utils/exp_log.py` numbers runs by row count, which clashes when two people log at once.
+  Always pass the ID explicitly: **Mirul exp101, exp102, …; Syaz exp201, exp202, …** (Kimee continues exp014+).
+- **Kaggle uploads:** team limit 5 per day. Mirul may use up to 2/day for TTA candidates that beat the threshold.
+  Syaz has no uploads in this phase. Record every LB score in `experiments/log.csv`.
+- **Explain first:** before anything runs code on Colab, Claude explains the plan in plain language and waits for
+  the member's "go".
+- **Tests:** every new script gets a small test; run only the tests covering changed code, the full suite
+  (`pytest tests`) before pushing.
+
+### Quality Gate & Exit Criteria (Nov 5)
+- [ ] M1: noise threshold (val + LB) and error budget recorded.
+- [ ] M2: TTA verdict recorded (adopted or rejected, with numbers); CSV uploaded if adopted.
+- [ ] M3: pseudo-label set in the team Drive `external/`, or a note on why it was skipped.
+- [ ] S1–S5: each run in `experiments/log.csv` + ablation table; a **recommended recipe** (exact flags) for the
+      final 2048 run.
+- [ ] Both Live status blocks current; `HANDOVER.md` §2a results block filled in, so Kimee can start the A100 run
+      without asking. Kimee told in the group chat.
 
 ---
 
@@ -401,10 +522,10 @@ there is a ~35-unit buffer. Each step that runs code is explained first and star
 ## 13. Team Role Assignments & Weekly Checkpoints
 
 ### 13.1 Role Allocations
-- **Lead ML Engineer:** Phase 2 (Baseline), Phase 4 (Tiling Engine), Phase 5 (Mask2Former Architecture).
-- **Computer Vision & Data Engineer:** Phase 1 (EDA), Phase 3 (Preprocessing/Post-processing), Phase 6 (Continuity Algorithms, TTA).
-- **Evaluation & Metric Lead:** Phase 1 (PQ Metric Engine, Split), Phase 2 (Submission Validation), Phase 7 (Benchmarking).
-- **Scientific Author & Project Lead:** Phase 0 (Tooling), Phase 8 (4-Page Report, Pipeline Notebook, Public Release).
+- **Kimee (lead):** Phases 0–5 (tooling, metric, split, baseline, 2048 models, ensemble); final A100 runs after Phase 6; Phase 7 selection.
+- **Mirul (repo owner):** Phase 6 track M — noise check + error budget, flip TTA, external GONG images + pseudo-labels.
+- **Syaz:** Phase 6 track S — training-recipe trials on T4 (seed repeat, longer schedule, rotation/scale, copy-paste, self-training).
+- **Everyone:** Phase 8 report and public repo (split of report sections to be agreed on Nov 9).
 
 ### 13.2 Weekly Milestone Checkpoints
 - **Week 1 (Sun, Oct 25):** Frozen date-grouped split, verified PQ metric engine, **first valid Kaggle submission**.
