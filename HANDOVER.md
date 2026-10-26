@@ -1,6 +1,7 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-26 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break).
+Last updated 2026-10-27 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Syaz: setup + Colab sections 1–4 done, probe next).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
 `Project_Phase_Plan.md` (Phase 6 = the current task list). Do not re-run anything recorded there.
@@ -182,11 +183,16 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 > - Blockers / waiting on: team Drive folder link from Kimee (group chat), shortcut added (§0.6)
 > - Files: —
 
-> **Syaz** — last updated: 2026-10-26 (not started)
-> - Done: —
-> - Now / next: setup (§0.3), then S1 + S2 with `notebooks/colab_phase6_syaz.ipynb` (ready, no new code needed)
-> - Blockers / waiting on: team Drive folder link from Kimee (group chat), shortcut added (§0.6)
-> - Files: —
+> **Syaz** — last updated: 2026-10-27 (setup; S1 not started)
+> - Done: local setup (§0.3 steps 1–4): clone, `setup_local.ps1`, all 53 tests pass; team Drive shortcut added
+>   (university account, `output/detectron2` visible); `colab_phase6_syaz.ipynb` opened from GitHub (Dev) on a T4,
+>   copy saved in own Drive; sections 1–4 run without errors (repo is public: no `GITHUB_TOKEN` needed)
+> - Now / next: **Step 0 probe — NOT run yet.** New Colab session: T4 → run cell 0 + sections 1–4 again → Step 0
+>   probe (20 steps, must print `Probe passed.`; note `Peak GPU memory`) → Claude explains S1 → on "go" S1
+>   (`syaz_r50_seed2`, `--seed 7`, ~1.3 h)
+> - Blockers / waiting on: Kaggle team membership **pending** (invite/merge requested from a teammate, 2026-10-27;
+>   not blocking S1, no uploads in track S)
+> - Files: — (results will go to `Result Phase 6/Syaz/`; Drive `Phase 6/Syaz/`)
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
