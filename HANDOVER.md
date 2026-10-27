@@ -101,6 +101,11 @@ knows what is written in the repo. So **`HANDOVER.md` must always describe the r
 - **When:** after every finished task or step (M1, S2, …), after every Colab run is scored, after every Kaggle upload,
   whenever a plan or decision changes, and **before every push** that contains results. Claude does this without
   being asked; a task is not "done" until HANDOVER is updated.
+- **Every session, at the start and at the end (Kimee's rule, no exceptions):** at the start, Claude checks that your
+  Live status block matches `experiments/log.csv`, `COMPLETED_TASKS.md` and `git log`, and fixes it first if not.
+  At the end, Claude updates your block **even if nothing finished** (half-done work, e.g. a Colab run still
+  training: run name + where the checkpoints are) and asks you to commit + push it. An update that is not pushed is
+  invisible to the others.
 - **What:** your own **Live status** block in §2a (last done, numbers, next step, blockers, where files are); the
   §2a results block when a Phase 6 question is answered; §2 if the best model/submission changes; §6/§7 for new open
   questions or gotchas. Also the matching line in `COMPLETED_TASKS.md` and `experiments/log.csv`.

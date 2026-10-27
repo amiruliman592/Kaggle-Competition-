@@ -22,6 +22,13 @@ track M) and **Syaz** (Phase 6 track S). All are new to segmentation: explain in
    run, Kaggle upload or changed decision, and before every push with results, update the member's own **Live status**
    block in §2a (and the results block / §2 / §6 when relevant) without being asked. A task is not done until
    HANDOVER is updated. A fresh session must be able to onboard anyone from the repo alone.
+   **Every session, no exceptions (Kimee's rule):**
+   - **Start:** compare the member's Live status block with `experiments/log.csv`, `COMPLETED_TASKS.md` and
+     `git log`. If it is out of date (results, runs or uploads not in it), fix it first and tell the member.
+   - **End:** before the session ends (the member says bye/done/stop, or the work pauses), update the Live status
+     block even if nothing finished: set the date, what was done, what is half-done (e.g. a Colab run still
+     training: run name, where its checkpoints are), next step, blockers. Then ask the member to commit and push it
+     ("Mirul: update HANDOVER") and post in the group chat. An update that is not pushed is invisible to the others.
 
 **Working rules (all members):**
 - **Explain first, run after a "go".** Before a new task or anything that runs code on Colab, explain the plan in plain
