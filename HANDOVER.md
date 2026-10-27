@@ -1,7 +1,7 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
 Last updated 2026-10-27 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: setup + Colab sections 1–4 done, probe next).
+Syaz: setup + Colab sections 1–4 done, probe next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 next).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
 `Project_Phase_Plan.md` (Phase 6 = the current task list). Do not re-run anything recorded there.
@@ -101,6 +101,11 @@ knows what is written in the repo. So **`HANDOVER.md` must always describe the r
 - **When:** after every finished task or step (M1, S2, …), after every Colab run is scored, after every Kaggle upload,
   whenever a plan or decision changes, and **before every push** that contains results. Claude does this without
   being asked; a task is not "done" until HANDOVER is updated.
+- **Every session, at the start and at the end (Kimee's rule, no exceptions):** at the start, Claude checks that your
+  Live status block matches `experiments/log.csv`, `COMPLETED_TASKS.md` and `git log`, and fixes it first if not.
+  At the end, Claude updates your block **even if nothing finished** (half-done work, e.g. a Colab run still
+  training: run name + where the checkpoints are) and asks you to commit + push it. An update that is not pushed is
+  invisible to the others.
 - **What:** your own **Live status** block in §2a (last done, numbers, next step, blockers, where files are); the
   §2a results block when a Phase 6 question is answered; §2 if the best model/submission changes; §6/§7 for new open
   questions or gotchas. Also the matching line in `COMPLETED_TASKS.md` and `experiments/log.csv`.
@@ -123,7 +128,12 @@ knows what is written in the repo. So **`HANDOVER.md` must always describe the r
 
 ## 2. Current state & achievements
 - **Phases 0–5: DONE** (Phase 5: SAM 2 and Mask2Former rejected, m28 head kept).
-- **Best submission: ensemble x101_2048 + r50_2048** (exp010, `src/ensemble.py`): masks of both models with IoU ≥ 0.5
+- **Best submission (Phase 6 M2, 2026-10-27): flip TTA of x101_2048_m28 + r50_2048** (exp101): each model on the
+  original + h/v/hv-flipped image, 4 views fused (`src/ensemble.py`, IoU 0.5 union), then the 2 models fused (IoU 0.3
+  inter), close 5, min area 50, thr 0.6, overlap drop 0.2. **Val official PQ 0.4480, Dice 0.6520; public LB 0.39**.
+  Fused raw files in `Result Phase 6/Mirul/raw_preds_tta2_m28_r50_{val,test}.json.gz`; CSV:
+  `python src/submit_from_raw.py "Result Phase 6/Mirul/raw_preds_tta2_m28_r50_test.json.gz" submissions/submission_tta2_m28_r50_pp.csv --score-thr 0.6`.
+- Previous best: **ensemble x101_2048 + r50_2048** (exp010, `src/ensemble.py`): masks of both models with IoU ≥ 0.5
   are one filament, mask = union, score = mean over both models (a missing model adds 0); then close 5, min area 50,
   thr 0.6, overlap drop 0.2. **Val official PQ 0.4366, Dice 0.6505; public LB 0.38**
   (`submissions/submission_ens_x101_r50_2048_pp.csv`; fused raw files in `Result Step 5/Step 1b/`).
@@ -177,11 +187,19 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 
 **Live status — each member updates ONLY their own block, after every step (mandatory, §0.7):**
 
-> **Mirul** — last updated: 2026-10-26 (not started)
-> - Done: —
-> - Now / next: setup (§0.3), then M1 (laptop). M2 notebook ready: `notebooks/colab_phase6_mirul.ipynb`
-> - Blockers / waiting on: team Drive folder link from Kimee (group chat), shortcut added (§0.6)
-> - Files: —
+> **Mirul** — last updated: 2026-10-27 (M1 + M2 done)
+> - Done: local setup (clone, `.venv`, tests pass). **M1 bootstrap** (`src/bootstrap.py`): a val gain must be
+>   **≥ ~0.010 PQ** to be real (LB ≥ ~0.015, i.e. +0.02 at 2 dp); exp012/exp013 gains over exp010 are noise.
+>   **M1 error budget** (`src/error_budget.py`) of exp010: biggest losses = 246 true filaments scored < 0.6
+>   (confidence, ≤ +0.063 if fixed) and 341 real false alarms (≤ +0.051); 181 never found (≤ +0.047); 146 near
+>   misses; 186 FPs drawn by another annotator (label noise). Tables: `experiments/ablation_table.md` (Phase 6 M1a/M1b)
+>   **M2 flip TTA** (exp101, **new best: val 0.4480, LB 0.39**): Kimee's m28 + r50 on h/v/hv-flipped val + test
+>   (T4); two-stage fusion = per model 4 views (IoU 0.5 union), then m28 + r50 (IoU 0.3 inter), thr 0.6.
+>   +0.0116 val vs exp010 (above the bar). One 8-view fusion gives no gain. Table: ablation_table Phase 6 M2
+> - Now / next: M3 external GONG images + pseudo-labels (use the TTA ensemble as the labeller?)
+> - Blockers / waiting on: Colab writes to the team Drive fail for me (§7) — download from `/content/out` instead
+> - Files: `Result Phase 6/Mirul/` (bootstrap, error budget, 12 flip raw files, fused `raw_preds_tta*`, grids,
+>   logs); CSV `submissions/submission_tta2_m28_r50_pp.csv` (gitignored, on Mirul's laptop; rebuild with §2)
 
 > **Syaz** — last updated: 2026-10-27 (S1 trained; S2 interrupted)
 > - Done: local setup (§0.3 steps 1–4): clone, `setup_local.ps1`, all 53 tests pass; team Drive shortcut added
@@ -206,9 +224,9 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 start the A100 run without asking, then tell Kimee in the group chat.
 
 > **Phase 6 results (to be filled by Mirul and Syaz):**
-> - Noise threshold — val: … / LB: … ; training noise (S1): …
-> - Error budget (main loss): …
-> - TTA: adopted / rejected (val PQ …, LB …, CSV …)
+> - Noise threshold — val: ~0.010 PQ (paired bootstrap, M1) / LB: ~0.015 (≈ +0.02 at 2 dp) ; training noise (S1): …
+> - Error budget (main loss): confidence — 246 true filaments scored < 0.6 (≤ +0.063), then 341 real FPs (≤ +0.051), 181 never found (≤ +0.047); ablation_table Phase 6 M1b
+> - TTA: **adopted** — two-stage flip TTA m28 + r50, val PQ 0.4480 (+0.0116 vs exp010), **LB 0.39**, CSV `submissions/submission_tta2_m28_r50_pp.csv` (exp101). For the final run: predict each new 2048 model on h/v/hv flips too
 > - Recipe for the final 2048 run (exact flags): …
 > - Pseudo-labels: team Drive `external/…`, size …, verdict from S5: …
 > - Open problems: …
@@ -278,3 +296,9 @@ start the A100 run without asking, then tell Kimee in the group chat.
 - Kimee's laptop only: Avast intercepts Python HTTPS (`CERTIFICATE_VERIFY_FAILED`); download with `curl` instead.
   Kimee also has a local alias `git cm "msg"` (not in the repo).
 - Never list/read the image folders or print the 48 MB annotation JSON (CLAUDE.md token rules).
+- **Writes to the team Drive can silently fail (Mirul, M2, 2026-10-27).** `colab_phase6_mirul.ipynb` printed
+  "saved to …/Phase 6/Mirul" for all 6 flip runs, yet that folder stayed empty (in Colab `os.listdir` and on
+  drive.google.com, also hours later); the files existed only in `/content/out`. Likely cause: writing through the
+  shortcut into Kimee's shared folder. Workaround: before disconnecting, check `os.listdir(MY_DIR)` and, if empty,
+  zip + `files.download` the files from `/content/out`. **Syaz: check that your checkpoints really appear in
+  `Phase 6/Syaz/output/` early in a training run** — otherwise a disconnect loses the run.

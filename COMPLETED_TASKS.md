@@ -77,7 +77,9 @@ A running log of finished work. Newest phase at the bottom. For open work see `H
 Each member logs only in their own subsection (avoids git conflicts).
 
 ### Mirul (track M: M1 noise check + error budget, M2 flip TTA, M3 external images + pseudo-labels, M4 station table)
-- (nothing yet)
+- [x] 2026-10-27 — M1 part 1, noise check: `src/bootstrap.py` (paired bootstrap, 2,000 draws; simulated 90-image 2-dp LB) + `tests/test_bootstrap.py` (3 tests). Reproduces logged val PQ of exp006/010/012/013 exactly. **Min real gain: val ~0.010 PQ, LB ~0.015 (≈ +0.02 at 2 dp)**; single-run SD val 0.011. exp012/exp013 vs exp010 = noise. Results: `Result Phase 6/Mirul/bootstrap.json`, `experiments/ablation_table.md` (Phase 6 M1a).
+- [x] 2026-10-27 — M1 part 2, error budget: `src/error_budget.py` + `tests/test_error_budget.py` (4 tests; PQ/TP/FP/FN equal `evaluate_official`). exp010 on val: fn_low_score 246 (≤ +0.063), fp_nobody 341 (≤ +0.051), fn_never 181 (≤ +0.047), fn_near_miss 146 (≤ +0.039), fp_other_ann 186 (label noise), fn_postproc 38; per size and station in `experiments/ablation_table.md` (Phase 6 M1b). Main loss = confidence → supports M2 TTA. Results: `Result Phase 6/Mirul/error_budget_exp010.json`.
+- [x] 2026-10-27 — M2 flip TTA (exp101): `colab_phase6_mirul.ipynb` on T4 (r50 2.4 GB peak, 1.17 s/img/view; Drive copy failed, files downloaded from `/content/out`, HANDOVER §7). Two-stage fusion (per model 4 views IoU 0.5 union → m28 + r50 IoU 0.3 inter, thr 0.6): val PQ **0.4480**, Dice 0.6520, +0.0116 vs exp010 (bootstrap CI +0.004..+0.020, above the bar); one 8-view fusion 0.4382 (no gain). CSV `submissions/submission_tta2_m28_r50_pp.csv` 1,256 masks, validator PASS, **public LB 0.39 (new best)**. Table: `experiments/ablation_table.md` (Phase 6 M2).
 
 ### Syaz (track S: S1 seed repeat, S2 3× schedule, S3 rotation + scale, S4 copy-paste, S5 self-training)
 - (nothing yet)
