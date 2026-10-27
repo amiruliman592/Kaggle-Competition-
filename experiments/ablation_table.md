@@ -139,6 +139,26 @@ i.e. in practice **+0.02 on the 2-dp LB**. None of the Phase 5 step 2 gains (+0.
 LB drop (0.37 vs 0.38) had only ~2% chance from sampling noise alone: val and test may differ a little, so treat val
 gains near the bar with extra caution. Training noise (Syaz S1) still to be added.
 
+## Phase 6 S1 + S2 — seed repeat and 3× schedule, R50 at 1024 (2026-10-27, Syaz; T4 training, CPU scoring)
+exp006 recipe (R50-FPN, 1024, all-annotator labels, batch 2, LR 0.0025), one change per run. Scored like exp006:
+close 5, min area 50, overlap drop 0.2, thr 0.5–0.85, official PQ + Dice (samplewise); exp006 reproduces 0.3979 /
+0.6426. Paired bootstrap = `src/bootstrap.py` (2,000 draws, seed 42), each run at its best thr. Outputs:
+`Result Phase 6/Syaz/eval_s1_s2.json`, `Result Phase 6/Syaz/bootstrap_s1_s2.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference (seed 42, 6,000 its) | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp201** S1 `syaz_r50_seed2` | `--seed 7` | 0.3979 | 0.6382 | 0.3985 (0.65) | 0.6385 | +0.0005 [−0.006, +0.007] | 0.56 | **training noise** |
+| **exp202** S2 `syaz_r50_3x` | `--max-iter 18000` (LR drops 10,800 / 15,300) | 0.3907 | 0.6321 | 0.3989 (0.75) | 0.6151 | +0.0007 [−0.010, +0.011] | 0.55 | **rejected** |
+
+**Training noise (S1):** re-training with another seed moves full-val PQ by only ~0.001 (identical 0.3979 at thr
+0.6), but the PQ-vs-thr curve shifts (best thr 0.6 → 0.65) and the paired per-image difference has a 95% bar of
+±0.007. So the M1 bar (**≥ ~0.010 val PQ**) stays the binding one; S1 does not raise it.
+**3× schedule (S2):** no PQ gain (+0.0007, inside the noise), lower Dice at every thr ≥ 0.6, and the scores become
+more confident (best thr moves to 0.75; at thr 0.6 it has more FPs, 652 vs 617). Keep **6,000 its** for S3–S5 (also
+3× cheaper on a T4). S2 was resumed once from `model_0011999.pth` with optimizer + LR-scheduler state (only the data
+order after the resume differs from an unbroken run).
+
 ## Phase 6 M1b — error budget of exp010 (2026-10-27, Mirul, CPU)
 `src/error_budget.py`, official matching (233 annotator entries, IoU > 0.5), thr 0.6. Output:
 `Result Phase 6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.

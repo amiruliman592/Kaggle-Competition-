@@ -201,30 +201,28 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 > - Files: `Result Phase 6/Mirul/` (bootstrap, error budget, 12 flip raw files, fused `raw_preds_tta*`, grids,
 >   logs); CSV `submissions/submission_tta2_m28_r50_pp.csv` (gitignored, on Mirul's laptop; rebuild with §2)
 
-> **Syaz** — last updated: 2026-10-27 (S1 trained; S2 interrupted)
-> - Done: local setup (§0.3 steps 1–4): clone, `setup_local.ps1`, all 53 tests pass; team Drive shortcut added
->   (university account, `output/detectron2` visible); `colab_phase6_syaz.ipynb` opened from GitHub (Dev) on a T4,
->   copy saved in own Drive; sections 1–4 run without errors (repo is public: no `GITHUB_TOKEN` needed);
->   **Step 0 probe passed** (T4, 20 its in 1.1 min, peak GPU memory 2.7 GB of 15; writes to Drive `Phase 6/Syaz/output/`)
-> - Done (2026-10-27): **S1 trained + dumped** on Colab T4 (`syaz_r50_seed2`, `--seed 7`): val 1,771 raw masks
->   (0.56 s/img), test 2,368 (0.57 s/img), dump peak GPU 2.2 GB. Both raw files downloaded to `Result Phase 6/Syaz/`
->   and validated (141 val / 180 test images = same sets as exp006, all masks 2048², decodable, scores 0.20–1.00);
->   **not yet scored**.
-> - Now / next: (1) score S1 vs exp006 on the laptop, log exp201. (2) **S2 (`syaz_r50_3x`) started, then stopped:
->   Colab GPU usage limit** ("Cannot connect to GPU backend"). Syaz continues on another Google account (needs the
->   team-folder shortcut there). Newest checkpoint in Drive `Phase 6/Syaz/output/detectron2/syaz_r50_3x/` =
->   **`model_0011999.pth`** (334.8 MB; 12,000 of 18,000 its done). Resume: sections 1–4 → S2 cell (unchanged,
->   `--max-iter 18000`); Detectron2 reads `last_checkpoint` and restores model + optimizer + LR scheduler + iteration,
->   so it trains its 12,000 → 17,999 only (~1.3 h), then dumps val/test.
+> **Syaz** — last updated: 2026-10-28 (S1 + S2 done and scored; S3 next)
+> - Done: setup (laptop `.venv`, 53 tests; team Drive shortcut; `colab_phase6_syaz.ipynb` on T4, repo public = no
+>   token; probe passed, 20 its 1.1 min, peak 2.7 GB).
+>   **S1** `syaz_r50_seed2` (exp201, `--seed 7`): val PQ **0.3985** (thr 0.65), Dice 0.6385; at thr 0.6 = exp006
+>   (0.3979). Paired bootstrap vs exp006 +0.0005 [−0.006, +0.007] → **training noise ~0.001; the M1 bar (0.010) stays.**
+>   **S2** `syaz_r50_3x` (exp202, `--max-iter 18000`): val PQ 0.3989 (thr 0.75), Dice 0.6151; +0.0007 [−0.010, +0.011]
+>   vs exp006 = **no gain, Dice lower → rejected; keep 6,000 its for S3–S5.** S2 ran out of Colab quota at it ~12k and
+>   was resumed on Syaz's second Google account from `model_0011999.pth` (optimizer + LR scheduler state verified).
+>   Table: `experiments/ablation_table.md` (Phase 6 S1 + S2).
+> - Now / next: **S3** (+ 90° rotations + scale jitter ~0.8–1.2, at 6,000 its vs exp006): Claude writes the flag in
+>   `src/train.py` + a test + a notebook cell → explain → Syaz's "go" → push → Colab T4 (~1.3 h).
 > - Blockers / waiting on: Kaggle team membership **pending** (invite/merge requested from a teammate, 2026-10-27;
->   no uploads in track S)
-> - Files: `Result Phase 6/Syaz/raw_preds_syaz_r50_seed2_{val,test}.json.gz`; Drive `Phase 6/Syaz/`
+>   no uploads in track S). Colab: Syaz's first account hit the GPU limit on 2026-10-27; the second account works
+>   (S2 finished there; files downloaded via the notebook, Drive copy not separately checked).
+> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1 + S2, `eval_s1_s2.json` (thr sweep), `bootstrap_s1_s2.json`.
+>   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x}/` (checkpoints).
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
 
 > **Phase 6 results (to be filled by Mirul and Syaz):**
-> - Noise threshold — val: ~0.010 PQ (paired bootstrap, M1) / LB: ~0.015 (≈ +0.02 at 2 dp) ; training noise (S1): …
+> - Noise threshold — val: ~0.010 PQ (paired bootstrap, M1) / LB: ~0.015 (≈ +0.02 at 2 dp) ; training noise (S1): ~0.001 full-val PQ (seed 7 vs 42; paired 95% ±0.007), below the M1 bar → use **≥ 0.010** (exp201, ablation_table Phase 6 S1 + S2)
 > - Error budget (main loss): confidence — 246 true filaments scored < 0.6 (≤ +0.063), then 341 real FPs (≤ +0.051), 181 never found (≤ +0.047); ablation_table Phase 6 M1b
 > - TTA: **adopted** — two-stage flip TTA m28 + r50, val PQ 0.4480 (+0.0116 vs exp010), **LB 0.39**, CSV `submissions/submission_tta2_m28_r50_pp.csv` (exp101). For the final run: predict each new 2048 model on h/v/hv flips too
 > - Recipe for the final 2048 run (exact flags): …

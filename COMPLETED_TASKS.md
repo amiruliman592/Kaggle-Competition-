@@ -82,7 +82,9 @@ Each member logs only in their own subsection (avoids git conflicts).
 - [x] 2026-10-27 — M2 flip TTA (exp101): `colab_phase6_mirul.ipynb` on T4 (r50 2.4 GB peak, 1.17 s/img/view; Drive copy failed, files downloaded from `/content/out`, HANDOVER §7). Two-stage fusion (per model 4 views IoU 0.5 union → m28 + r50 IoU 0.3 inter, thr 0.6): val PQ **0.4480**, Dice 0.6520, +0.0116 vs exp010 (bootstrap CI +0.004..+0.020, above the bar); one 8-view fusion 0.4382 (no gain). CSV `submissions/submission_tta2_m28_r50_pp.csv` 1,256 masks, validator PASS, **public LB 0.39 (new best)**. Table: `experiments/ablation_table.md` (Phase 6 M2).
 
 ### Syaz (track S: S1 seed repeat, S2 3× schedule, S3 rotation + scale, S4 copy-paste, S5 self-training)
-- (nothing yet)
+- [x] 2026-10-27 — Setup: laptop `.venv` (53 tests pass), team Drive shortcut, `colab_phase6_syaz.ipynb` on T4 (repo public, no token), probe passed (20 its in 1.1 min, peak 2.7 GB).
+- [x] 2026-10-27 — S1 seed repeat (exp201, `syaz_r50_seed2`, `--seed 7`, T4 ~1.3 h; dump 0.56 s/img, 2.2 GB): val PQ **0.3985** (thr 0.65), Dice 0.6385; at thr 0.6 PQ 0.3979 = exp006. Paired bootstrap vs exp006 +0.0005 [−0.006, +0.007] → **training noise ~0.001 on full val; M1 bar 0.010 stays the bar**. Raw files + `eval_s1_s2.json`, `bootstrap_s1_s2.json` in `Result Phase 6/Syaz/`; table `experiments/ablation_table.md` (Phase 6 S1 + S2).
+- [x] 2026-10-27 — S2 3× schedule (exp202, `syaz_r50_3x`, `--max-iter 18000`, T4; Colab quota ran out at it ~12k → resumed on a second account from `model_0011999.pth`, optimizer + scheduler state checked; test dump 0.52 s/img, 1.8 GB): val PQ 0.3989 (thr 0.75), Dice 0.6151; +0.0007 vs exp006 [−0.010, +0.011] = **no gain, Dice lower → rejected; 6,000 its kept for S3–S5**.
 
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).
