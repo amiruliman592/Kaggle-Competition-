@@ -155,6 +155,11 @@ python run_pipeline.py --step infer
 python run_pipeline.py --step all
 ```
 
+**External unlabelled images (Phase 6 M3, self-training):** public NSO GONG H-alpha JPEGs (`gong2.nso.edu/HA/hag`),
+no external labels; days of val time blocks and test days ±1 are excluded. Reproduce with
+`src/external/download_gong.py` (frame list in `external/manifest.csv`) and `src/external/make_pseudo_labels.py`
+(masks drawn by our own model); notebook `notebooks/colab_phase6_mirul_m3.ipynb`.
+
 ---
 
 ## 🧩 Module Overview

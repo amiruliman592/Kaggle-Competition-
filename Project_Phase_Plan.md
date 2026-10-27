@@ -356,7 +356,9 @@ built there too), or the other member runs a job on their Colab when idle. If ti
 - *If the gain is above the threshold:* build the CSV with `src/submit_from_raw.py`, check with
   `src/validate_submission.py`, upload to Kaggle, record the LB in `experiments/log.csv`.
 
-**M3. External unlabelled GONG H-alpha images + pseudo-labels (for Syaz's S5).**
+**M3. External unlabelled GONG H-alpha images + pseudo-labels (for Syaz's S5).** *(Code + notebook
+`notebooks/colab_phase6_mirul_m3.ipynb` ready 2026-10-27: product = GONG `hag` JPEGs; exclusion widened to whole val
+27-day blocks; labeller m28 thr 0.85 — see `experiments/ablation_table.md` Phase 6 M3.)*
 - *Rules (checked):* external data is allowed but no other ground-truth metadata (`Solar Filament Overview.txt`
   line 73). The competition host confirmed on the Kaggle forum (~Oct 21, reply to a question about unlabelled
   KSO/Meudon/BBSO H-alpha images): *"Your method is OK. Please make sure that the new set of observations does not

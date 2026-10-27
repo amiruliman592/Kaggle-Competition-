@@ -201,3 +201,27 @@ Caveat: setting picked from 30 on val (some optimism); the inter fusion at IoU 0
 not show the gain, so it depends on the two-stage order.
 **Verdict: adopted.** Submission `submissions/submission_tta2_m28_r50_pp.csv` (1,256 masks, validator PASS):
 **public LB 0.39** (exp010 0.38) — first LB gain since Phase 5, new best (exp101).
+
+## Phase 6 M3 — external GONG images: source check + pseudo-labeller choice (2026-10-27, Mirul; CPU)
+**Source:** NSO GONG archive product `hag` (`https://gong2.nso.edu/HA/hag/YYYYMM/YYYYMMDD/<stem>.jpg`) has the same
+frames and names as the competition images. 3 train files (2011 C, 2014 B, 2022 T) compared: same 2048×2048 frame,
+correlation ≥ 0.99, mean |diff| 2.1–2.8 grey levels on the disk, brightness fit B = 1.00·G + 0.6–1.1. The archive copy
+is RGB (channels equal) at JPEG quality ~75; the competition copy is greyscale at ~90. The Colab run measures the
+effect on val PQ (archive copies of the 141 val images vs 0.4355 on the competition copies, m28 thr 0.6).
+**Exclusion:** every day of a val 27-day block + every test day ±1 → 3,310 allowed days in 2011–2022.
+
+Pseudo-label precision on val (kept mask matched by ≥ 1 annotator set at IoU > 0.5; recall averaged over sets;
+usual post-processing; scratch script, CPU):
+
+| Labeller | thr | masks/img | precision | recall | matched IoU |
+|---|---|---|---|---|---|
+| m28, 1 view | 0.80 | 5.38 | 0.817 | 0.570 | 0.689 |
+| **m28, 1 view** | **0.85** | **4.73** | **0.840** | **0.529** | **0.694** |
+| m28, 1 view | 0.90 | 4.03 | 0.864 | 0.473 | 0.696 |
+| m28, 4 flips | 0.85 | 4.48 | 0.854 | 0.511 | 0.692 |
+| m28 + r50, 8 views (exp101) | 0.80 | 4.87 | 0.860 | 0.547 | 0.694 |
+| m28 + r50, 8 views (exp101) | 0.85 | 4.24 | 0.885 | 0.496 | 0.697 |
+
+**Choice: m28 alone, thr 0.85.** The 8-view TTA is ~2 points more precise at equal recall but needs 8× the T4 time
+(~14 h vs < 2 h for 3,000 images). For S5: about half of the filaments in a pseudo-labelled image are not labelled,
+so unlabelled pixels are not reliable background; raw masks (score ≥ 0.2) are kept so S5 can ignore unsure regions.
