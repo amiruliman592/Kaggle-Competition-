@@ -120,3 +120,44 @@ Raw files in `Result Step 5/Step 2/`. Close 5, min area 50, drop 0.2; official v
 (+0.004 over exp010; thr 0.6 kept for Dice). Mask2Former is weaker alone (−0.024, twice the merges) and lowers
 every ensemble it joins, despite the best Dice. **Public LB: both 0.37** (exp010 x101 + r50 stays best at 0.38): val gains this small do not show on the LB.
 Submissions: `submission_ens_m28_r50_2048_pp.csv` (1,277 masks), `submission_x101_2048_m28_pp.csv` (1,176); both pass the validator.
+
+## Phase 6 M1a — noise check, paired bootstrap (2026-10-27, Mirul, CPU)
+`src/bootstrap.py`, 2,000 re-draws of the 141 val images (seed 42); "LB" = 90 images drawn with replacement, rounded
+to 2 dp. Same draws for both runs of a pair. Min real gain = 1.96 × SD of the paired difference.
+Output: `Result Phase 6/Mirul/bootstrap.json`. Full-val PQ reproduces `log.csv` exactly.
+
+| B vs A | ΔPQ val | 95% CI | P(B>A) | min real gain val | min real gain LB | sim. LB B higher / tie / lower |
+|---|---|---|---|---|---|---|
+| exp010 vs exp006 | +0.0386 | [+0.027, +0.050] | 1.00 | 0.011 | 0.015 | 1.00 / 0.00 / 0.00 |
+| exp012 vs exp010 | +0.0019 | [−0.007, +0.010] | 0.66 | 0.009 | 0.011 | 0.31 / 0.55 / 0.14 |
+| exp013 vs exp010 | +0.0038 | [−0.002, +0.009] | 0.92 | 0.005 | 0.007 | 0.41 / 0.57 / 0.02 |
+| exp013 vs exp012 | +0.0020 | [−0.006, +0.010] | 0.69 | 0.008 | 0.010 | 0.31 / 0.59 / 0.11 |
+
+Single run: SD of val PQ ≈ 0.011, of a 90-image LB ≈ 0.013–0.015.
+**Verdict:** a val gain must be **≥ ~0.010 PQ** (paired, same 141 images) to be real; on the LB that is ≥ ~0.015,
+i.e. in practice **+0.02 on the 2-dp LB**. None of the Phase 5 step 2 gains (+0.002–0.004) clear it. exp013's real
+LB drop (0.37 vs 0.38) had only ~2% chance from sampling noise alone: val and test may differ a little, so treat val
+gains near the bar with extra caution. Training noise (Syaz S1) still to be added.
+
+## Phase 6 M1b — error budget of exp010 (2026-10-27, Mirul, CPU)
+`src/error_budget.py`, official matching (233 annotator entries, IoU > 0.5), thr 0.6. Output:
+`Result Phase 6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.
+"PQ if fixed" = that box alone made perfect (FN → hit at the mean IoU, FP removed): an upper bound, not a forecast.
+
+| Box | n | PQ if fixed | gain | Meaning |
+|---|---|---|---|---|
+| fn_low_score | 246 | 0.4997 | +0.063 | raw hit exists, score < 0.6 → confidence |
+| fp_nobody | 341 | 0.4874 | +0.051 | real false alarm |
+| fn_never | 181 | 0.4839 | +0.047 | recall (nothing within IoU 0.3) |
+| fn_near_miss | 146 | 0.4752 | +0.039 | kept mask at IoU 0.3–0.5 → outline |
+| fp_other_ann | 186 | 0.4630 | +0.026 | another annotator drew it → label noise, not fixable |
+| fn_postproc | 38 | 0.4470 | +0.010 | good raw hit removed by min area / overlap rule |
+| SQ loss (all hits IoU 1) | 1067 | 0.6522 | +0.216 | not reachable: our SQ 0.67 is already above the human 0.63 |
+
+By size: small 12 GT entries, all missed (≤ 0.005 PQ, ignore); medium PQ 0.419, large 0.482.
+By station (val ~20–28 images each, so differences of ±0.02 are noise): B 0.459, U 0.442, L 0.441, M 0.436,
+C 0.428, T 0.415.
+**Verdict:** the biggest box is **confidence** (246 true filaments found but scored < 0.6) followed by real false
+alarms (341): the model ranks real vs fake filaments poorly at the cut-off. This is what flip TTA (M2) attacks
+(agreement across views raises real ones, lowers one-off ones). Recall (181 never found) is the target of more data
+(M3/S5) and the recipe (S2–S4). 35% of FPs are drawn by another annotator: label noise sets a hard floor.

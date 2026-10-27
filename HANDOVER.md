@@ -1,7 +1,7 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
 Last updated 2026-10-27 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: setup + Colab sections 1–4 done, probe next).
+Syaz: setup + Colab sections 1–4 done, probe next; Mirul: M1 done (noise bar + error budget), M2 next).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
 `Project_Phase_Plan.md` (Phase 6 = the current task list). Do not re-run anything recorded there.
@@ -177,11 +177,15 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 
 **Live status — each member updates ONLY their own block, after every step (mandatory, §0.7):**
 
-> **Mirul** — last updated: 2026-10-26 (not started)
-> - Done: —
-> - Now / next: setup (§0.3), then M1 (laptop). M2 notebook ready: `notebooks/colab_phase6_mirul.ipynb`
-> - Blockers / waiting on: team Drive folder link from Kimee (group chat), shortcut added (§0.6)
-> - Files: —
+> **Mirul** — last updated: 2026-10-27 (M1 done)
+> - Done: local setup (clone, `.venv`, tests pass). **M1 bootstrap** (`src/bootstrap.py`): a val gain must be
+>   **≥ ~0.010 PQ** to be real (LB ≥ ~0.015, i.e. +0.02 at 2 dp); exp012/exp013 gains over exp010 are noise.
+>   **M1 error budget** (`src/error_budget.py`) of exp010: biggest losses = 246 true filaments scored < 0.6
+>   (confidence, ≤ +0.063 if fixed) and 341 real false alarms (≤ +0.051); 181 never found (≤ +0.047); 146 near
+>   misses; 186 FPs drawn by another annotator (label noise). Tables: `experiments/ablation_table.md` (Phase 6 M1a/M1b)
+> - Now / next: post the noise bar to Syaz in the group chat; then M2 flip TTA (`notebooks/colab_phase6_mirul.ipynb`)
+> - Blockers / waiting on: team Drive link + shortcut (§0.6) and Kaggle team membership — needed for M2
+> - Files: `Result Phase 6/Mirul/bootstrap.json`, `Result Phase 6/Mirul/error_budget_exp010.json`
 
 > **Syaz** — last updated: 2026-10-27 (setup; S1 not started)
 > - Done: local setup (§0.3 steps 1–4): clone, `setup_local.ps1`, all 53 tests pass; team Drive shortcut added
@@ -198,8 +202,8 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 start the A100 run without asking, then tell Kimee in the group chat.
 
 > **Phase 6 results (to be filled by Mirul and Syaz):**
-> - Noise threshold — val: … / LB: … ; training noise (S1): …
-> - Error budget (main loss): …
+> - Noise threshold — val: ~0.010 PQ (paired bootstrap, M1) / LB: ~0.015 (≈ +0.02 at 2 dp) ; training noise (S1): …
+> - Error budget (main loss): confidence — 246 true filaments scored < 0.6 (≤ +0.063), then 341 real FPs (≤ +0.051), 181 never found (≤ +0.047); ablation_table Phase 6 M1b
 > - TTA: adopted / rejected (val PQ …, LB …, CSV …)
 > - Recipe for the final 2048 run (exact flags): …
 > - Pseudo-labels: team Drive `external/…`, size …, verdict from S5: …
