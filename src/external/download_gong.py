@@ -123,6 +123,15 @@ def fetch(url: str, retries: int = 4, timeout: int = 60) -> bytes:
     return b""
 
 
+def try_fetch(url: str) -> Optional[bytes]:
+    """fetch, but None instead of an error when the archive keeps timing out (retried on the next run)."""
+    try:
+        return fetch(url)
+    except Exception as e:
+        print(f"[Archive] gave up on {url}: {e}")
+        return None
+
+
 def read_rows(path: Path) -> List[Dict[str, str]]:
     if not path.exists():
         return []
@@ -144,16 +153,30 @@ def build_manifest(n: int, out: Path, seed: int = 42, chunk: int = 40):
     print(f"[Manifest] {len(days)} allowed days, {len(rows)} rows so far, {len(todo)} days unchecked")
     out.parent.mkdir(parents=True, exist_ok=True)
     new_file = not out.exists()
+    failed, bad_chunks, retried = [], 0, False
     with open(out, "a", newline="") as f, open(checked_path, "a") as fc, ThreadPoolExecutor(WORKERS) as pool:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         if new_file:
             w.writeheader()
-        for i in range(0, len(todo), chunk):
+        batches = [todo[i:i + chunk] for i in range(0, len(todo), chunk)]
+        while batches:
+            batch = batches.pop(0)
             if len(rows) >= n:
                 break
-            batch = todo[i:i + chunk]
-            pages = pool.map(lambda d: fetch(day_url(d)).decode("utf-8", "replace"), batch)
-            for day, html in zip(batch, pages):        # in order + per-day seed -> same picks after a resume
+            pages = list(pool.map(lambda d: try_fetch(day_url(d)), batch))
+            if all(p is None for p in pages):          # archive down / blocking: pause, give up after 5 in a row
+                bad_chunks += 1
+                if bad_chunks >= 5:
+                    raise RuntimeError("GONG archive not answering (5 chunks failed in a row); rerun later")
+                print(f"[Manifest] whole chunk failed, pausing 60 s ({bad_chunks}/5)")
+                time.sleep(60)
+            else:
+                bad_chunks = 0
+            for day, page in zip(batch, pages):        # in order + per-day seed -> same picks after a resume
+                if page is None:                       # not marked checked: tried again below / next run
+                    failed.append(day)
+                    continue
+                html = page.decode("utf-8", "replace")
                 rng = random.Random(f"{seed}-{day:%Y%m%d}")
                 name = pick_frame(parse_listing(html), counts, rng) if len(rows) < n else None
                 if name:
@@ -164,8 +187,14 @@ def build_manifest(n: int, out: Path, seed: int = 42, chunk: int = 40):
                 fc.write(f"{day:%Y%m%d}\n")
             f.flush()
             fc.flush()
-            print(f"[Manifest] {len(rows)}/{n} frames, stations {counts}")
-    print(f"[Manifest] done: {len(rows)} rows -> {out}")
+            print(f"[Manifest] {len(rows)}/{n} frames, stations {counts}, {len(failed)} days to retry")
+            if not batches and failed and len(rows) < n and not retried:   # one more pass over timed-out days
+                retried = True
+                print(f"[Manifest] retrying {len(failed)} timed-out days after 60 s")
+                time.sleep(60)
+                batches = [failed[i:i + chunk] for i in range(0, len(failed), chunk)]
+                failed = []
+    print(f"[Manifest] done: {len(rows)} rows -> {out}" + (f" ({len(failed)} days still failing)" if failed else ""))
 
 
 # ── download + quality check ────────────────────────────────────────────
@@ -218,8 +247,11 @@ def download(manifest: Path, out_dir: Path):
         w = csv.DictWriter(f, fieldnames=fields)
         if new_file:
             w.writeheader()
-        n_ok = 0
-        for k, (row, data) in enumerate(zip(todo, pool.map(lambda r: fetch(r["url"]), todo))):
+        n_ok = n_failed = 0
+        for k, (row, data) in enumerate(zip(todo, pool.map(lambda r: try_fetch(r["url"]), todo))):
+            if data is None:                       # timed out: not in qc.csv, so a rerun tries again
+                n_failed += 1
+                continue
             gray = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE) if data else None
             if gray is None or gray.shape != (2048, 2048):
                 w.writerow({"file": row["file"], "ok": 0, "disk_frac": 0, "disk_mean": 0, "sharpness": 0})
@@ -231,9 +263,10 @@ def download(manifest: Path, out_dir: Path):
             w.writerow({"file": row["file"], "ok": int(ok), **{k: round(v, 3) for k, v in stats.items()}})
             if (k + 1) % 100 == 0:
                 f.flush()
-                print(f"[Download] {k + 1}/{len(todo)} ({n_ok} kept)")
+                print(f"[Download] {k + 1}/{len(todo)} ({n_ok} kept, {n_failed} timed out)")
     kept = sum(int(r["ok"]) for r in read_rows(qc_path))
-    print(f"[Download] done: {kept} images kept in {img_dir}, rest in {rej_dir}")
+    print(f"[Download] done: {kept} images kept in {img_dir}, rest in {rej_dir}"
+          + (f"; {n_failed} timed out (rerun to retry)" if n_failed else ""))
 
 
 def val_copies(out_dir: Path):
@@ -242,7 +275,7 @@ def val_copies(out_dir: Path):
     out_dir.mkdir(parents=True, exist_ok=True)
     todo = [s for s in val_ids if not (out_dir / f"{s}.jpg").exists()]
     with ThreadPoolExecutor(WORKERS) as pool:
-        for stem, data in zip(todo, pool.map(lambda s: fetch(day_url(day_of(s)) + f"{s}.jpg"), todo)):
+        for stem, data in zip(todo, pool.map(lambda s: try_fetch(day_url(day_of(s)) + f"{s}.jpg"), todo)):
             if data:
                 (out_dir / f"{stem}.jpg").write_bytes(data)
     n = len(list(out_dir.glob("*.jpg")))

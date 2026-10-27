@@ -60,6 +60,29 @@ def test_pick_frame_balances_stations_and_skips_day_edges():
     assert pick_frame({}, counts, rng) is None
 
 
+def test_manifest_survives_archive_timeouts(tmp_path, monkeypatch):
+    import download_gong as dg
+    calls = {}
+
+    def fake_fetch(url):                       # every 3rd day times out the first time it is asked
+        day = url.rstrip("/").rsplit("/", 1)[1]
+        calls[day] = calls.get(day, 0) + 1
+        if int(day) % 3 == 0 and calls[day] == 1:
+            return None
+        return f'<a href="{day}120000Bh.jpg">x</a><a href="{day}120034Lh.jpg">x</a>'.encode()
+
+    monkeypatch.setattr(dg, "try_fetch", fake_fetch)
+    monkeypatch.setattr(dg.time, "sleep", lambda s: None)
+    monkeypatch.setattr(dg, "load_exclusion_ids", lambda: (["20140609195854Bh"], ["20150125172714Mh"]))
+    out = tmp_path / "manifest.csv"
+    dg.build_manifest(5000, out, chunk=50)     # asks for more than exist -> every allowed day is used
+    with open(out, newline="") as f:
+        rows = list(csv.DictReader(f))
+    checked = (tmp_path / "manifest_checked_days.txt").read_text().split()
+    assert len(rows) == len(checked) == len(set(checked))           # failed days were retried, none lost
+    assert len(rows) == len(allowed_days(["20140609195854Bh"], ["20150125172714Mh"]))
+
+
 def test_qc_ok():
     bounds = {"disk_frac": (0.7, 0.8), "sharpness": (10, 100)}
     assert qc_ok({"disk_frac": 0.75, "sharpness": 50}, bounds)

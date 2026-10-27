@@ -309,7 +309,8 @@ start the A100 run without asking, then tell Kimee in the group chat.
 - Never list/read the image folders or print the 48 MB annotation JSON (CLAUDE.md token rules).
 - Competition image files end in **`.jpeg`** (not `.jpg`); GONG archive files (M3) end in `.jpg`. The archive
   directory pages contain a `/secret0x2112` link (crawler trap) — never follow it; `download_gong.py` only reads
-  `<stem>.jpg` links.
+  `<stem>.jpg` links. The archive sometimes times out from Colab (M3 step A, 2026-10-27): `download_gong.py` now
+  skips a timed-out day/file, retries it once, and a rerun of the cell resumes where it stopped.
 - **Writes to the team Drive can silently fail (Mirul, M2, 2026-10-27).** `colab_phase6_mirul.ipynb` printed
   "saved to …/Phase 6/Mirul" for all 6 flip runs, yet that folder stayed empty (in Colab `os.listdir` and on
   drive.google.com, also hours later); the files existed only in `/content/out`. Likely cause: writing through the
