@@ -183,16 +183,24 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 > - Blockers / waiting on: team Drive folder link from Kimee (group chat), shortcut added (§0.6)
 > - Files: —
 
-> **Syaz** — last updated: 2026-10-27 (setup; S1 not started)
+> **Syaz** — last updated: 2026-10-27 (S1 trained; S2 interrupted)
 > - Done: local setup (§0.3 steps 1–4): clone, `setup_local.ps1`, all 53 tests pass; team Drive shortcut added
 >   (university account, `output/detectron2` visible); `colab_phase6_syaz.ipynb` opened from GitHub (Dev) on a T4,
->   copy saved in own Drive; sections 1–4 run without errors (repo is public: no `GITHUB_TOKEN` needed)
-> - Now / next: **Step 0 probe — NOT run yet.** New Colab session: T4 → run cell 0 + sections 1–4 again → Step 0
->   probe (20 steps, must print `Probe passed.`; note `Peak GPU memory`) → Claude explains S1 → on "go" S1
->   (`syaz_r50_seed2`, `--seed 7`, ~1.3 h)
+>   copy saved in own Drive; sections 1–4 run without errors (repo is public: no `GITHUB_TOKEN` needed);
+>   **Step 0 probe passed** (T4, 20 its in 1.1 min, peak GPU memory 2.7 GB of 15; writes to Drive `Phase 6/Syaz/output/`)
+> - Done (2026-10-27): **S1 trained + dumped** on Colab T4 (`syaz_r50_seed2`, `--seed 7`): val 1,771 raw masks
+>   (0.56 s/img), test 2,368 (0.57 s/img), dump peak GPU 2.2 GB. Both raw files downloaded to `Result Phase 6/Syaz/`
+>   and validated (141 val / 180 test images = same sets as exp006, all masks 2048², decodable, scores 0.20–1.00);
+>   **not yet scored**.
+> - Now / next: (1) score S1 vs exp006 on the laptop, log exp201. (2) **S2 (`syaz_r50_3x`) started, then stopped:
+>   Colab GPU usage limit** ("Cannot connect to GPU backend"). Syaz continues on another Google account (needs the
+>   team-folder shortcut there). Newest checkpoint in Drive `Phase 6/Syaz/output/detectron2/syaz_r50_3x/` =
+>   **`model_0011999.pth`** (334.8 MB; 12,000 of 18,000 its done). Resume: sections 1–4 → S2 cell (unchanged,
+>   `--max-iter 18000`); Detectron2 reads `last_checkpoint` and restores model + optimizer + LR scheduler + iteration,
+>   so it trains its 12,000 → 17,999 only (~1.3 h), then dumps val/test.
 > - Blockers / waiting on: Kaggle team membership **pending** (invite/merge requested from a teammate, 2026-10-27;
->   not blocking S1, no uploads in track S)
-> - Files: — (results will go to `Result Phase 6/Syaz/`; Drive `Phase 6/Syaz/`)
+>   no uploads in track S)
+> - Files: `Result Phase 6/Syaz/raw_preds_syaz_r50_seed2_{val,test}.json.gz`; Drive `Phase 6/Syaz/`
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
