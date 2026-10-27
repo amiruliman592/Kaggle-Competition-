@@ -137,24 +137,32 @@ def run_preprocess(dry_run: bool):
     print(f"[Preprocess] {CFG.data.PREPROC}: wrote {n} images -> {CFG.paths.PREPROC_DIR / CFG.data.PREPROC}")
 
 
-def run_dump(weights: str, name: str, dry_run: bool, flip_mode=None):
+def run_dump(weights: str, name: str, dry_run: bool, flip_mode=None, image_dir=None):
     """Raw (unprocessed) val + test predictions above DUMP_SCORE_THRESHOLD -> gzipped JSON.
 
     flip_mode (h / v / hv): predict on flipped images (masks flipped back) and add
     "_flip<mode>" to the file name, so each flip is one ensemble member (TTA).
+    image_dir: predict every .jpg/.jpeg in this folder instead of val + test
+    (Phase 6 M3 external images); the file is named after the folder.
     """
     import torch
     from inference import build_predictor, predict_images
     from split import load_split
     from utils.rle import save_predictions
 
-    _, val_ids = load_split()
-    test_images = [image_path(p.stem, "test") for p in sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))]
-    if dry_run:
-        val_ids, test_images = val_ids[:4], test_images[:3]
+    if image_dir is not None:
+        image_dir = Path(image_dir)
+        paths = sorted(p for p in image_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg"))
+        assert paths, f"No .jpg/.jpeg images in {image_dir}"
+        jobs = [(image_dir.name, paths[:3] if dry_run else paths)]
+    else:
+        _, val_ids = load_split()
+        test_images = [image_path(p.stem, "test") for p in sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))]
+        if dry_run:
+            val_ids, test_images = val_ids[:4], test_images[:3]
+        jobs = [("val", [image_path(s, "train") for s in val_ids]), ("test", test_images)]
     predictor = build_predictor(weights, score_threshold=CFG.infer.DUMP_SCORE_THRESHOLD)
-    for split, paths in (("val", [image_path(s, "train") for s in val_ids]),
-                         ("test", test_images)):
+    for split, paths in jobs:
         preds, sec = predict_images(predictor, paths, raw=True, flip_mode=flip_mode or "none")
         tag = f"_flip{flip_mode}" if flip_mode else ""
         out = CFG.paths.OUTPUT_DIR / f"raw_preds_{name}{tag}_{split}.json.gz"
@@ -215,9 +223,13 @@ def parse_args(argv=None):
                         help="Override CFG.SEED (42); a re-train with another seed measures training noise (Phase 6)")
     parser.add_argument("--flip", choices=["h", "v", "hv"], default=None,
                         help="--step dump only: predict on flipped images for TTA (Phase 6)")
+    parser.add_argument("--image-dir", type=str, default=None,
+                        help="--step dump only: predict this folder of images instead of val + test (Phase 6 M3)")
     args = parser.parse_args(argv)
     if args.flip and args.step != "dump":
         parser.error("--flip only works with --step dump")
+    if args.image_dir and args.step != "dump":
+        parser.error("--image-dir only works with --step dump")
     return args
 
 
@@ -275,7 +287,7 @@ if __name__ == "__main__":
     if args.step == "sweep":
         run_sweep(weights, name, args.dry_run)
     if args.step == "dump":
-        run_dump(weights, name, args.dry_run, args.flip)
+        run_dump(weights, name, args.dry_run, args.flip, args.image_dir)
     if args.step in ("infer", "all"):
         out = run_inference_and_submit(weights, name, args.dry_run)
         print(f"\n[Pipeline] Submission file: {out}")

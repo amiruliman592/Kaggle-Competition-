@@ -1,7 +1,8 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
 Last updated 2026-10-27 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: setup + Colab sections 1–4 done, probe next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 next).
+Syaz: setup + Colab sections 1–4 done, probe next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 code
+ready, Colab run next).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
 `Project_Phase_Plan.md` (Phase 6 = the current task list). Do not re-run anything recorded there.
@@ -187,7 +188,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 
 **Live status — each member updates ONLY their own block, after every step (mandatory, §0.7):**
 
-> **Mirul** — last updated: 2026-10-27 (M1 + M2 done)
+> **Mirul** — last updated: 2026-10-27 (M1 + M2 done; M3 code ready, Colab run not started)
 > - Done: local setup (clone, `.venv`, tests pass). **M1 bootstrap** (`src/bootstrap.py`): a val gain must be
 >   **≥ ~0.010 PQ** to be real (LB ≥ ~0.015, i.e. +0.02 at 2 dp); exp012/exp013 gains over exp010 are noise.
 >   **M1 error budget** (`src/error_budget.py`) of exp010: biggest losses = 246 true filaments scored < 0.6
@@ -196,10 +197,20 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   **M2 flip TTA** (exp101, **new best: val 0.4480, LB 0.39**): Kimee's m28 + r50 on h/v/hv-flipped val + test
 >   (T4); two-stage fusion = per model 4 views (IoU 0.5 union), then m28 + r50 (IoU 0.3 inter), thr 0.6.
 >   +0.0116 val vs exp010 (above the bar). One 8-view fusion gives no gain. Table: ablation_table Phase 6 M2
-> - Now / next: M3 external GONG images + pseudo-labels (use the TTA ensemble as the labeller?)
-> - Blockers / waiting on: Colab writes to the team Drive fail for me (§7) — download from `/content/out` instead
+> - **M3 code ready** (not run): source = GONG archive product `hag` (same frames/names as the competition JPEGs,
+>   corr ≥ 0.99, archive JPEG quality ~75 vs ~90). Excludes every val 27-day block + test day ±1 (3,310 allowed
+>   days 2011–2022), 1 frame/day, stations balanced, QC vs train range. Labeller **m28 alone, thr 0.85** (val
+>   precision 0.84, recall 0.53, 4.7 masks/img; 8-view TTA only ~2 pts better for 8× the T4 time; table:
+>   ablation_table Phase 6 M3). `src/external/download_gong.py`, `src/external/make_pseudo_labels.py`,
+>   `run_pipeline.py --step dump --image-dir`, `tests/test_external.py`, notebook `notebooks/colab_phase6_mirul_m3.ipynb`.
+> - Now / next: push → run `colab_phase6_mirul_m3.ipynb` on T4 (~3–4 h) → check Step D val PQ on archive copies
+>   (≈ 0.4355 expected) → hand pseudo-labels to Syaz (S5) → M4
+> - Blockers / waiting on: Colab writes to the team Drive fail for me (§7) — the M3 notebook saves to my own
+>   `MyDrive/m3_mirul/` and then tries the team `external/` (checked)
 > - Files: `Result Phase 6/Mirul/` (bootstrap, error budget, 12 flip raw files, fused `raw_preds_tta*`, grids,
->   logs); CSV `submissions/submission_tta2_m28_r50_pp.csv` (gitignored, on Mirul's laptop; rebuild with §2)
+>   logs); CSV `submissions/submission_tta2_m28_r50_pp.csv` (gitignored, on Mirul's laptop; rebuild with §2).
+>   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
+>   `Downloads/GENE/...` clone is retired)
 
 > **Syaz** — last updated: 2026-10-27 (setup; S1 not started)
 > - Done: local setup (§0.3 steps 1–4): clone, `setup_local.ps1`, all 53 tests pass; team Drive shortcut added
@@ -288,6 +299,9 @@ start the A100 run without asking, then tell Kimee in the group chat.
 - Kimee's laptop only: Avast intercepts Python HTTPS (`CERTIFICATE_VERIFY_FAILED`); download with `curl` instead.
   Kimee also has a local alias `git cm "msg"` (not in the repo).
 - Never list/read the image folders or print the 48 MB annotation JSON (CLAUDE.md token rules).
+- Competition image files end in **`.jpeg`** (not `.jpg`); GONG archive files (M3) end in `.jpg`. The archive
+  directory pages contain a `/secret0x2112` link (crawler trap) — never follow it; `download_gong.py` only reads
+  `<stem>.jpg` links.
 - **Writes to the team Drive can silently fail (Mirul, M2, 2026-10-27).** `colab_phase6_mirul.ipynb` printed
   "saved to …/Phase 6/Mirul" for all 6 flip runs, yet that folder stayed empty (in Colab `os.listdir` and on
   drive.google.com, also hours later); the files existed only in `/content/out`. Likely cause: writing through the
