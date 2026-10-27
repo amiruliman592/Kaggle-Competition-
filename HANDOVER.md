@@ -1,7 +1,7 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-27 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: setup + Colab sections 1–4 done, probe next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 code
+Last updated 2026-10-28 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Syaz: S1 + S2 done (training noise ~0.001, 3× schedule rejected), S3 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 code
 ready, Colab run next).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
