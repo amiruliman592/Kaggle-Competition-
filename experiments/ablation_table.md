@@ -161,3 +161,23 @@ C 0.428, T 0.415.
 alarms (341): the model ranks real vs fake filaments poorly at the cut-off. This is what flip TTA (M2) attacks
 (agreement across views raises real ones, lowers one-off ones). Recall (181 never found) is the target of more data
 (M3/S5) and the recipe (S2–S4). 35% of FPs are drawn by another annotator: label noise sets a hard floor.
+
+## Phase 6 M2 — flip TTA of the 2048 models (2026-10-27, Mirul; Colab T4 inference, scoring on CPU)
+Kimee's `x101_2048_m28` and `r50_2048` on val + test flipped h / v / hv (masks flipped back; median best IoU vs
+un-flipped 0.85–0.89; r50 peak GPU 2.4 GB, 1.17 s/img on T4). Views fused with `src/ensemble.py` (score = mean
+over views). Logs + grids: `Result Phase 6/Mirul/log_tta*.txt`, `tta*.json`.
+
+| Run (val, best setting of the 30-row grid) | PQ | Dice | vs |
+|---|---|---|---|
+| m28, 4 views (IoU 0.5 union thr 0.7) | 0.4416 | 0.6379 | m28 alone 0.4385: +0.003 |
+| r50, 4 views (IoU 0.5 union thr 0.6) | 0.4345 | 0.6517 | r50 alone 0.4231 (thr 0.6): +0.011 |
+| 8 views in one fusion (IoU 0.5 best thr 0.7) | 0.4382 | 0.6369 | exp013 0.4404: −0.002 |
+| **two-stage: per model 4 views (IoU 0.5 union), then 2 models (IoU 0.3 inter) thr 0.6** | **0.4480** | **0.6520** | **exp010 +0.0116, exp013 +0.0078** |
+| same, thr 0.7 | 0.4461 | 0.6425 | exp010 +0.0095 |
+
+Bootstrap (`Result Phase 6/Mirul/bootstrap_m2.json`): vs exp010 +0.0116 [+0.004, +0.020], P(better) 1.00, min real
+gain for this pair 0.008; simulated LB higher / tie / lower 0.86 / 0.14 / 0.00. vs exp013 +0.0078 [+0.001, +0.014].
+Caveat: setting picked from 30 on val (some optimism); the inter fusion at IoU 0.5 and the single 8-view fusion do
+not show the gain, so it depends on the two-stage order.
+**Verdict: adopted.** Submission `submissions/submission_tta2_m28_r50_pp.csv` (1,256 masks, validator PASS):
+**public LB 0.39** (exp010 0.38) — first LB gain since Phase 5, new best (exp101).
