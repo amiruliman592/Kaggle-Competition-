@@ -188,7 +188,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 
 **Live status — each member updates ONLY their own block, after every step (mandatory, §0.7):**
 
-> **Mirul** — last updated: 2026-10-27 (M1 + M2 done; M3 code ready, Colab run not started)
+> **Mirul** — last updated: 2026-10-29 (M1 + M2 done; M3 archive steps done on the laptop, Colab prediction next)
 > - Done: local setup (clone, `.venv`, tests pass). **M1 bootstrap** (`src/bootstrap.py`): a val gain must be
 >   **≥ ~0.010 PQ** to be real (LB ≥ ~0.015, i.e. +0.02 at 2 dp); exp012/exp013 gains over exp010 are noise.
 >   **M1 error budget** (`src/error_budget.py`) of exp010: biggest losses = 246 true filaments scored < 0.6
@@ -203,8 +203,15 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   precision 0.84, recall 0.53, 4.7 masks/img; 8-view TTA only ~2 pts better for 8× the T4 time; table:
 >   ablation_table Phase 6 M3). `src/external/download_gong.py`, `src/external/make_pseudo_labels.py`,
 >   `run_pipeline.py --step dump --image-dir`, `tests/test_external.py`, notebook `notebooks/colab_phase6_mirul_m3.ipynb`.
-> - Now / next: push → run `colab_phase6_mirul_m3.ipynb` on T4 (~3–4 h) → check Step D val PQ on archive copies
->   (≈ 0.4355 expected) → hand pseudo-labels to Syaz (S5) → M4
+> - **M3 step A tried on Colab (2026-10-28/29): every archive request timed out** (0 manifest rows; cell stopped by
+>   hand). From the laptop the same pages answer in ~2.5 s and an image (~400 KB) in ~1.6 s → the archive likely
+>   blocks/throttles Colab. So the archive steps ran on the laptop (2026-10-29, 0 timeouts): **A** manifest
+>   `external/manifest.csv` (3,000 frames, 500 per station); **B** download + QC: **2,837 kept**, 163 rejected
+>   (`qc.csv`); **D** 141/141 val archive copies. Zips in `C:\Users\User\Downloads\m3_external\`
+>   (`external_images_v1.zip` 1.56 GB, `valcopies.zip` 0.09 GB, `qc.csv`). Notebook now skips A when the manifest is
+>   in git and unzips `valcopies.zip` in D.
+> - Now / next: upload the 2 zips + `qc.csv` to Drive `m3_mirul/` → push → Colab T4 steps C–F (~2–3 h) → check Step D val PQ on archive copies
+>   (≈ 0.4355 expected) → hand pseudo-labels to Syaz (S5, ~Nov 3) → M4
 > - Blockers / waiting on: Colab writes to the team Drive fail for me (§7) — the M3 notebook saves to my own
 >   `MyDrive/m3_mirul/` and then tries the team `external/` (checked)
 > - Files: `Result Phase 6/Mirul/` (bootstrap, error budget, 12 flip raw files, fused `raw_preds_tta*`, grids,
@@ -307,8 +314,8 @@ start the A100 run without asking, then tell Kimee in the group chat.
 - Never list/read the image folders or print the 48 MB annotation JSON (CLAUDE.md token rules).
 - Competition image files end in **`.jpeg`** (not `.jpg`); GONG archive files (M3) end in `.jpg`. The archive
   directory pages contain a `/secret0x2112` link (crawler trap) — never follow it; `download_gong.py` only reads
-  `<stem>.jpg` links. The archive sometimes times out from Colab (M3 step A, 2026-10-27): `download_gong.py` now
-  skips a timed-out day/file, retries it once, and a rerun of the cell resumes where it stopped.
+  `<stem>.jpg` links. **The archive does not answer Colab** (every request timed out, M3 step A, 2026-10-28) but
+  works from a laptop: run `download_gong.py` (manifest / download / valcopies) locally and upload zips to Drive.
 - **Writes to the team Drive can silently fail (Mirul, M2, 2026-10-27).** `colab_phase6_mirul.ipynb` printed
   "saved to …/Phase 6/Mirul" for all 6 flip runs, yet that folder stayed empty (in Colab `os.listdir` and on
   drive.google.com, also hours later); the files existed only in `/content/out`. Likely cause: writing through the
