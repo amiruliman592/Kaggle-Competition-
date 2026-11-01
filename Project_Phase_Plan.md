@@ -493,8 +493,8 @@ never collide with Kimee's checkpoint folders (`HANDOVER.md` §0.6).
    - Complete docstrings, type annotations, and clean module organization.
    - Publicly accessible GitHub repository with pinned `requirements.txt` (exact versions — use `requirements-lock.txt` from the final Colab run).
    - Repository must be public at competition close and stay public at least until winners are announced (**Nov 30**).
-   - The committee must reproduce predictions with **no additional files**: weights downloaded automatically from a public link inside the notebook.
-   - Host trained model weights on Google Drive / Hugging Face Hub with public download links.
+   - The committee must reproduce predictions with **no additional files**.
+   - **Weights go inside the repo, not on an outside link** (host ruling, Kaggle forum, ~2026-10-29: code, config files and stored weights "should be in one repo"; `HANDOVER.md` §3). The demo notebook loads the best model (an ensemble is allowed), predicts on the test set and must run completely on a different system. GitHub refuses files > 100 MB and `.gitignore` blocks `*.pth`: strip optimizer state, then split or use Git LFS.
    - Inference uses only the provided test H-alpha images; no extra ground-truth metadata in training (competition rule).
 4. **Official Google Form Submission:**
    - Submit the Google Form by **Saturday, Nov 14** (24 hours prior to deadline) with:
