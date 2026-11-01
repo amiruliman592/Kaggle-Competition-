@@ -25,8 +25,8 @@ from detectron2.data import build_detection_train_loader
 from detectron2.data import DatasetMapper
 from detectron2.engine import DefaultTrainer
 from detectron2.evaluation import COCOEvaluator
-from detectron2.data import transforms as T
 
+from augment import train_augmentations
 from config import CFG
 from dataset import register_datasets
 from utils.seed import set_seed
@@ -47,18 +47,7 @@ class FilamentTrainer(DefaultTrainer):
         mapper = DatasetMapper(
             cfg,
             is_train=True,
-            augmentations=[
-                # Same scale as inference (cfg.INPUT.*_TEST) to avoid a train/test mismatch
-                T.ResizeShortestEdge(
-                    short_edge_length=cfg.INPUT.MIN_SIZE_TRAIN,
-                    max_size=cfg.INPUT.MAX_SIZE_TRAIN,
-                    sample_style="choice",
-                ),
-                T.RandomFlip(prob=0.5, horizontal=True),
-                T.RandomFlip(prob=0.5, horizontal=False, vertical=True),
-                T.RandomBrightness(0.8, 1.2),
-                T.RandomContrast(0.8, 1.2),
-            ],
+            augmentations=train_augmentations(cfg.INPUT.MIN_SIZE_TRAIN[0]),
         )
         return build_detection_train_loader(cfg, mapper=mapper)
 
@@ -172,6 +161,7 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
     print(f"  LR:         {CFG.train.BASE_LR}")
     print(f"  Max iter:   {cfg.SOLVER.MAX_ITER}")
     print(f"  Resolution: {CFG.train.TRAIN_RESIZE} (workers {cfg.DATALOADER.NUM_WORKERS})")
+    print(f"  Augment:    {CFG.train.AUG}")
     print(f"  Anchors:    {CFG.model.ANCHOR_SIZES} x {CFG.model.ASPECT_RATIOS}")
     print(f"  Output:     {cfg.OUTPUT_DIR}")
 

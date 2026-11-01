@@ -92,6 +92,19 @@ def test_seed_flag():
         CFG.SEED = saved
 
 
+def test_aug_flag():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    saved = CFG.train.AUG
+    try:
+        apply_overrides(parse_args([]))
+        assert CFG.train.AUG == "flip"
+        apply_overrides(parse_args(["--aug", "rotscale"]))
+        assert CFG.train.AUG == "rotscale"
+    finally:
+        CFG.train.AUG = saved
+
+
 def test_flip_flag_only_with_dump():
     from run_pipeline import parse_args
     assert parse_args(["--step", "dump", "--flip", "hv"]).flip == "hv"

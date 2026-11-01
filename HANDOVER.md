@@ -230,7 +230,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
 >   `Downloads/GENE/...` clone is retired)
 
-> **Syaz** — last updated: 2026-10-28 (S1 + S2 done and scored; S3 next)
+> **Syaz** — last updated: 2026-11-01 (S1 + S2 done and scored; S3 code ready, not run)
 > - Done: setup (laptop `.venv`, 53 tests; team Drive shortcut; `colab_phase6_syaz.ipynb` on T4, repo public = no
 >   token; probe passed, 20 its 1.1 min, peak 2.7 GB).
 >   **S1** `syaz_r50_seed2` (exp201, `--seed 7`): val PQ **0.3985** (thr 0.65), Dice 0.6385; at thr 0.6 = exp006
@@ -239,11 +239,13 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   vs exp006 = **no gain, Dice lower → rejected; keep 6,000 its for S3–S5.** S2 ran out of Colab quota at it ~12k and
 >   was resumed on Syaz's second Google account from `model_0011999.pth` (optimizer + LR scheduler state verified).
 >   Table: `experiments/ablation_table.md` (Phase 6 S1 + S2).
-> - Now / next: **S3** (+ 90° rotations + scale jitter ~0.8–1.2, at 6,000 its vs exp006): Claude writes the flag in
->   `src/train.py` + a test + a notebook cell → explain → Syaz's "go" → push → Colab T4 (~1.3 h).
-> - Blockers / waiting on: Kaggle team membership **pending** (invite/merge requested from a teammate, 2026-10-27;
->   no uploads in track S). Colab: Syaz's first account hit the GPU limit on 2026-10-27; the second account works
->   (S2 finished there; files downloaded via the notebook, Drive copy not separately checked).
+> - Now / next: **S3 code ready, not yet pushed or run**: `--aug rotscale` (`src/augment.py`: random 0/90/180/270°
+>   rotation + image size 819–1228 px, whole image, no crop; default `flip` = old recipe), `tests/test_augment.py`
+>   (outline stays on the filament; skipped on the laptop, runs on Colab in section 4), notebook S3 cell. Next: push →
+>   Colab T4: cell 0 + sections 1–4 → **S3 cell only** (`syaz_r50_rotscale`, 6,000 its, seed 42, ~1.3 h) → download
+>   raw val + test → score vs exp006 (must beat it by ≥ 0.010) as exp203. Then S4 (copy-paste), S5 (pseudo-labels).
+> - Blockers / waiting on: none. Kaggle team: **joined** (Syaz confirmed 2026-11-01). Colab: Syaz's university account from S3 on
+>   (shortcut already set up, §0.6; it hit the GPU limit on 2026-10-27, not retested since).
 > - Files: `Result Phase 6/Syaz/`: raw val/test files of S1 + S2, `eval_s1_s2.json` (thr sweep), `bootstrap_s1_s2.json`.
 >   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x}/` (checkpoints).
 

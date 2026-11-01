@@ -13,6 +13,7 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
   python run_pipeline.py --step train --name x101_2048 --backbone x101 --resolution 2048   # Phase 4
   python run_pipeline.py --step train --name x101_2048_m28 --backbone x101 --resolution 2048 --mask-res 28  # Phase 5
   python run_pipeline.py --step train --name syaz_r50_seed2 --label-policy all --seed 7   # Phase 6: re-train, other seed
+  python run_pipeline.py --step train --name syaz_r50_rotscale --label-policy all --aug rotscale   # Phase 6 S3
   python run_pipeline.py --step dump  --name r50_2048 --resolution 2048 --weights <ckpt> --flip h
       # Phase 6 TTA: predicts on flipped images -> raw_preds_<name>_fliph_<split>.json.gz
   (pass the same --backbone/--resolution/--mask-res to train, val, dump and infer of one model)
@@ -221,6 +222,8 @@ def parse_args(argv=None):
                         help="Override CFG.model.MASK_POOLER_RES (14 = default 28x28 masks, 28 = 56x56, Phase 5)")
     parser.add_argument("--seed", type=int, default=None,
                         help="Override CFG.SEED (42); a re-train with another seed measures training noise (Phase 6)")
+    parser.add_argument("--aug", choices=["flip", "rotscale"], default=None,
+                        help="Override CFG.train.AUG; rotscale adds 90-degree rotations + +-20%% zoom (Phase 6 S3)")
     parser.add_argument("--flip", choices=["h", "v", "hv"], default=None,
                         help="--step dump only: predict on flipped images for TTA (Phase 6)")
     parser.add_argument("--image-dir", type=str, default=None,
@@ -251,6 +254,8 @@ def apply_overrides(args):
         CFG.infer.MIN_AREA = args.min_area
     if args.seed is not None:
         CFG.SEED = args.seed
+    if args.aug is not None:
+        CFG.train.AUG = args.aug
 
 
 if __name__ == "__main__":
