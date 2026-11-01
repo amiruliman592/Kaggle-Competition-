@@ -159,6 +159,20 @@ more confident (best thr moves to 0.75; at thr 0.6 it has more FPs, 652 vs 617).
 3× cheaper on a T4). S2 was resumed once from `model_0011999.pth` with optimizer + LR-scheduler state (only the data
 order after the resume differs from an unbroken run).
 
+## Phase 6 S3 — rotations + size changes, R50 at 1024 (2026-11-01, Syaz; T4 training, CPU scoring)
+exp006 recipe with `--aug rotscale`: flips + random 0/90/180/270° rotation + image size ±20%, whole image, no crop.
+Scored as S1 + S2 (exp006 reproduces 0.3979 / 0.6426). Outputs: `Result Phase 6/Syaz/eval_s3.json`,
+`Result Phase 6/Syaz/bootstrap_s3.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp203** S3 `syaz_r50_rotscale` | `--aug rotscale` | 0.3973 | 0.6427 | 0.3973 (0.6) | 0.6427 | −0.0006 [−0.009, +0.007] | 0.43 | **rejected** |
+
+No PQ gain, and the top of the 95% range (+0.007) is below the 0.010 bar. Dice is equal. At thr 0.6 it finds less and
+adds less: FP 580 vs 617, FN 700 vs 675. The scores are lower, so PQ holds up better at thr 0.5 (0.3964 vs 0.3900) but
+the best value does not improve. Keep **`--aug flip`** for S4 and S5. Test dump 0.59 s/img, 2.3 GB.
+
 ## Phase 6 M1b — error budget of exp010 (2026-10-27, Mirul, CPU)
 `src/error_budget.py`, official matching (233 annotator entries, IoU > 0.5), thr 0.6. Output:
 `Result Phase 6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.

@@ -1,7 +1,7 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-01 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: S1 + S2 done (training noise ~0.001, 3× schedule rejected), S3 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
+Last updated 2026-11-02 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Syaz: S1–S3 done (training noise ~0.001, 3× schedule and rotations + size changes rejected), S4 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
@@ -230,7 +230,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
 >   `Downloads/GENE/...` clone is retired)
 
-> **Syaz** — last updated: 2026-11-01 (S1 + S2 done and scored; S3 code ready, not run)
+> **Syaz** — last updated: 2026-11-02 (S1 + S2 + S3 done and scored; S4 next, not started)
 > - Done: setup (laptop `.venv`, 53 tests; team Drive shortcut; `colab_phase6_syaz.ipynb` on T4, repo public = no
 >   token; probe passed, 20 its 1.1 min, peak 2.7 GB).
 >   **S1** `syaz_r50_seed2` (exp201, `--seed 7`): val PQ **0.3985** (thr 0.65), Dice 0.6385; at thr 0.6 = exp006
@@ -239,15 +239,16 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   vs exp006 = **no gain, Dice lower → rejected; keep 6,000 its for S3–S5.** S2 ran out of Colab quota at it ~12k and
 >   was resumed on Syaz's second Google account from `model_0011999.pth` (optimizer + LR scheduler state verified).
 >   Table: `experiments/ablation_table.md` (Phase 6 S1 + S2).
-> - Now / next: **S3 code ready, not yet pushed or run**: `--aug rotscale` (`src/augment.py`: random 0/90/180/270°
->   rotation + image size 819–1228 px, whole image, no crop; default `flip` = old recipe), `tests/test_augment.py`
->   (outline stays on the filament; skipped on the laptop, runs on Colab in section 4), notebook S3 cell. Next: push →
->   Colab T4: cell 0 + sections 1–4 → **S3 cell only** (`syaz_r50_rotscale`, 6,000 its, seed 42, ~1.3 h) → download
->   raw val + test → score vs exp006 (must beat it by ≥ 0.010) as exp203. Then S4 (copy-paste), S5 (pseudo-labels).
+>   **S3** `syaz_r50_rotscale` (exp203, `--aug rotscale`, university account, T4 ~1.7 h): val PQ 0.3973 (thr 0.6),
+>   Dice 0.6427; −0.0006 [−0.009, +0.007] vs exp006 = **no gain → rejected; keep `--aug flip` for S4 + S5.**
+>   Code stays in the repo (`src/augment.py`). Table: `experiments/ablation_table.md` (Phase 6 S3).
+> - Now / next: **S4 copy-paste** (not started, needs Syaz's "go"), then S5 (pseudo-labels from Mirul in team
+>   Drive `external/`). If time runs short, drop S4 first (plan §6). Fill the hand-back block by Nov 5, latest Nov 6.
 > - Blockers / waiting on: none. Kaggle team: **joined** (Syaz confirmed 2026-11-01). Colab: Syaz's university account from S3 on
 >   (shortcut already set up, §0.6; it hit the GPU limit on 2026-10-27, not retested since).
-> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1 + S2, `eval_s1_s2.json` (thr sweep), `bootstrap_s1_s2.json`.
->   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x}/` (checkpoints).
+> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1–S3, `eval_s1_s2.json`, `eval_s3.json` (thr sweeps),
+>   `bootstrap_s1_s2.json`, `bootstrap_s3.json`.
+>   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x,syaz_r50_rotscale}/` (checkpoints).
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
