@@ -222,7 +222,8 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   HANDOVER / COMPLETED_TASKS / ablation_table — keep this version's numbers, take any code changes from home.
 > - Now / next: help Syaz with S5 / spare T4; fill the hand-back block below with Syaz when track S is done.
 > - Blockers / waiting on: none. (Colab writes to the team Drive fail for me, §7 — M3 saved to my own
->   `MyDrive/m3_mirul/` first; the raw parts + `external_images_v1.zip` are there.)
+>   `MyDrive/m3_mirul/` first; the raw parts are there. `external_images_v1.zip` was moved to team `external/`
+>   on 2026-11-01, next to `pseudo_labels_v1.json`.)
 > - Files: `Result Phase 6/Mirul/` (bootstrap, error budgets exp010 + exp101, 12 flip raw files, fused `raw_preds_tta*`,
 >   `raw_preds_x101_2048_m28_valcopies.json.gz`, grids,
 >   logs); CSV `submissions/submission_tta2_m28_r50_pp.csv` (gitignored, on Mirul's laptop; rebuild with §2).
@@ -254,7 +255,7 @@ start the A100 run without asking, then tell Kimee in the group chat.
 > - Error budget (main loss): confidence — 246 true filaments scored < 0.6 (≤ +0.063), then 341 real FPs (≤ +0.051), 181 never found (≤ +0.047); ablation_table Phase 6 M1b
 > - TTA: **adopted** — two-stage flip TTA m28 + r50, val PQ 0.4480 (+0.0116 vs exp010), **LB 0.39**, CSV `submissions/submission_tta2_m28_r50_pp.csv` (exp101). For the final run: predict each new 2048 model on h/v/hv flips too
 > - Recipe for the final 2048 run (exact flags): …
-> - Pseudo-labels: team Drive `external/pseudo_labels_v1.json` (2,098 images, 9,671 masks, m28 thr 0.85; archive photos check val 0.4378 vs 0.4355), verdict from S5: …
+> - Pseudo-labels: team Drive `external/pseudo_labels_v1.json` + images `external/external_images_v1.zip` (2,098 images, 9,671 masks, m28 thr 0.85; archive photos check val 0.4378 vs 0.4355), verdict from S5: …
 > - Open problems: (M4, exp101) confidence on medium filaments — 282 true filaments scored < 0.6 (233 medium, ≤ +0.072); El Teide weakest station (0.418, most real FPs); ablation_table Phase 6 M4. …
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
