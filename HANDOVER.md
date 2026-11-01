@@ -265,6 +265,12 @@ start the A100 run without asking, then tell Kimee in the group chat.
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
   `requirements.txt` and a notebook showing the whole pipeline; no extra files needed to reproduce. Repo stays
   public until winners are announced (Nov 30).
+- **Host rulings on the final package (Kaggle forum, Azim Ahmadzadeh, ~2026-10-29):** code, config files **and the stored
+  weights must be in one repo** (no outside download link). The demo notebook loads the best model, not all models, and
+  predicts on the test set; an ensemble is OK if that is what we want evaluated, but it must run completely on a
+  different system. ImageNet-pretrained encoders were asked about but not answered. LB ranks on PQ, but the top 3 are
+  decided by the rubric. Barbs: no skeleton or extra output, masks should just capture visible fine detail.
+  At inference only the test image: no time/site from the file name, no neighbouring frames, no external annotations.
 - **Judging:** 70% quantitative — PQ, mean Dice (`torchmetrics.segmentation.DiceScore`), Dice/IoU distributions,
   1:many / many:1 counts. 30% qualitative — pipeline description, visual mask quality, code quality.
   LB rank is only "one of the considerations".
@@ -279,7 +285,13 @@ start the A100 run without asking, then tell Kimee in the group chat.
   never use external labels (MAGFiLO masks, filament catalogues). Pseudo-labels come from our own model.
 - **Official PQ** (`evaluate_official`; code + analysis in `SelfEvaluationResult/FINDINGS.md`): every annotator set
   is its own GT entry, scored against the image's predictions and pooled; IoU > 0.5; non-unique matching.
-  Our implementation matches Kaggle exactly (0.3296 = 0.3296). **Model selection uses `official_PQ`.**
+  Our implementation matches the organisers' **self-evaluation notebook** exactly (0.3296 = 0.3296). **Model selection uses `official_PQ`.**
+- **The test/LB scoring is not identical to that notebook** (Kaggle forum, competition host Azim Ahmadzadeh, ~2026-10-29,
+  asked whether test uses the same multi-annotator pooling or one consensus GT): *"There are some subtle differences that
+  we do not wish to reveal as it does not contribute to any improvement in the quality of predictions."* Don't try to
+  reverse-engineer them. Same thread (~2026-10-31): overlapping predictions throw an error (already handled, see above).
+  In another thread (~2026-10-29), asked if test has the same annotator protocol and pooled PQ, the host replied *"Yes. The
+  protocol for calculation of PQ is the same."* So pooling is probably the same; the differences stay unknown.
 
 ## 4. Leaderboard context (2026-10-21)
 - #1 IONode Online 0.69 with only 15 entries, then 0.64 (123), 0.62 ×3, 0.60–0.61.
@@ -306,8 +318,13 @@ start the A100 run without asking, then tell Kimee in the group chat.
 - Dice settings of the organisers are unpublished; we log `official_Dice_samplewise` (torchmetrics default) and
   report the other variants too (FINDINGS §3c). Revisit if the organisers publish their Dice code.
 - Val–LB gap is steady (~0.05–0.06 over 7 uploads). Likely causes: public LB is only ~90 images (noisy, 2 dp); test
-  may be harder or have more multi-annotated images; slight optimism from tuning thr on val. Not a scorer bug
-  (scorer = Kaggle code, 0.3296 check). M1 quantifies the LB noise.
+  may be harder or have more multi-annotated images; slight optimism from tuning thr on val; undisclosed differences
+  in test scoring (host, §3). Our scorer matches the self-evaluation notebook (0.3296 check), not necessarily the LB
+  scorer. M1 quantifies the LB noise, assuming LB scoring works like val, so treat its LB bar (~0.015) as approximate.
+- Final picks: our notes say 3 selected submissions, a competitor on the forum says 2, the host did not correct it and
+  `Solar Filament Overview.txt` has no number. Check on Kaggle's Submissions page before Phase 7.
+- Final package: how to fit the weights in the repo (sizes not measured; GitHub limit 100 MB per file; `.gitignore`
+  blocks `*.pth`; see `Project_Phase_Plan.md` Phase 8).
 - Small filaments (< 200 px²): still 8–10 of 10 missed on val even at 2048; low priority, worth ≤ ~0.005 PQ.
 - YOLOv8-seg comparison run — dropped unless Phase 6 leaves time.
 
