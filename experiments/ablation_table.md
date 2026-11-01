@@ -225,3 +225,40 @@ usual post-processing; scratch script, CPU):
 **Choice: m28 alone, thr 0.85.** The 8-view TTA is ~2 points more precise at equal recall but needs 8× the T4 time
 (~14 h vs < 2 h for 3,000 images). For S5: about half of the filaments in a pseudo-labelled image are not labelled,
 so unlabelled pixels are not reliable background; raw masks (score ≥ 0.2) are kept so S5 can ignore unsure regions.
+
+**Run (Colab T4, 2026-10-29, on Mirul's home PC; recorded on the laptop 2026-11-01):** Step D, the archive copies of
+the 141 val images with m28 at thr 0.6: official PQ **0.4378** (SQ 0.6712, RQ 0.6523), Dice 0.6535, vs 0.4355 on the
+competition copies → the lower JPEG quality costs nothing; the archive photos are safe to use. Pseudo-labels
+`pseudo_labels_v1.json` (team Drive `external/`, 4.5 MB): **2,098 images** with ≥ 1 kept mask (of 2,837 QC-passed;
+739 had none), **9,671 masks** (4.61/img, all score ≥ 0.85, median area 1,354 px²); per station B 359, C 376, L 371,
+M 369, T 321, U 302.
+
+## Phase 6 M4 — per-size and per-station table of the best pipeline, exp101 (2026-11-01, Mirul, CPU)
+`src/error_budget.py --raw "Result Phase 6/Mirul/raw_preds_tta2_m28_r50_val.json.gz" --thr 0.6`, output
+`Result Phase 6/Mirul/error_budget_exp101.json`. PQ **0.4480** (= exp101), SQ 0.6735, TP 1083 / FP 495 / FN 595.
+
+| Box | n | PQ if fixed | gain | vs exp010 (M1b) |
+|---|---|---|---|---|
+| fn_low_score | 282 | 0.5197 | +0.072 | 246 |
+| fp_nobody | 305 | 0.4943 | +0.046 | 341 |
+| fn_never | 162 | 0.4906 | +0.043 | 181 |
+| fn_near_miss | 115 | 0.4787 | +0.031 | 146 |
+| fp_other_ann | 190 | 0.4758 | +0.028 | 186 |
+| fn_postproc | 36 | 0.4578 | +0.010 | 38 |
+
+| Group | PQ | SQ | TP | low score | near miss | never | FP nobody |
+|---|---|---|---|---|---|---|---|
+| small (12 GT) | 0.000 | – | 0 | 5 | 0 | 7 | 0 |
+| **medium** | **0.430** | 0.669 | 715 | 233 | 67 | 120 | 226 |
+| large | 0.493 | 0.681 | 368 | 44 | 48 | 35 | 79 |
+| B Big Bear | 0.468 | 0.688 | 183 | 52 | 24 | 15 | 35 |
+| U Udaipur | 0.466 | 0.671 | 166 | 32 | 13 | 19 | 46 |
+| M Mauna Loa | 0.454 | 0.666 | 156 | 36 | 14 | 30 | 34 |
+| L Learmonth | 0.450 | 0.682 | 194 | 46 | 16 | 32 | 58 |
+| C Cerro Tololo | 0.436 | 0.670 | 226 | 77 | 27 | 33 | 67 |
+| **T El Teide** | **0.418** | 0.662 | 158 | 39 | 21 | 33 | 65 |
+
+**Verdict:** TTA removed false alarms (341 → 305) and near misses, but more true filaments now sit just below the
+cut-off (246 → 282): confidence is still the biggest box, mostly **medium filaments** (233 of 282). El Teide is the
+weakest station (most real false alarms per hit); station gaps of ±0.02 are within val noise (~20–28 images each).
+For the report (Phase 7) and the final run: more recall/confidence on medium filaments is where PQ is left.

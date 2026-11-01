@@ -1,8 +1,8 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-10-28 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: S1 + S2 done (training noise ~0.001, 3× schedule rejected), S3 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 code
-ready, Colab run next).
+Last updated 2026-11-01 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Syaz: S1 + S2 done (training noise ~0.001, 3× schedule rejected), S3 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
+**track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
 `Project_Phase_Plan.md` (Phase 6 = the current task list). Do not re-run anything recorded there.
@@ -188,7 +188,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 
 **Live status — each member updates ONLY their own block, after every step (mandatory, §0.7):**
 
-> **Mirul** — last updated: 2026-10-29 (M1 + M2 done; M3 archive steps done on the laptop, Colab prediction next)
+> **Mirul** — last updated: 2026-11-01 (M1–M4 done, track M finished)
 > - Done: local setup (clone, `.venv`, tests pass). **M1 bootstrap** (`src/bootstrap.py`): a val gain must be
 >   **≥ ~0.010 PQ** to be real (LB ≥ ~0.015, i.e. +0.02 at 2 dp); exp012/exp013 gains over exp010 are noise.
 >   **M1 error budget** (`src/error_budget.py`) of exp010: biggest losses = 246 true filaments scored < 0.6
@@ -210,11 +210,21 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   (`qc.csv`); **D** 141/141 val archive copies. Zips in `C:\Users\User\Downloads\m3_external\`
 >   (`external_images_v1.zip` 1.56 GB, `valcopies.zip` 0.09 GB, `qc.csv`). Notebook now skips A when the manifest is
 >   in git and unzips `valcopies.zip` in D.
-> - Now / next: upload the 2 zips + `qc.csv` to Drive `m3_mirul/` → push → Colab T4 steps C–F (~2–3 h) → check Step D val PQ on archive copies
->   (≈ 0.4355 expected) → hand pseudo-labels to Syaz (S5, ~Nov 3) → M4
-> - Blockers / waiting on: Colab writes to the team Drive fail for me (§7) — the M3 notebook saves to my own
->   `MyDrive/m3_mirul/` and then tries the team `external/` (checked)
-> - Files: `Result Phase 6/Mirul/` (bootstrap, error budget, 12 flip raw files, fused `raw_preds_tta*`, grids,
+> - **M3 done** (Colab T4 steps C–F, 2026-10-29 from Mirul's home PC): Step D val archive copies official PQ
+>   **0.4378** (vs 0.4355 on competition copies → archive photos fine). **`pseudo_labels_v1.json` in team Drive
+>   `external/`: 2,098 images, 9,671 masks** (4.61/img, score ≥ 0.85; 739 of 2,837 photos had no kept mask).
+>   Ready for Syaz's S5. Table: ablation_table Phase 6 M3.
+> - **M4 done** (2026-11-01, CPU): per-size / per-station table of exp101 (PQ 0.4480 reproduced). Biggest loss =
+>   282 true filaments scored < 0.6 (233 medium; ≤ +0.072); medium PQ 0.430 vs large 0.493; El Teide weakest
+>   (0.418), Big Bear best (0.468). Table: ablation_table Phase 6 M4. **Track M finished.**
+> - **Note:** the Oct 29 home-PC push (M3 + M4) never reached GitHub; M3 numbers were re-checked and M4 redone on
+>   the laptop on 2026-11-01. The home PC still has those commits: when pushing them, expect conflicts in
+>   HANDOVER / COMPLETED_TASKS / ablation_table — keep this version's numbers, take any code changes from home.
+> - Now / next: help Syaz with S5 / spare T4; fill the hand-back block below with Syaz when track S is done.
+> - Blockers / waiting on: none. (Colab writes to the team Drive fail for me, §7 — M3 saved to my own
+>   `MyDrive/m3_mirul/` first; the raw parts + `external_images_v1.zip` are there.)
+> - Files: `Result Phase 6/Mirul/` (bootstrap, error budgets exp010 + exp101, 12 flip raw files, fused `raw_preds_tta*`,
+>   `raw_preds_x101_2048_m28_valcopies.json.gz`, grids,
 >   logs); CSV `submissions/submission_tta2_m28_r50_pp.csv` (gitignored, on Mirul's laptop; rebuild with §2).
 >   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
 >   `Downloads/GENE/...` clone is retired)
@@ -244,8 +254,8 @@ start the A100 run without asking, then tell Kimee in the group chat.
 > - Error budget (main loss): confidence — 246 true filaments scored < 0.6 (≤ +0.063), then 341 real FPs (≤ +0.051), 181 never found (≤ +0.047); ablation_table Phase 6 M1b
 > - TTA: **adopted** — two-stage flip TTA m28 + r50, val PQ 0.4480 (+0.0116 vs exp010), **LB 0.39**, CSV `submissions/submission_tta2_m28_r50_pp.csv` (exp101). For the final run: predict each new 2048 model on h/v/hv flips too
 > - Recipe for the final 2048 run (exact flags): …
-> - Pseudo-labels: team Drive `external/…`, size …, verdict from S5: …
-> - Open problems: …
+> - Pseudo-labels: team Drive `external/pseudo_labels_v1.json` (2,098 images, 9,671 masks, m28 thr 0.85; archive photos check val 0.4378 vs 0.4355), verdict from S5: …
+> - Open problems: (M4, exp101) confidence on medium filaments — 282 true filaments scored < 0.6 (233 medium, ≤ +0.072); El Teide weakest station (0.418, most real FPs); ablation_table Phase 6 M4. …
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
