@@ -26,7 +26,7 @@ from detectron2.data import DatasetMapper
 from detectron2.engine import DefaultTrainer
 from detectron2.evaluation import COCOEvaluator
 
-from augment import train_augmentations
+from augment import CopyPasteMapper, train_augmentations
 from config import CFG
 from dataset import register_datasets
 from utils.seed import set_seed
@@ -44,11 +44,12 @@ class FilamentTrainer(DefaultTrainer):
     @classmethod
     def build_train_loader(cls, cfg):
         """Add data augmentation to the training loader."""
-        mapper = DatasetMapper(
-            cfg,
-            is_train=True,
-            augmentations=train_augmentations(cfg.INPUT.MIN_SIZE_TRAIN[0]),
-        )
+        augs = train_augmentations(cfg.INPUT.MIN_SIZE_TRAIN[0])
+        if CFG.train.AUG == "copypaste":
+            from detectron2.data import DatasetCatalog
+            mapper = CopyPasteMapper(cfg, augs, DatasetCatalog.get(cfg.DATASETS.TRAIN[0]))
+        else:
+            mapper = DatasetMapper(cfg, is_train=True, augmentations=augs)
         return build_detection_train_loader(cfg, mapper=mapper)
 
 

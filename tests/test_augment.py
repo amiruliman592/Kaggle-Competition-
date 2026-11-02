@@ -62,3 +62,38 @@ def test_rotscale_outline_stays_on_the_filament(aug):
         assert (pix & box).sum() / (pix | box).sum() > 0.95
     assert len(sizes) > 5   # zoom varies
     assert len(seen) > 2    # the L points different ways
+
+
+def test_copypaste_mapper_adds_filaments(aug, tmp_path):
+    from detectron2.config import get_cfg
+    from augment import CopyPasteMapper
+
+    aug.train.AUG = "copypaste"
+    saved = aug.train.COPY_PASTE_PROB
+    aug.train.COPY_PASTE_PROB = 1.0
+    try:
+        cfg = get_cfg()
+        cfg.MODEL.MASK_ON = True
+        dicts = []
+        for k, (x, y) in enumerate([(900, 900), (700, 1200)]):
+            img = np.zeros((2048, 2048, 3), np.uint8)
+            cv2.circle(img, (1024, 1024), 900, (180, 180, 180), -1)
+            poly = [x, y, x + 200, y, x + 200, y + 50, x, y + 50]
+            cv2.fillPoly(img, [np.array(poly).reshape(-1, 2)], (60, 60, 60))
+            cv2.imwrite(str(tmp_path / f"{k}.png"), img)
+            dicts.append({"file_name": str(tmp_path / f"{k}.png"), "image_id": k, "height": 2048, "width": 2048,
+                          "annotations": [{"bbox": [x, y, x + 200, y + 50], "bbox_mode": 0, "segmentation": [poly],
+                                           "category_id": 0, "iscrowd": 0}]})
+        mapper = CopyPasteMapper(cfg, train_augmentations(1024), dicts)
+        np.random.seed(0)
+        counts = []
+        for _ in range(10):
+            out = mapper(dicts[0])
+            assert tuple(out["image"].shape) == (3, 1024, 1024)
+            inst = out["instances"]
+            assert len(inst.gt_masks) == len(inst) and inst.gt_boxes.tensor.max() <= 1024
+            counts.append(len(inst))
+        assert min(counts) >= 1 and max(counts) >= 2      # own filament kept, pasted ones added
+        assert len(dicts[0]["annotations"]) == 1          # dataset dict not changed in place
+    finally:
+        aug.train.COPY_PASTE_PROB = saved

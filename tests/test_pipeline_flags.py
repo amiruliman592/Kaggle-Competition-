@@ -101,6 +101,8 @@ def test_aug_flag():
         assert CFG.train.AUG == "flip"
         apply_overrides(parse_args(["--aug", "rotscale"]))
         assert CFG.train.AUG == "rotscale"
+        apply_overrides(parse_args(["--aug", "copypaste"]))
+        assert CFG.train.AUG == "copypaste"
     finally:
         CFG.train.AUG = saved
 
