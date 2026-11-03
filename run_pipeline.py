@@ -15,6 +15,7 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
   python run_pipeline.py --step train --name syaz_r50_seed2 --label-policy all --seed 7   # Phase 6: re-train, other seed
   python run_pipeline.py --step train --name syaz_r50_rotscale --label-policy all --aug rotscale   # Phase 6 S3
   python run_pipeline.py --step train --name syaz_r50_copypaste --label-policy all --aug copypaste # Phase 6 S4
+  python run_pipeline.py --step train --name syaz_r50_selftrain --label-policy all --pseudo ext/pseudo_labels_v1.json  # S5
   python run_pipeline.py --step dump  --name r50_2048 --resolution 2048 --weights <ckpt> --flip h
       # Phase 6 TTA: predicts on flipped images -> raw_preds_<name>_fliph_<split>.json.gz
   (pass the same --backbone/--resolution/--mask-res to train, val, dump and infer of one model)
@@ -226,6 +227,10 @@ def parse_args(argv=None):
     parser.add_argument("--aug", choices=["flip", "rotscale", "copypaste"], default=None,
                         help="Override CFG.train.AUG; rotscale adds 90-degree rotations + +-20%% zoom (Phase 6 S3), "
                              "copypaste pastes filaments from other training images (Phase 6 S4)")
+    parser.add_argument("--pseudo", type=str, default=None,
+                        help="Train also on these pseudo-labels (COCO JSON, Phase 6 S5); real samples count x2")
+    parser.add_argument("--pseudo-images", type=str, default=None,
+                        help="Folder of the pseudo-labelled images (default: <json folder>/images)")
     parser.add_argument("--flip", choices=["h", "v", "hv"], default=None,
                         help="--step dump only: predict on flipped images for TTA (Phase 6)")
     parser.add_argument("--image-dir", type=str, default=None,
@@ -258,6 +263,10 @@ def apply_overrides(args):
         CFG.SEED = args.seed
     if args.aug is not None:
         CFG.train.AUG = args.aug
+    if args.pseudo is not None:
+        CFG.train.PSEUDO_JSON = args.pseudo
+    if args.pseudo_images is not None:
+        CFG.train.PSEUDO_IMG_DIR = args.pseudo_images
 
 
 if __name__ == "__main__":

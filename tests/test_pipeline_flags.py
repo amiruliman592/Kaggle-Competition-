@@ -107,6 +107,19 @@ def test_aug_flag():
         CFG.train.AUG = saved
 
 
+def test_pseudo_flags():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    saved = CFG.train.PSEUDO_JSON, CFG.train.PSEUDO_IMG_DIR
+    try:
+        apply_overrides(parse_args([]))
+        assert CFG.train.PSEUDO_JSON == "" and CFG.train.PSEUDO_IMG_DIR == ""
+        apply_overrides(parse_args(["--pseudo", "ext/p.json", "--pseudo-images", "ext/img"]))
+        assert (CFG.train.PSEUDO_JSON, CFG.train.PSEUDO_IMG_DIR) == ("ext/p.json", "ext/img")
+    finally:
+        CFG.train.PSEUDO_JSON, CFG.train.PSEUDO_IMG_DIR = saved
+
+
 def test_flip_flag_only_with_dump():
     from run_pipeline import parse_args
     assert parse_args(["--step", "dump", "--flip", "hv"]).flip == "hv"

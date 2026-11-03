@@ -230,7 +230,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
 >   `Downloads/GENE/...` clone is retired)
 
-> **Syaz** — last updated: 2026-11-03 (S1–S4 done and scored, all rejected; S5 next, code not started)
+> **Syaz** — last updated: 2026-11-03 (S1–S4 done and scored, all rejected; S5 code ready, Colab run not started)
 > - Done: setup (laptop `.venv`, 53 tests; team Drive shortcut; `colab_phase6_syaz.ipynb` on T4, repo public = no
 >   token; probe passed, 20 its 1.1 min, peak 2.7 GB).
 >   **S1** `syaz_r50_seed2` (exp201, `--seed 7`): val PQ **0.3985** (thr 0.65), Dice 0.6385; at thr 0.6 = exp006
@@ -245,9 +245,10 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   **S4** `syaz_r50_copypaste` (exp204, `--aug copypaste`, T4 ~0.92 s/it): val PQ 0.3945 (thr 0.65), Dice 0.6363;
 >   −0.0035 [−0.010, +0.003] vs exp006, P(B>A) 0.15 = **no gain, slightly worse (more FPs) → rejected.** Code stays
 >   (`src/copy_paste.py`). Table: `experiments/ablation_table.md` (Phase 6 S4).
-> - Now / next: **S5** = exp006 recipe + Mirul's pseudo-labels (team Drive `external/`, 2,098 images; real samples
->   counted twice ≈ 1:1). Plan explained to Syaz 2026-11-03; code not started (needs Syaz's "go S5"); Colab run
->   planned Nov 4 (two T4 runs in one day may hit the quota). Hand-back by Nov 5 (latest Nov 6).
+> - Now / next: **S5 code ready** = exp006 recipe + `--pseudo` (Mirul's 2,098 pseudo-labelled images from team Drive
+>   `external/`, real samples ×2 ≈ 1:1; `src/pseudo.py`, `tests/test_pseudo.py`, notebook S5 cell, run
+>   `syaz_r50_selftrain`, 6,000 its, seed 42, ~2 h T4). Next: push, run the S5 cell on Colab (planned Nov 4), score
+>   vs exp006 as exp205, then fill the hand-back block (recipe + S5 verdict). Hand-back by Nov 5 (latest Nov 6).
 > - Blockers / waiting on: none. Kaggle team: **joined** (Syaz confirmed 2026-11-01). Colab: Syaz's university account from S3 on
 >   (shortcut already set up, §0.6; it hit the GPU limit on 2026-10-27, not retested since).
 > - Files: `Result Phase 6/Syaz/`: raw val/test files of S1–S4, `eval_s1_s2.json`, `eval_s3.json`, `eval_s4.json`

@@ -21,6 +21,7 @@ import numpy as np
 from annotations import load_annotation_sets, select_annotations
 from config import CFG
 from preprocess import image_path
+from pseudo import with_pseudo
 from split import load_split
 
 
@@ -105,8 +106,12 @@ def register_datasets(limit: Optional[int] = None) -> Tuple[List[str], List[str]
         if name in DatasetCatalog.list():
             DatasetCatalog.remove(name)
             MetadataCatalog.remove(name)
-        DatasetCatalog.register(
-            name, lambda s=stems, p=policy: build_detectron2_dicts(s, single_class, p))
+        if name == "filament_train":  # + pseudo-labelled images when --pseudo is set (Phase 6 S5)
+            DatasetCatalog.register(
+                name, lambda s=stems, p=policy: with_pseudo(build_detectron2_dicts(s, single_class, p)))
+        else:
+            DatasetCatalog.register(
+                name, lambda s=stems, p=policy: build_detectron2_dicts(s, single_class, p))
         MetadataCatalog.get(name).set(thing_classes=classes)
         print(f"[Dataset] Registered '{name}' ({len(stems)} images)")
 

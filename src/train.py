@@ -163,6 +163,8 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
     print(f"  Max iter:   {cfg.SOLVER.MAX_ITER}")
     print(f"  Resolution: {CFG.train.TRAIN_RESIZE} (workers {cfg.DATALOADER.NUM_WORKERS})")
     print(f"  Augment:    {CFG.train.AUG}")
+    print(f"  Pseudo:     {CFG.train.PSEUDO_JSON or 'none'}"
+          + (f" (real samples x{CFG.train.REAL_REPEAT})" if CFG.train.PSEUDO_JSON else ""))
     print(f"  Anchors:    {CFG.model.ANCHOR_SIZES} x {CFG.model.ASPECT_RATIOS}")
     print(f"  Output:     {cfg.OUTPUT_DIR}")
 

@@ -115,6 +115,10 @@ class TrainConfig:
     SCALE_JITTER: float = 0.2  # rotscale: image size varies by +-20%
     COPY_PASTE_PROB: float = 0.5  # copypaste: share of training images that get pasted filaments
     COPY_PASTE_MAX: int = 3  # copypaste: 1..this many filaments pasted per image
+    # Pseudo-labelled extra images (Phase 6 S5, pseudo.py); "" = off. Images default to <json folder>/images
+    PSEUDO_JSON: str = ""
+    PSEUDO_IMG_DIR: str = ""
+    REAL_REPEAT: int = 2  # real samples counted this many times when pseudo images are added (~1:1)
     # 2048 JPEG decoding is CPU-bound: use the CPUs the machine has (Colab T4: 2, A100: 12)
     NUM_WORKERS: int = field(default_factory=lambda: min(8, os.cpu_count() or 2))
     # Detectron2's COCOEvaluator is untested with string image_ids and does not
