@@ -173,6 +173,21 @@ No PQ gain, and the top of the 95% range (+0.007) is below the 0.010 bar. Dice i
 adds less: FP 580 vs 617, FN 700 vs 675. The scores are lower, so PQ holds up better at thr 0.5 (0.3964 vs 0.3900) but
 the best value does not improve. Keep **`--aug flip`** for S4 and S5. Test dump 0.59 s/img, 2.3 GB.
 
+## Phase 6 S4 — copy-paste, R50 at 1024 (2026-11-03, Syaz; T4 training, CPU scoring)
+exp006 recipe with `--aug copypaste` (`src/copy_paste.py`): half of the training images get 1–3 GT filaments of
+another training image pasted at free spots inside the disk (≥ 10 px from other filaments, soft edges, background
+brightness matched), outlines added to the labels; then the usual flips. Scored as S1–S3. Outputs:
+`Result Phase 6/Syaz/eval_s4.json`, `Result Phase 6/Syaz/bootstrap_s4.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp204** S4 `syaz_r50_copypaste` | `--aug copypaste` | 0.3926 | 0.6376 | 0.3945 (0.65) | 0.6363 | −0.0035 [−0.010, +0.003] | 0.15 | **rejected** |
+
+No gain; if anything slightly worse (P(B>A) 0.15), and Dice is lower at every thr ≤ 0.75. At thr 0.6 it adds false
+alarms (FP 649 vs 617) for the same hits. Pasted filaments probably teach the model to fire on filament-like dark
+patches anywhere on the disk. Keep **`--aug flip`**; S5 uses the plain exp006 recipe. T4 ~0.92 s/it (as S3).
+
 ## Phase 6 M1b — error budget of exp010 (2026-10-27, Mirul, CPU)
 `src/error_budget.py`, official matching (233 annotator entries, IoU > 0.5), thr 0.6. Output:
 `Result Phase 6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.

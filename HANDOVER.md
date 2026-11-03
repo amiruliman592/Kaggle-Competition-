@@ -1,7 +1,7 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-02 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: S1–S3 done (training noise ~0.001, 3× schedule and rotations + size changes rejected), S4 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
+Last updated 2026-11-03 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Syaz: S1–S4 done (training noise ~0.001; 3× schedule, rotations + size changes and copy-paste rejected), S5 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
@@ -230,7 +230,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
 >   `Downloads/GENE/...` clone is retired)
 
-> **Syaz** — last updated: 2026-11-02 (S1–S3 done and scored; S4 code ready, Colab run not started)
+> **Syaz** — last updated: 2026-11-03 (S1–S4 done and scored, all rejected; S5 next, code not started)
 > - Done: setup (laptop `.venv`, 53 tests; team Drive shortcut; `colab_phase6_syaz.ipynb` on T4, repo public = no
 >   token; probe passed, 20 its 1.1 min, peak 2.7 GB).
 >   **S1** `syaz_r50_seed2` (exp201, `--seed 7`): val PQ **0.3985** (thr 0.65), Dice 0.6385; at thr 0.6 = exp006
@@ -242,15 +242,17 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   **S3** `syaz_r50_rotscale` (exp203, `--aug rotscale`, university account, T4 ~1.7 h): val PQ 0.3973 (thr 0.6),
 >   Dice 0.6427; −0.0006 [−0.009, +0.007] vs exp006 = **no gain → rejected; keep `--aug flip` for S4 + S5.**
 >   Code stays in the repo (`src/augment.py`). Table: `experiments/ablation_table.md` (Phase 6 S3).
-> - Now / next: **S4 copy-paste code ready** (`--aug copypaste`, `src/copy_paste.py`, `CopyPasteMapper` in
->   `src/augment.py`, tests, notebook S4 cell; run `syaz_r50_copypaste`, 6,000 its, seed 42, ~2 h T4). Next: push,
->   run the S4 cell on Colab (Nov 3), score vs exp006 as exp204. Claude writes the S5 code (Mirul's pseudo-labels in
->   team Drive `external/`) while S4 trains. If time runs short, drop S4 first (plan §6). Hand-back by Nov 5 (latest Nov 6).
+>   **S4** `syaz_r50_copypaste` (exp204, `--aug copypaste`, T4 ~0.92 s/it): val PQ 0.3945 (thr 0.65), Dice 0.6363;
+>   −0.0035 [−0.010, +0.003] vs exp006, P(B>A) 0.15 = **no gain, slightly worse (more FPs) → rejected.** Code stays
+>   (`src/copy_paste.py`). Table: `experiments/ablation_table.md` (Phase 6 S4).
+> - Now / next: **S5** = exp006 recipe + Mirul's pseudo-labels (team Drive `external/`, 2,098 images; real samples
+>   counted twice ≈ 1:1). Plan explained to Syaz 2026-11-03; code not started (needs Syaz's "go S5"); Colab run
+>   planned Nov 4 (two T4 runs in one day may hit the quota). Hand-back by Nov 5 (latest Nov 6).
 > - Blockers / waiting on: none. Kaggle team: **joined** (Syaz confirmed 2026-11-01). Colab: Syaz's university account from S3 on
 >   (shortcut already set up, §0.6; it hit the GPU limit on 2026-10-27, not retested since).
-> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1–S3, `eval_s1_s2.json`, `eval_s3.json` (thr sweeps),
->   `bootstrap_s1_s2.json`, `bootstrap_s3.json`.
->   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x,syaz_r50_rotscale}/` (checkpoints).
+> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1–S4, `eval_s1_s2.json`, `eval_s3.json`, `eval_s4.json`
+>   (thr sweeps), `bootstrap_s1_s2.json`, `bootstrap_s3.json`, `bootstrap_s4.json`.
+>   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x,syaz_r50_rotscale,syaz_r50_copypaste}/`.
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
