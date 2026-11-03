@@ -1,7 +1,7 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
 Last updated 2026-11-03 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
-Syaz: S1–S4 done (training noise ~0.001; 3× schedule, rotations + size changes and copy-paste rejected), S5 next; Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
+Syaz: **track S finished** — S1–S5 done (training noise ~0.001; 3× schedule, rotations + size changes, copy-paste and self-training all rejected → no recipe change); Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
 Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everything finished, with numbers) and
@@ -230,7 +230,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
 >   `Downloads/GENE/...` clone is retired)
 
-> **Syaz** — last updated: 2026-11-03 (S1–S4 done and scored, all rejected; S5 code ready, Colab run not started)
+> **Syaz** — last updated: 2026-11-03 (S1–S5 done and scored, all rejected; track S finished; hand-back block filled)
 > - Done: setup (laptop `.venv`, 53 tests; team Drive shortcut; `colab_phase6_syaz.ipynb` on T4, repo public = no
 >   token; probe passed, 20 its 1.1 min, peak 2.7 GB).
 >   **S1** `syaz_r50_seed2` (exp201, `--seed 7`): val PQ **0.3985** (thr 0.65), Dice 0.6385; at thr 0.6 = exp006
@@ -245,15 +245,17 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   **S4** `syaz_r50_copypaste` (exp204, `--aug copypaste`, T4 ~0.92 s/it): val PQ 0.3945 (thr 0.65), Dice 0.6363;
 >   −0.0035 [−0.010, +0.003] vs exp006, P(B>A) 0.15 = **no gain, slightly worse (more FPs) → rejected.** Code stays
 >   (`src/copy_paste.py`). Table: `experiments/ablation_table.md` (Phase 6 S4).
-> - Now / next: **S5 code ready** = exp006 recipe + `--pseudo` (Mirul's 2,098 pseudo-labelled images from team Drive
->   `external/`, real samples ×2 ≈ 1:1; `src/pseudo.py`, `tests/test_pseudo.py`, notebook S5 cell, run
->   `syaz_r50_selftrain`, 6,000 its, seed 42, ~2 h T4). Next: push, run the S5 cell on Colab (planned Nov 4), score
->   vs exp006 as exp205, then fill the hand-back block (recipe + S5 verdict). Hand-back by Nov 5 (latest Nov 6).
-> - Blockers / waiting on: none. Kaggle team: **joined** (Syaz confirmed 2026-11-01). Colab: Syaz's university account from S3 on
->   (shortcut already set up, §0.6; it hit the GPU limit on 2026-10-27, not retested since).
-> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1–S4, `eval_s1_s2.json`, `eval_s3.json`, `eval_s4.json`
->   (thr sweeps), `bootstrap_s1_s2.json`, `bootstrap_s3.json`, `bootstrap_s4.json`.
->   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x,syaz_r50_rotscale,syaz_r50_copypaste}/`.
+>   **S5** `syaz_r50_selftrain` (exp205, `--pseudo` Mirul's `external/pseudo_labels_v1.json`, real ×2, T4 on Syaz's
+>   **personal paid Google account** to avoid the university quota): val PQ 0.3958 (thr 0.6), Dice 0.6359; −0.0022
+>   [−0.011, +0.005] vs exp006 = **no gain → rejected** (more cautious model: fewer FPs, fewer hits). Code stays
+>   (`src/pseudo.py`). Table: `experiments/ablation_table.md` (Phase 6 S5).
+> - Now / next: **track S finished**; hand-back block below filled (recipe = unchanged). Next: tell Kimee in the
+>   group chat. Spare T4 time available if Kimee or Mirul wants something run.
+> - Blockers / waiting on: none. Kaggle team: **joined** (Syaz confirmed 2026-11-01). Colab: university account for S3–S4,
+>   personal paid account for S5 (both have the team Drive shortcut, §0.6).
+> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1–S5, `eval_s1_s2.json`, `eval_s3.json`, `eval_s4.json`,
+>   `eval_s5.json` (thr sweeps), `bootstrap_s1_s2.json`, `bootstrap_s3.json`, `bootstrap_s4.json`, `bootstrap_s5.json`.
+>   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x,syaz_r50_rotscale,syaz_r50_copypaste,syaz_r50_selftrain}/`.
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
@@ -262,8 +264,8 @@ start the A100 run without asking, then tell Kimee in the group chat.
 > - Noise threshold — val: ~0.010 PQ (paired bootstrap, M1) / LB: ~0.015 (≈ +0.02 at 2 dp) ; training noise (S1): ~0.001 full-val PQ (seed 7 vs 42; paired 95% ±0.007), below the M1 bar → use **≥ 0.010** (exp201, ablation_table Phase 6 S1 + S2)
 > - Error budget (main loss): confidence — 246 true filaments scored < 0.6 (≤ +0.063), then 341 real FPs (≤ +0.051), 181 never found (≤ +0.047); ablation_table Phase 6 M1b
 > - TTA: **adopted** — two-stage flip TTA m28 + r50, val PQ 0.4480 (+0.0116 vs exp010), **LB 0.39**, CSV `submissions/submission_tta2_m28_r50_pp.csv` (exp101). For the final run: predict each new 2048 model on h/v/hv flips too
-> - Recipe for the final 2048 run (exact flags): …
-> - Pseudo-labels: team Drive `external/pseudo_labels_v1.json` + images `external/external_images_v1.zip` (2,098 images, 9,671 masks, m28 thr 0.85; archive photos check val 0.4378 vs 0.4355), verdict from S5: …
+> - Recipe for the final 2048 run (exact flags): **unchanged** — none of S2–S5 beat exp006 by the 0.010 bar (ablation_table Phase 6 S1–S5). Train as before: m28 `--backbone x101 --resolution 2048 --mask-res 28`, r50 `--resolution 2048` (default `--aug flip`, default schedule, seed 42, no `--pseudo`); then flip TTA h/v/hv + two-stage fusion as exp101. Not worth it: 3× schedule (S2), `--aug rotscale` (S3), `--aug copypaste` (S4, more FPs), `--pseudo` (S5). (Syaz)
+> - Pseudo-labels: team Drive `external/pseudo_labels_v1.json` + images `external/external_images_v1.zip` (2,098 images, 9,671 masks, m28 thr 0.85; archive photos check val 0.4378 vs 0.4355), verdict from S5: **not useful as is** — exp205 −0.0022 [−0.011, +0.005] vs exp006; the model gets more cautious (FP 473 vs 617 but TP 941 vs 1003 at thr 0.6), probably because thr 0.85 leaves faint filaments unlabelled. A lower pseudo-label threshold was not tried.
 > - Open problems: (M4, exp101) confidence on medium filaments — 282 true filaments scored < 0.6 (233 medium, ≤ +0.072); El Teide weakest station (0.418, most real FPs); ablation_table Phase 6 M4. …
 
 ## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)

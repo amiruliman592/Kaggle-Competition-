@@ -188,6 +188,22 @@ No gain; if anything slightly worse (P(B>A) 0.15), and Dice is lower at every th
 alarms (FP 649 vs 617) for the same hits. Pasted filaments probably teach the model to fire on filament-like dark
 patches anywhere on the disk. Keep **`--aug flip`**; S5 uses the plain exp006 recipe. T4 ~0.92 s/it (as S3).
 
+## Phase 6 S5 — self-training with pseudo-labels, R50 at 1024 (2026-11-03, Syaz; T4 training, CPU scoring)
+exp006 recipe with `--pseudo` (`src/pseudo.py`): Mirul's M3 pseudo-labels (team Drive `external/pseudo_labels_v1.json`,
+2,098 GONG archive images, 9,671 masks from m28 at thr 0.85, no val/test days) added to the training set; real samples
+repeated ×2 (≈ 1:1 real : pseudo). 6,000 its, seed 42, T4 (Syaz's personal paid Google account). Scored as S1–S4.
+Outputs: `Result Phase 6/Syaz/eval_s5.json`, `Result Phase 6/Syaz/bootstrap_s5.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp205** S5 `syaz_r50_selftrain` | `--pseudo` | 0.3958 | 0.6359 | 0.3958 (0.6) | 0.6359 | −0.0022 [−0.011, +0.005] | 0.30 | **rejected** |
+
+No gain. The model becomes more cautious: at thr 0.6 it makes 832 masks instead of 956, with fewer false alarms
+(FP 473 vs 617) but fewer hits (TP 941 vs 1003); Dice is lower at every thr. Likely cause: the pseudo-labels keep only
+confident filaments (score ≥ 0.85), so faint filaments in the extra images are labelled as background. Not tried
+(no time before hand-back): a lower pseudo-label threshold. Track S result: **no recipe change** (S1–S5 all below the bar).
+
 ## Phase 6 M1b — error budget of exp010 (2026-10-27, Mirul, CPU)
 `src/error_budget.py`, official matching (233 annotator entries, IoU > 0.5), thr 0.6. Output:
 `Result Phase 6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.
