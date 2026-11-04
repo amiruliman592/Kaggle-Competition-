@@ -235,7 +235,11 @@ def parse_args(argv=None):
                         help="--step dump only: predict on flipped images for TTA (Phase 6)")
     parser.add_argument("--image-dir", type=str, default=None,
                         help="--step dump only: predict this folder of images instead of val + test (Phase 6 M3)")
+    parser.add_argument("--train-all", action="store_true",
+                        help="Train on all 707 files (train + val) for the final model; val can no longer score it")
     args = parser.parse_args(argv)
+    if args.train_all and args.step != "train":
+        parser.error("--train-all only works with --step train (val is part of training, so it cannot score it)")
     if args.flip and args.step != "dump":
         parser.error("--flip only works with --step dump")
     if args.image_dir and args.step != "dump":
@@ -267,6 +271,8 @@ def apply_overrides(args):
         CFG.train.PSEUDO_JSON = args.pseudo
     if args.pseudo_images is not None:
         CFG.train.PSEUDO_IMG_DIR = args.pseudo_images
+    if args.train_all:
+        CFG.train.TRAIN_ALL = True
 
 
 if __name__ == "__main__":

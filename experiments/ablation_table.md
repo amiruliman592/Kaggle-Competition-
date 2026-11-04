@@ -307,3 +307,17 @@ M 369, T 321, U 302.
 cut-off (246 → 282): confidence is still the biggest box, mostly **medium filaments** (233 of 282). El Teide is the
 weakest station (most real false alarms per hit); station gaps of ±0.02 are within val noise (~20–28 images each).
 For the report (Phase 7) and the final run: more recall/confidence on medium filaments is where PQ is left.
+
+## Phase 7 prep A — third ensemble member: flip TTA of `x101_2048` (2026-11-04, Kimee; Colab T4 inference, CPU scoring)
+Kimee's Phase 4 `x101_2048` (exp008) on val + test flipped h / v / hv (`notebooks/colab_kimee_tta_x101.ipynb`);
+4 views fused like exp101 (IoU 0.5 union), then fused with Mirul's m28 + r50 TTA files. Logs + grids:
+`Result Phase 7/log_tta_x101.txt`, `log_tta3_m28_r50_x101.txt`, `tta*.json`.
+
+| Run (val, best setting of the 30-row grid) | PQ | Dice | vs |
+|---|---|---|---|
+| x101, 4 views (thr 0.7) | 0.4412 | 0.6353 | x101 alone 0.4264: +0.015 |
+| 3 models m28 + r50 + x101, each 4 views (IoU 0.5 inter thr 0.7) | 0.4455 | 0.6350 | exp101 0.4480: −0.0025 |
+| same, thr 0.6 | 0.4453 | 0.6515 | exp101: −0.0027 |
+
+**Verdict: rejected** (below exp101, so no bootstrap needed). The second X101 makes the same mistakes as m28, so it
+adds no new agreement. Flip TTA helps every single model (+0.003 to +0.015).

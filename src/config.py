@@ -119,6 +119,8 @@ class TrainConfig:
     PSEUDO_JSON: str = ""
     PSEUDO_IMG_DIR: str = ""
     REAL_REPEAT: int = 2  # real samples counted this many times when pseudo images are added (~1:1)
+    # Final run (Phase 7 prep B): also train on the 141 val files (all 707). Val scores are then meaningless.
+    TRAIN_ALL: bool = False
     # 2048 JPEG decoding is CPU-bound: use the CPUs the machine has (Colab T4: 2, A100: 12)
     NUM_WORKERS: int = field(default_factory=lambda: min(8, os.cpu_count() or 2))
     # Detectron2's COCOEvaluator is untested with string image_ids and does not

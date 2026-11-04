@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-03 (Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Last updated 2026-11-04 (Kimee back: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
 Syaz: **track S finished** — S1–S5 done (training noise ~0.001; 3× schedule, rotations + size changes, copy-paste and self-training all rejected → no recipe change); Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
@@ -263,9 +263,17 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   checkpoint (exp008) as a **third ensemble member** with exp101's m28 + r50 TTA (val-scorable, kept only if
 >   ≥ +0.010 vs 0.4480); then **B** (retrain m28 + r50 on all 707 files, not val-scorable) or **C** (second m28
 >   seed at 2048) with the remaining units.
-> - Now: A — notebook `notebooks/colab_kimee_tta_x101.ipynb` ready (not run yet); writes to Drive `Phase 6/Kimee/`,
->   results go to `Result Phase 6/Kimee/`. Experiment ID for A: exp014.
-> - Blockers: confirm `output/detectron2/x101_2048/model_final.pth` is in the Drive folder (the notebook checks it).
+> - **A done (exp014) → rejected:** `notebooks/colab_kimee_tta_x101.ipynb` on T4; raw files in `Result Phase 7/`.
+>   x101 TTA alone 0.4412 (+0.015 vs no TTA), but m28 + r50 + x101 best 0.4455 < exp101 0.4480. A second X101 adds
+>   the same mistakes as m28. **exp101 stays best.** Table: ablation_table Phase 7 prep A.
+> - **B chosen (C dropped: a second similar model did not help in A). Code ready, not run:** `run_pipeline.py
+>   --train-all` (`CFG.train.TRAIN_ALL`; only with `--step train`) adds the 141 val files to training (1,154
+>   samples). Notebook `notebooks/colab_kimee_final_all.ipynb` (A100, ~50–55 units): `x101_2048_m28_all` +
+>   `r50_2048_all`, recipe unchanged, 7,500 its (= same passes as 6,000 on 921 samples), then 4 views each → Drive
+>   `Phase 7/` → laptop `Result Phase 7/`. **Val cannot score these models**; check = LB vs exp101 (0.39); exp101
+>   stays a final pick either way. Tests: 82 pass.
+> - Next: push code, run the notebook, fuse like exp101 (thr 0.6), upload (exp015).
+> - Blockers: none.
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.

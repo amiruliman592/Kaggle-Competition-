@@ -142,3 +142,30 @@ def test_phase6_notebooks_compile_and_stay_in_own_folder():
     assert all(n.startswith("syaz_") for n in re.findall(r'"(\w*r50\w*|\w*probe\w*)"', syaz))
     mirul = "\n".join(_code_cells("colab_phase6_mirul.ipynb"))
     assert "--weights" in mirul and "--flip {flip}" in mirul
+
+
+def test_train_all_flag():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    try:
+        apply_overrides(parse_args(["--step", "train"]))
+        assert CFG.train.TRAIN_ALL is False
+        apply_overrides(parse_args(["--step", "train", "--train-all"]))
+        assert CFG.train.TRAIN_ALL is True
+    finally:
+        CFG.train.TRAIN_ALL = False
+    # val is part of training, so any step that scores on val must refuse the flag
+    for step in ("val", "sweep", "all", "dump"):
+        with pytest.raises(SystemExit):
+            parse_args(["--step", step, "--train-all"])
+
+
+def test_final_all_notebook():
+    cells = _code_cells("colab_kimee_final_all.ipynb") + _code_cells("colab_kimee_tta_x101.ipynb")
+    for src in cells:
+        py = "\n".join(l[:len(l) - len(l.lstrip())] + "pass" if l.lstrip().startswith(("!", "%")) else l
+                       for l in src.splitlines())
+        ast.parse(py)
+    text = "\n".join(_code_cells("colab_kimee_final_all.ipynb"))
+    trains = re.findall(r"--step train[^\"]*", text)
+    assert trains and all("--train-all" in t and "--label-policy all" in t for t in trains)

@@ -97,6 +97,9 @@ def register_datasets(limit: Optional[int] = None) -> Tuple[List[str], List[str]
     train_ids, val_ids = load_split()
     if limit:
         train_ids, val_ids = train_ids[:limit], val_ids[:limit]
+    if CFG.train.TRAIN_ALL:  # final run: val files join training (val stays registered, but is no longer held out)
+        train_ids = train_ids + val_ids
+        print("[Dataset] --train-all: val files are added to training; val scores are NOT valid for this model")
 
     single_class = CFG.model.NUM_CLASSES == 1
     classes = ["filament"] if single_class else ["Left", "Right", "Unidentifiable", "Ambiguous"]
