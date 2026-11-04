@@ -257,6 +257,16 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   `eval_s5.json` (thr sweeps), `bootstrap_s1_s2.json`, `bootstrap_s3.json`, `bootstrap_s4.json`, `bootstrap_s5.json`.
 >   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x,syaz_r50_rotscale,syaz_r50_copypaste,syaz_r50_selftrain}/`.
 
+> **Kimee** — last updated: 2026-11-04 (back from break; both tracks received)
+> - Decision: recipe unchanged → retraining m28 + r50 on the same 566 files would only reproduce the current models
+>   (seed noise ~0.001), so the A100 budget goes elsewhere. Plan: **(A)** flip TTA of the Phase 4 `x101_2048`
+>   checkpoint (exp008) as a **third ensemble member** with exp101's m28 + r50 TTA (val-scorable, kept only if
+>   ≥ +0.010 vs 0.4480); then **B** (retrain m28 + r50 on all 707 files, not val-scorable) or **C** (second m28
+>   seed at 2048) with the remaining units.
+> - Now: A — notebook `notebooks/colab_kimee_tta_x101.ipynb` ready (not run yet); writes to Drive `Phase 6/Kimee/`,
+>   results go to `Result Phase 6/Kimee/`. Experiment ID for A: exp014.
+> - Blockers: confirm `output/detectron2/x101_2048/model_final.pth` is in the Drive folder (the notebook checks it).
+
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
 
