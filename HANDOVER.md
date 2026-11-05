@@ -272,7 +272,13 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   `r50_2048_all`, recipe unchanged, 7,500 its (= same passes as 6,000 on 921 samples), then 4 views each → Drive
 >   `Phase 7/` → laptop `Result Phase 7/`. **Val cannot score these models**; check = LB vs exp101 (0.39); exp101
 >   stays a final pick either way. Tests: 82 pass.
-> - Next: push code, run the notebook, fuse like exp101 (thr 0.6), upload (exp015).
+> - **B run (2026-11-05, exp015):** both models trained on A100 (raw files `Result Phase 7/Code B/` + `Phase7b/`;
+>   checkpoints Drive `output/detectron2/{x101_2048_m28_all,r50_2048_all}/`). Sanity val (not a real score)
+>   0.4985 / 0.4733 → val was learned. Fused like exp101 → `submissions/submission_tta2_m28_r50_all_pp.csv`
+>   (1,246 masks, validator PASS; rebuild: `python src/submit_from_raw.py "Result Phase 7/raw_preds_tta2_m28_r50_all_test.json.gz" submissions/submission_tta2_m28_r50_all_pp.csv --score-thr 0.6`).
+> - **exp015 uploaded 2026-11-05: LB 0.39 = exp101** (tie; below the LB noise ~0.015). Both kept as final candidates:
+>   exp101 = val-checked (0.4480), exp015 = same method + 25% more data.
+> - Next: Phase 7 — confirm 2 or 3 final picks on Kaggle, choose the third, latency, clean-clone reproduction.
 > - Blockers: none.
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can

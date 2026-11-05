@@ -98,6 +98,7 @@ Each member logs only in their own subsection (avoids git conflicts).
 
 ### Kimee (after hand-back: final-run choices)
 - [x] 2026-11-04 — A: flip TTA of `x101_2048` as a 3rd ensemble member (exp014, `notebooks/colab_kimee_tta_x101.ipynb`, T4; raw files `Result Phase 7/`): x101 TTA alone val 0.4412 (+0.015 vs 0.4264); m28 + r50 + x101 best **0.4455** (IoU 0.5 inter thr 0.7) < exp101 0.4480 → **rejected**; exp101 stays best. Table: ablation_table Phase 7 prep A.
+- [x] 2026-11-04/05 — B: m28 + r50 at 2048 retrained on all 707 files (exp015; `run_pipeline.py --train-all`, 7,500 its, `notebooks/colab_kimee_final_all.ipynb` on A100; raw files `Result Phase 7/Code B/` + `Phase7b/`, fused `Result Phase 7/raw_preds_tta2_m28_r50_all_*`). Val not valid (seen in training); sanity val m28_all 0.4985, r50_all 0.4733 (thr 0.6) → training on val worked. Fused like exp101 (4 views IoU 0.5 union, then IoU 0.3 inter, thr 0.6): `submissions/submission_tta2_m28_r50_all_pp.csv` 1,246 masks, validator PASS. Uploaded 2026-11-05: **LB 0.39 = exp101** (tie at 2 dp; LB noise ~0.015, so no measurable difference).
 
 ## Planning & decisions
 - [x] 2026-10-20 — Lecture notes (MCTA 4364, W00–W14) reviewed; optional methods added to `Project_Phase_Plan.md` (Phase 2–8 and appendix §14).
