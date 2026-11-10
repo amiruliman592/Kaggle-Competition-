@@ -24,7 +24,13 @@ python src/weights_io.py unpack --dir weights                       # join parts
 python src/final_pipeline.py predict --split test --out submissions/submission_final.csv
 python src/final_pipeline.py predict --split val                    # official PQ + Dice on the frozen val split
 ```
-Exact package versions of our runs: `requirements-lock.txt` (Python 3.13, torch 2.11 + CUDA 13.0, Detectron2 `1e3e13b`).
+Measured on a fresh Colab clone (NVIDIA L4): val official PQ 0.4480 (same as the submitted run), 6.0 s per image
+(median; p95 8.2 s; 8 forward passes + fusion + post-processing), 180 test images in 18 min, peak GPU memory 2.9 GB.
+Test predictions match the submitted ones up to GPU rounding (1,255 of 1,256 masks, see
+`experiments/ablation_table.md`, last section).
+
+Exact package versions of our training runs: `requirements-lock.txt` (Python 3.13, torch 2.11 + CUDA 13.0, Detectron2 `1e3e13b`).
+The clean-clone run above used Colab's newer default (torch 2.14.1 + CUDA 13.0) with the same Detectron2 commit and gave the same val score.
 
 ## Final pipeline (`src/final_pipeline.py`)
 

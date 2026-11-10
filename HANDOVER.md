@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-10 (Kimee, Phase 7: **final pick = exp101** (Kaggle allows only 1 final submission); final package code ready — `src/final_pipeline.py`, `src/weights_io.py`, `notebooks/full_pipeline.ipynb`; weights not yet in the repo. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Last updated 2026-11-10 (Kimee, Phase 7: **final pick = exp101** (Kaggle allows only 1 final submission); final package done — `src/final_pipeline.py`, `notebooks/full_pipeline.ipynb`, weights in `weights/`; **clean-clone reproduction verified** (val 0.4480, 6.0 s/img, 2.9 GB); left: select exp101 on Kaggle, Phase 8 report. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
 Syaz: **track S finished** — S1–S5 done (training noise ~0.001; 3× schedule, rotations + size changes, copy-paste and self-training all rejected → no recipe change); Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
@@ -296,8 +296,18 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 > - **Weights in the repo (2026-11-10):** `weights/` = `x101_2048_m28` 429.8 MB (5 parts, 107.4 M params) +
 >   `r50_2048` 176.2 MB (2 parts, 44.0 M params), model weights only; SHA-256 checked on the laptop after download.
 >   README rewritten for the final pipeline.
-> - Next: (1) push (code + ~606 MB weights); (2) run `full_pipeline.ipynb` on a fresh Colab T4 = clean-clone
->   reproduction + latency for the report; (3) select exp101 on Kaggle; then Phase 8 report.
+> - **Clean-clone reproduction verified (2026-11-10, `full_pipeline.ipynb`, fresh Colab L4; files
+>   `Result Phase 7/final_run/`):** val official PQ **0.4480**, Dice 0.6520, TP/FP/FN 1083/495/595 = exp101 exactly.
+>   Test: 1,255 masks vs 1,256 submitted; 1,255 of exp101's 1,256 found again (1,249 at IoU > 0.99); the one
+>   missing mask fell just under thr 0.6 (score 0.691 → 0.581, GPU rounding L4 vs T4/A100). **Latency:** median
+>   6.0 s / p95 8.2 s per image (8 forward passes + fusion + post-processing), 180 test images in 18.1 min, peak GPU
+>   2.9 GB. Table: ablation_table Phase 7 (last section). No new upload needed; final pick stays the exp101 upload.
+>   `notebooks/full_pipeline.ipynb` now carries the real outputs of that run (torch 2.14.1 + cu130; original Colab
+>   download kept as `Result Phase 7/final_run/full_pipeline_executed_colab.ipynb`). It mounts no Drive.
+> - **Branch:** GitHub default branch `main` is 37+ commits behind `Dev` (no weights, no final notebook). Before the
+>   form: Mirul merges `Dev` into `main` (then set `BRANCH = "main"` in `full_pipeline.ipynb`) or makes `Dev` default.
+> - Next: (1) select the exp101 upload (LB 0.39) as final on Kaggle; (2) code freeze Nov 11 23:59;
+>   (3) Phase 8: 4-page report (Overleaf), repo public, Google form by Nov 14.
 > - Open: competition images are in the repo — check Kaggle data rules before making it public; no LICENSE file.
 > - Blockers: none.
 

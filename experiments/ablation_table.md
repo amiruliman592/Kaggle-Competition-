@@ -341,3 +341,29 @@ spread over the 8 views, crowding). Target = share of annotator sets in which it
 **Verdict: rejected.** The new score ranks filaments slightly better overall (corr 0.648 vs 0.616) but not around
 the cut-off; 141 val images with noisy labels (mean target 0.34) are too few to learn more than the averaged score.
 
+## Phase 7 — clean-clone reproduction + latency of the final pipeline (2026-11-10, Kimee; Colab L4)
+`notebooks/full_pipeline.ipynb` on a fresh Colab session: clone of `Dev`, weights joined from `weights/` (SHA-256
+OK), `src/final_pipeline.py` (2 models x 4 flip views, two-stage fusion, post-processing). Files:
+`Result Phase 7/final_run/`.
+
+| Check | Clean clone (L4) | exp101 as submitted (T4 / A100 runs) |
+|---|---|---|
+| Val official PQ / SQ / RQ | **0.4480** / 0.6735 / 0.6652 | 0.4480 / 0.6734 / 0.6652 |
+| Val TP / FP / FN, masks | 1083 / 495 / 595, 933 | 1083 / 495 / 595, 933 |
+| Val Dice (samplewise) | 0.6520 | 0.6520 |
+| Test masks (images with masks) | 1,255 (177) | 1,256 (177) |
+| Test masks of exp101 found again (IoU > 0.5) | 1,255 of 1,256 (99.92%) | — |
+| ... of these IoU > 0.99 / byte-identical RLE | 1,249 / 683; lowest IoU 0.956 | — |
+
+The one missing test mask (`20170926225530Lh`, 2,452 px²) is still predicted, but its fused score fell from 0.691
+to 0.581 (one flip view no longer matched), just under the 0.6 cut. Raw score differences are ~6e-5 (median):
+GPU-level rounding (L4 vs the T4 / A100 of the original runs), not a code difference. The CSV rebuilt on CPU from
+the stored exp101 raw file is byte-identical to the uploaded one.
+
+| Latency (whole pipeline per 2048 x 2048 image: load, 8 forward passes, fusion, post-processing) | Test (180) | Val (141) |
+|---|---|---|
+| Median / p95 (after 2 warm-up images) | 6.02 s / 8.21 s | 5.98 s / 8.57 s |
+| Total | 18.1 min | 14.0 min |
+| Peak GPU memory (PyTorch allocated) | 2.94 GB | 3.00 GB |
+
+**Verdict: reproduction verified.** Val score identical, test predictions the same up to GPU rounding.
