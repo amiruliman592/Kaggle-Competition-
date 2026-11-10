@@ -293,10 +293,13 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   `weights/manifest.json` (SHA-256); `unpack` joins + checks. `.gitattributes` keeps parts binary (autocrlf).
 >   Notebooks: `notebooks/colab_kimee_pack_weights.ipynb` (CPU, reads Drive checkpoints → `Phase 7/weights/`),
 >   `notebooks/full_pipeline.ipynb` (deliverable: clean clone → unpack → test CSV → reproduction check → val PQ → figure).
-> - Next: (1) push code; (2) run pack notebook, download `Phase 7/weights/` into repo `weights/`, commit + push;
->   (3) run `full_pipeline.ipynb` on a fresh Colab T4 = clean-clone reproduction + latency for the report;
->   (4) select exp101 on Kaggle; (5) README; then Phase 8 report.
-> - Blockers: weights only on Drive (step 2).
+> - **Weights in the repo (2026-11-10):** `weights/` = `x101_2048_m28` 429.8 MB (5 parts, 107.4 M params) +
+>   `r50_2048` 176.2 MB (2 parts, 44.0 M params), model weights only; SHA-256 checked on the laptop after download.
+>   README rewritten for the final pipeline.
+> - Next: (1) push (code + ~606 MB weights); (2) run `full_pipeline.ipynb` on a fresh Colab T4 = clean-clone
+>   reproduction + latency for the report; (3) select exp101 on Kaggle; then Phase 8 report.
+> - Open: competition images are in the repo — check Kaggle data rules before making it public; no LICENSE file.
+> - Blockers: none.
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.
