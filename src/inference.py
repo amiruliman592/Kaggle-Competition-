@@ -82,6 +82,29 @@ def build_predictor(model_weights: Optional[str] = None,
     return DefaultPredictor(cfg)
 
 
+def predict_one(predictor, img_bgr: np.ndarray, raw: bool = False, flip_mode: str = "none") -> List[dict]:
+    """One image (BGR, as cv2.imread) -> RLE dicts with "score", highest score first.
+
+    flip_mode: the image is flipped before prediction and every mask flipped back.
+    raw: skip per-mask post-processing (closing, min area).
+    """
+    with torch.no_grad():
+        instances = predictor(flip(img_bgr, flip_mode))["instances"].to("cpu")
+    rles = []
+    if len(instances) > 0:
+        pred_masks = instances.pred_masks.numpy()  # (N, H, W) boolean
+        scores = instances.scores.numpy()
+        for idx in np.argsort(-scores):
+            mask = flip(resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE), flip_mode)
+            if not raw:
+                mask = postprocess_mask(mask)
+            if mask.any():
+                rle = encode_mask(mask)
+                rle["score"] = float(scores[idx])
+                rles.append(rle)
+    return rles
+
+
 def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = True,
                    raw: bool = False, flip_mode: str = "none") -> Tuple[Dict[str, List[dict]], float]:
     """
@@ -104,22 +127,7 @@ def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = Tr
     start = time.time()
 
     for img_path in tqdm(img_paths, desc="Inference"):
-        img = flip(cv2.imread(str(img_path)), flip_mode)
-        with torch.no_grad():
-            instances = predictor(img)["instances"].to("cpu")
-
-        rles = []
-        if len(instances) > 0:
-            pred_masks = instances.pred_masks.numpy()  # (N, H, W) boolean
-            scores = instances.scores.numpy()
-            for idx in np.argsort(-scores):
-                mask = flip(resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE), flip_mode)
-                if not raw:
-                    mask = postprocess_mask(mask)
-                if mask.any():
-                    rle = encode_mask(mask)
-                    rle["score"] = float(scores[idx])
-                    rles.append(rle)
+        rles = predict_one(predictor, cv2.imread(str(img_path)), raw=raw, flip_mode=flip_mode)
         if resolve_overlaps and not raw:
             rles = remove_overlaps(rles, CFG.infer.MIN_AREA, CFG.infer.OVERLAP_DROP_FRAC)
         predictions[img_path.stem] = rles

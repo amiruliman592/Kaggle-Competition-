@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-04 (Kimee back: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Last updated 2026-11-10 (Kimee, Phase 7: **final pick = exp101** (Kaggle allows only 1 final submission); final package code ready — `src/final_pipeline.py`, `src/weights_io.py`, `notebooks/full_pipeline.ipynb`; weights not yet in the repo. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
 Syaz: **track S finished** — S1–S5 done (training noise ~0.001; 3× schedule, rotations + size changes, copy-paste and self-training all rejected → no recipe change); Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
@@ -277,9 +277,26 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   0.4985 / 0.4733 → val was learned. Fused like exp101 → `submissions/submission_tta2_m28_r50_all_pp.csv`
 >   (1,246 masks, validator PASS; rebuild: `python src/submit_from_raw.py "Result Phase 7/raw_preds_tta2_m28_r50_all_test.json.gz" submissions/submission_tta2_m28_r50_all_pp.csv --score-thr 0.6`).
 > - **exp015 uploaded 2026-11-05: LB 0.39 = exp101** (tie; below the LB noise ~0.015). Both kept as final candidates:
->   exp101 = val-checked (0.4480), exp015 = same method + 25% more data.
-> - Next: Phase 7 — confirm 2 or 3 final picks on Kaggle, choose the third, latency, clean-clone reproduction.
-> - Blockers: none.
+>   exp101 = val-checked (0.4480), exp015 = same method + 25% more data. Test masks 95% identical (median IoU 0.94).
+> - **D rescoring (exp016) → rejected:** `src/rescore.py` (gradient boosting on view agreement / size / shape,
+>   5-fold CV by time block): val 0.4423, blend with old score 0.4473 < exp101 0.4480. Table: ablation_table
+>   Phase 7 prep B + D. Score-based fixes of the confidence problem are now exhausted.
+> - **Phase 7 (2026-11-10):** Kaggle allows **1 final submission** (5 uploads/day) → **final pick = exp101**
+>   (val-checked, and the pipeline shipped in the repo; exp015 ties on LB but cannot be val-checked).
+>   Extra candidate built, not uploaded: 4-model fusion exp101 + exp015 models (`Result Phase 7/final4/`,
+>   `submissions/submission_tta4_m28_r50_both_pp.csv`, 1,250 masks, PASS; val not valid) — LB probe only.
+> - **Final package code (2026-11-10, tests 86 pass):** `src/final_pipeline.py` = exp101 in one command (2 models × 4
+>   flips, two-stage fusion, post-processing, CSV + validator, per-image latency median/p95, peak GPU, `--split val`
+>   scores official PQ, `compare` for the reproduction check); reproduces exp101's fused test file bit for bit from
+>   the 8 view files (`tests/test_final_pipeline.py`). `src/inference.py` got `predict_one` (same output).
+>   `src/weights_io.py`: strips a checkpoint to model weights, splits into 90 MB parts `weights/<name>.pth.part*` +
+>   `weights/manifest.json` (SHA-256); `unpack` joins + checks. `.gitattributes` keeps parts binary (autocrlf).
+>   Notebooks: `notebooks/colab_kimee_pack_weights.ipynb` (CPU, reads Drive checkpoints → `Phase 7/weights/`),
+>   `notebooks/full_pipeline.ipynb` (deliverable: clean clone → unpack → test CSV → reproduction check → val PQ → figure).
+> - Next: (1) push code; (2) run pack notebook, download `Phase 7/weights/` into repo `weights/`, commit + push;
+>   (3) run `full_pipeline.ipynb` on a fresh Colab T4 = clean-clone reproduction + latency for the report;
+>   (4) select exp101 on Kaggle; (5) README; then Phase 8 report.
+> - Blockers: weights only on Drive (step 2).
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
 start the A100 run without asking, then tell Kimee in the group chat.

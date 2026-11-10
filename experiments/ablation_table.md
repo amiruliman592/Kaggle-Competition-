@@ -321,3 +321,23 @@ Kimee's Phase 4 `x101_2048` (exp008) on val + test flipped h / v / hv (`notebook
 
 **Verdict: rejected** (below exp101, so no bootstrap needed). The second X101 makes the same mistakes as m28, so it
 adds no new agreement. Flip TTA helps every single model (+0.003 to +0.015).
+
+## Phase 7 prep B + D — all-707-file models; rescoring (2026-11-05, Kimee)
+**B (exp015):** m28 + r50 at 2048 retrained on all 707 files (`--train-all`, 7,500 its, A100), fused like exp101.
+Val cannot score it (sanity only: m28_all 0.4985, r50_all 0.4733 at thr 0.6, both seen val). **LB 0.39 = exp101.**
+Test masks: 95% of exp101's masks also in exp015 (IoU > 0.5, median IoU 0.94) → nearly the same submission.
+
+**D (exp016, `src/rescore.py`, CPU):** new confidence per exp101 fused filament from 12 features (old score, size,
+shape, distance from centre, per model how many of its 4 views found it and their mean score, mean IoU and score
+spread over the 8 views, crowding). Target = share of annotator sets in which it is a TP. HistGradientBoosting,
+5-fold CV by 27-day block (out-of-fold scores only). Log: `Result Phase 7/rescore_log.txt`.
+
+| Run (val) | best thr | PQ | Dice | TP / FP / FN |
+|---|---|---|---|---|
+| exp101 score (reference) | 0.60 | **0.4480** | 0.6520 | 1083 / 495 / 595 |
+| rescored (CV) | 0.40 | 0.4423 | 0.6426 | 1030 / 432 / 648 |
+| 50/50 blend old + rescored | 0.50 | 0.4473 | 0.6502 | 1056 / 448 / 622 |
+
+**Verdict: rejected.** The new score ranks filaments slightly better overall (corr 0.648 vs 0.616) but not around
+the cut-off; 141 val images with noisy labels (mean target 0.34) are too few to learn more than the averaged score.
+
