@@ -120,7 +120,7 @@ below about 0.010 PQ are noise, so only larger gains were kept. All numbers are 
 
 ```
 README.md                    this guide
-LICENSE                      MIT licence for our code and trained weights
+LICENSE                      MIT licence for our code (weights and data: see "Licence" below)
 requirements.txt             Python packages (requirements-lock.txt = exact versions of our runs)
 run_pipeline.py              command-line entry for training and single-model prediction
 setup_local.ps1 / .sh        one-command CPU setup for a laptop (scoring, fusion and tests need no GPU)
@@ -163,8 +163,11 @@ final model.
 
 ## Licence
 
-Our code and our trained model weights are released under the [MIT licence](LICENSE). This does not cover material
-that belongs to others and is included here only so that the result can be reproduced:
-the competition data in `filament-segmentation-2026/` (MAGFiLO 1.0, under the competition's terms) and the
-organisers' metric code in `SelfEvaluationResult/official_metric.py`. The models are built with
-[Detectron2](https://github.com/facebookresearch/detectron2) (Apache 2.0) and start from its COCO-pretrained weights.
+- **Our code** is released under the [MIT licence](LICENSE).
+- **Our trained weights** in `weights/` were fine-tuned from the COCO-pretrained weights of the
+  [Detectron2](https://github.com/facebookresearch/detectron2) model zoo, which are licensed
+  [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); we share our weights under the same licence.
+  Detectron2 itself is Apache 2.0.
+- **Not ours, included only so that the result can be reproduced:** the competition data in
+  `filament-segmentation-2026/` (MAGFiLO 1.0; non-commercial use only, competition rule 2.4) and the organisers'
+  metric code in `SelfEvaluationResult/official_metric.py`.

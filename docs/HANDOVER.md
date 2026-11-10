@@ -321,7 +321,15 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 > - `LICENSE` added (MIT, covers our code + weights; README says the competition data and the organisers' metric
 >   code are not covered). `.gitignore` tidied: secrets (`kaggle.json`, `.env`), joined `*.pth`, Drive download
 >   folders, `external/images/`, `.claude/`, OS files.
-> - Open: competition images are in the repo — check Kaggle data rules before making it public.
+> - **Official Kaggle rules read (2026-11-10, Rules tab pasted by Kimee; summary in §3):** data = non-commercial
+>   use, no explicit ban on re-publishing → images stay in the repo, marked non-commercial in the README licence
+>   section. Licence section corrected: code MIT; our weights CC BY-SA 3.0 (fine-tuned from Detectron2 model-zoo
+>   weights, which carry that licence).
+> - **Open (team decisions):** (1) the GitHub repo is **already public** (checked 2026-11-10) while rule 3.6b says
+>   code shared publicly during the competition must be shared on the Kaggle forum/notebooks → make it private
+>   until the close, or post the link on the Kaggle forum (Mirul owns the repo); (2) rule 2.2b allows **2** final
+>   submissions, Kimee saw 1 on the Submissions page → recheck; (3) rule 2.8b: every member must be able to
+>   explain the solution.
 > - Blockers: none.
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
@@ -348,7 +356,19 @@ start the A100 run without asking, then tell Kimee in the group chat.
 - **Judging:** 70% quantitative — PQ, mean Dice (`torchmetrics.segmentation.DiceScore`), Dice/IoU distributions,
   1:many / many:1 counts. 30% qualitative — pipeline description, visual mask quality, code quality.
   LB rank is only "one of the considerations".
-- **Submissions: max 5 per day per team; at the end 3 are selected as final.** Public LB = ~50% of test images, shown to 2 decimals.
+- **Submissions: max 5 per day per team; up to 2 are selected as final** (official rule 2.2b). Public LB = ~50% of test images, shown to 2 decimals.
+- **Official Kaggle rules (Rules tab, read 2026-11-10) — points that matter for us:**
+  - 2.4 Data: "Competition Use and Non-Commercial & Academic Research" — non-commercial use only (competition,
+    Kaggle forums, academic research, education). No clause forbids re-publishing; our README marks the data as
+    non-commercial and not under our licence.
+  - 2.5 Winner licence: winning code under an OSI-approved licence that does not limit commercial use (MIT is fine);
+    pretrained models with another licence are exempt (our weights: CC BY-SA 3.0, from the Detectron2 model zoo).
+  - 2.6 External data must be public and free for all (GONG archive is; not used in the final model anyway).
+  - 2.8 Winners deliver training code, inference code and a description of the environment. **2.8b: AI tools are
+    allowed, but a winner must understand, explain, justify and reproduce every major part of the solution.**
+  - 3.6a/b: no private code sharing between teams; code shared **publicly during the competition must be shared on
+    the Kaggle forum or notebooks** of the competition. 3.7: winners by private-LB rank, subject to the rules
+    (the Overview adds the 70/30 rubric).
 - **Kaggle rejects any file with overlapping masks in one image.** `predict_images` makes masks disjoint
   (higher score wins) and `validate_submission.py` fails on overlaps; repair old CSVs with `src/fix_overlaps.py`.
 - Inference may use only the test H-alpha images; no extra ground-truth metadata for training.
@@ -395,8 +415,8 @@ start the A100 run without asking, then tell Kimee in the group chat.
   may be harder or have more multi-annotated images; slight optimism from tuning thr on val; undisclosed differences
   in test scoring (host, §3). Our scorer matches the self-evaluation notebook (0.3296 check), not necessarily the LB
   scorer. M1 quantifies the LB noise, assuming LB scoring works like val, so treat its LB bar (~0.015) as approximate.
-- Final picks: our notes say 3 selected submissions, a competitor on the forum says 2, the host did not correct it and
-  `competition_overview.txt` has no number. Check on Kaggle's Submissions page before Phase 7.
+- Final picks: official rule 2.2b says up to **2**; Kimee saw 1 on the Submissions page (2026-11-10) → recheck there.
+  Candidates: exp101 (shipped in the repo) and exp015 (same method, all 707 files; weights not in the repo).
 - Final package: how to fit the weights in the repo (sizes not measured; GitHub limit 100 MB per file; `.gitignore`
   blocks `*.pth`; see `Project_Phase_Plan.md` Phase 8).
 - Small filaments (< 200 px²): still 8–10 of 10 missed on val even at 2048; low priority, worth ≤ ~0.005 PQ.
