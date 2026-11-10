@@ -1,7 +1,7 @@
 """
 run_pipeline.py — End-to-end pipeline: EDA → Split → Train → Validate → Inference → Submission.
 
-Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipynb):
+Main entry point, designed for Google Colab (see notebooks/development/colab_foundation.ipynb):
 
   python run_pipeline.py --step all
   python run_pipeline.py --dry-run          # 5 iterations, few images: smoke test
@@ -58,7 +58,7 @@ def check_environment() -> bool:
         import detectron2
         print(f"  Detectron2: {detectron2.__version__}")
     except ImportError:
-        print("  Detectron2: NOT INSTALLED — see notebooks/colab_foundation.ipynb")
+        print("  Detectron2: NOT INSTALLED — see notebooks/development/colab_foundation.ipynb")
         return False
     return True
 

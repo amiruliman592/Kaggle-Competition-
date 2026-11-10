@@ -15,7 +15,7 @@ Target per fused filament: the share of the image's annotator sets in which it m
 (IoU > 0.5), i.e. how often the official metric counts it as a TP.
 
 Usage:
-  python src/rescore.py --out-dir "Result Phase 7/rescore"
+  python src/rescore.py --out-dir "results/phase7/rescore"
   -> raw_preds_rescore_{val,test}.json.gz (normal raw files, new "score"), rescore.json (CV sweep)
 """
 
@@ -32,12 +32,12 @@ from config import CFG
 from utils.rle import load_predictions, save_predictions
 
 ROOT = CFG.paths.ROOT
-FUSED = "Result Phase 6/Mirul/raw_preds_tta2_m28_r50_{s}.json.gz"  # exp101 before post-processing
+FUSED = "results/phase6/Mirul/raw_preds_tta2_m28_r50_{s}.json.gz"  # exp101 before post-processing
 VIEWS = {  # model -> 4 view files (original, h, v, hv)
-    "m28": ["Result Step 5/Step 2/raw_preds_x101_2048_m28_{s}.json.gz"]
-           + [f"Result Phase 6/Mirul/raw_preds_x101_2048_m28_flip{f}_{{s}}.json.gz" for f in ("h", "v", "hv")],
-    "r50": ["Result Phase 4/raw_preds_r50_2048_{s}.json.gz"]
-           + [f"Result Phase 6/Mirul/raw_preds_r50_2048_flip{f}_{{s}}.json.gz" for f in ("h", "v", "hv")],
+    "m28": ["results/phase5/step2/raw_preds_x101_2048_m28_{s}.json.gz"]
+           + [f"results/phase6/Mirul/raw_preds_x101_2048_m28_flip{f}_{{s}}.json.gz" for f in ("h", "v", "hv")],
+    "r50": ["results/phase4/raw_preds_r50_2048_{s}.json.gz"]
+           + [f"results/phase6/Mirul/raw_preds_r50_2048_flip{f}_{{s}}.json.gz" for f in ("h", "v", "hv")],
 }
 FEATURES = ["score", "log_area", "elong", "fill", "r_center", "n_m28", "n_r50", "s_m28", "s_r50",
             "iou_mean", "s_std", "n_crowd"]

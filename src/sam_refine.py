@@ -16,15 +16,15 @@ originals; the combinations below are then scored on CPU:
   gate    SAM only where it agrees with the original (IoU >= 0.5), else original
 
 Usage:
-  # Colab GPU (notebooks/colab_phase5_sam2.ipynb): one file per prompt and split
-  python src/sam_refine.py dump --raw "Result Phase 4/raw_preds_x101_2048_val.json.gz" --split val
+  # Colab GPU (notebooks/development/colab_phase5_sam2.ipynb): one file per prompt and split
+  python src/sam_refine.py dump --raw "results/phase4/raw_preds_x101_2048_val.json.gz" --split val
   # local CPU: official PQ / Dice of every prompt x combination x score threshold
-  python src/sam_refine.py ablate --raw "Result Phase 4/raw_preds_x101_2048_val.json.gz" \
-      --sam-dir "Result Phase 5" --out "Result Phase 5/sam_ablation_x101_2048.json"
+  python src/sam_refine.py ablate --raw "results/phase4/raw_preds_x101_2048_val.json.gz" \
+      --sam-dir "results/phase5/step1" --out "results/phase5/step1/sam_ablation_x101_2048.json"
   # local CPU: chosen combination as a normal raw file (-> submit_from_raw.py, viewer)
-  python src/sam_refine.py export --raw "Result Phase 4/raw_preds_x101_2048_test.json.gz" \
-      --sam "Result Phase 5/sam_box_x101_2048_test.json.gz" --mode gate \
-      --out "Result Phase 5/raw_preds_x101_2048_sam_box_gate_test.json.gz"
+  python src/sam_refine.py export --raw "results/phase4/raw_preds_x101_2048_test.json.gz" \
+      --sam "results/phase5/step1/sam_box_x101_2048_test.json.gz" --mode gate \
+      --out "results/phase5/step1/raw_preds_x101_2048_sam_box_gate_test.json.gz"
 """
 
 import argparse

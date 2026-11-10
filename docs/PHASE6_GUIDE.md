@@ -65,12 +65,12 @@ Target: LB 0.40–0.42. When both of you are done, Kimee trains the final big mo
 - *You:* run the scripts on the laptop (no Colab), read the result with Claude, post X in the group chat.
 
 **M2. Let the models look three more times (Colab T4, ~1–2 h, no training)**
-- *What:* `notebooks/colab_phase6_mirul.ipynb` runs Kimee's two best models on every val/test photo mirrored
+- *What:* `notebooks/development/colab_phase6_mirul.ipynb` runs Kimee's two best models on every val/test photo mirrored
   left-right, upside-down and both. Back on the laptop, Claude merges the 4 views per model like an ensemble and
   scores it.
 - *Why:* a filament found in all 4 views is almost surely real; one found once is probably noise. This often gives a
   free gain without any training.
-- *You:* run the notebook, download 12 files into `Result Phase 6/Mirul/`, tell Claude. If the gain is bigger than
+- *You:* run the notebook, download 12 files into `results/phase6/Mirul/`, tell Claude. If the gain is bigger than
   X, you upload the new CSV to Kaggle (max 2 uploads/day).
 
 **M3. More photos for training (Colab + laptop, ~3 days)**
@@ -119,7 +119,7 @@ final big run.
 3. You say **"go"**. Claude writes the code + a small test, and asks you to push (`git pull origin Dev`, then
    `git push origin Dev`) and post "pushed new version: …" in the group chat.
 4. You run the Colab notebook (it always pulls the newest code), download the result files into
-   `Result Phase 6/<your name>/`.
+   `results/phase6/<your name>/`.
 5. Claude scores them on the laptop, logs the numbers, and **updates your Live status in `HANDOVER.md`** (mandatory).
    You push again and tell the group.
 

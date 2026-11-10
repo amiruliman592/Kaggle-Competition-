@@ -48,7 +48,7 @@ def test_mask_res_flag():
 
 
 def _code_cells(name):
-    nb = json.loads((ROOT / "notebooks" / name).read_text(encoding="utf-8"))
+    nb = json.loads((ROOT / "notebooks" / "development" / name).read_text(encoding="utf-8"))
     return ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
 
 

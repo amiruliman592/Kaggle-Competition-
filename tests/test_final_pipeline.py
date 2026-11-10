@@ -10,11 +10,11 @@ from final_pipeline import compare, fuse_one_image, postprocess
 from utils.rle import load_predictions, write_submission_csv
 
 ROOT = Path(__file__).resolve().parents[1]
-MIRUL = ROOT / "Result Phase 6" / "Mirul"
+MIRUL = ROOT / "results" / "phase6" / "Mirul"
 VIEW_FILES = {
-    "x101_2048_m28": [ROOT / "Result Step 5" / "Step 2" / "raw_preds_x101_2048_m28_test.json.gz"]
+    "x101_2048_m28": [ROOT / "results" / "phase5" / "step2" / "raw_preds_x101_2048_m28_test.json.gz"]
     + [MIRUL / f"raw_preds_x101_2048_m28_flip{f}_test.json.gz" for f in ("h", "v", "hv")],
-    "r50_2048": [ROOT / "Result Phase 4" / "raw_preds_r50_2048_test.json.gz"]
+    "r50_2048": [ROOT / "results" / "phase4" / "raw_preds_r50_2048_test.json.gz"]
     + [MIRUL / f"raw_preds_r50_2048_flip{f}_test.json.gz" for f in ("h", "v", "hv")],
 }
 FUSED = MIRUL / "raw_preds_tta2_m28_r50_test.json.gz"

@@ -18,8 +18,8 @@ Default runs = the val raw files in git, post-processed as logged in
 experiments/log.csv (close 5, min area 50, overlap drop 0.2, thr per run).
 
 Usage:
-  python src/bootstrap.py --out "Result Phase 6/Mirul/bootstrap.json"
-  python src/bootstrap.py --run exp101 "Result Phase 6/Mirul/raw_preds_x_val.json.gz" 0.6 --out ...
+  python src/bootstrap.py --out "results/phase6/Mirul/bootstrap.json"
+  python src/bootstrap.py --run exp101 "results/phase6/Mirul/raw_preds_x_val.json.gz" 0.6 --out ...
 """
 
 import argparse
@@ -38,10 +38,10 @@ from split import load_split
 from utils.rle import load_predictions
 
 RUNS = {  # exp_id -> (val raw file, score threshold)
-    "exp006": ("Result Phase 3/Result Step 3/raw_preds_r50_allann_val.json.gz", 0.6),
-    "exp010": ("Result Step 5/Step 1b/raw_preds_ens_x101_r50_2048_union_val.json.gz", 0.6),
-    "exp012": ("Result Step 5/Step 2/raw_preds_x101_2048_m28_val.json.gz", 0.7),
-    "exp013": ("Result Step 5/Step 2/raw_preds_ens_m28_r50_union_val.json.gz", 0.6),
+    "exp006": ("results/phase3/step3/raw_preds_r50_allann_val.json.gz", 0.6),
+    "exp010": ("results/phase5/step1b/raw_preds_ens_x101_r50_2048_union_val.json.gz", 0.6),
+    "exp012": ("results/phase5/step2/raw_preds_x101_2048_m28_val.json.gz", 0.7),
+    "exp013": ("results/phase5/step2/raw_preds_ens_m28_r50_union_val.json.gz", 0.6),
 }
 N_BOOT = 2000
 LB_IMAGES = 90

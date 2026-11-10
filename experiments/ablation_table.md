@@ -2,8 +2,8 @@
 
 All numbers: official Kaggle PQ (`evaluate_official`) and Dice (`official_dice`, samplewise = torchmetrics
 `DiceScore` default). Model: Mask R-CNN R50-FPN baseline (exp003 checkpoint), raw predictions saved once
-(`Result Phase 3/Result Step 1/raw_preds_baseline_r50_val.json.gz`), post-processing applied offline
-(`src/ablate_postprocess.py`, raw rows in `Result Phase 3/Result Step 1/ablation_postproc_round{1,2}.json`).
+(`results/phase3/step1/raw_preds_baseline_r50_val.json.gz`), post-processing applied offline
+(`src/ablate_postprocess.py`, raw rows in `results/phase3/step1/ablation_postproc_round{1,2}.json`).
 
 ## Post-processing (step 2, 2026-10-20)
 | # | Setting | Official PQ | Δ PQ | Dice | Δ Dice | Verdict |
@@ -27,7 +27,7 @@ Phase 3 gate (PQ ≥ B0 + 0.030 = 0.4205) is **not** reachable with post-process
 
 ## Retraining (step 3, 2026-10-20) — same recipe as B0 (R50-FPN, 6,000 it), one change per run
 Each model scored over thr {0.5…0.85} × overlap rule {carve, drop 0.2}; rows show each model's best and the
-plateau (raw rows: `Result Phase 3/Result Step 3/eval_step3.json`).
+plateau (raw rows: `results/phase3/step3/eval_step3.json`).
 
 | # | Run | Change | Best official PQ | Δ vs B0'' | Dice | Δ Dice | Plateau (thr 0.6–0.7, drop 0.2) | Verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -45,7 +45,7 @@ Submission built from Run B raw test predictions: `submissions/submission_r50_al
 ## Phase 4 — native resolution 2048 (2026-10-20, Colab A100 80 GB)
 `r50_allann` recipe (all-annotator labels, 6,000 it, batch 2, anchors 8–128), only resolution / backbone changed.
 Scored like step 3: closing 5, `MIN_AREA` 50, overlap drop 0.2, thr {0.5…0.9} (raw rows:
-`Result Phase 4/eval_phase4.json`). Sanity probe: X101 at 2048 peaks at 20.2 GB GPU memory; prediction 0.5–0.7 s/img.
+`results/phase4/eval_phase4.json`). Sanity probe: X101 at 2048 peaks at 20.2 GB GPU memory; prediction 0.5–0.7 s/img.
 
 | # | Run | Change | Best official PQ | Δ vs B | Dice | Plateau (thr 0.6–0.8) | Small TP/FP/FN | PQ medium / large | Verdict |
 |---|---|---|---|---|---|---|---|---|---|
@@ -63,7 +63,7 @@ ranking D > C kept on LB. Val − LB gap 0.056 / 0.063 (earlier runs 0.047–0.0
 
 ## Phase 5 step 1 — SAM 2 box refinement of x101_2048 (2026-10-21, Colab T4, no training)
 SAM 2.1 hiera-large redraws each `x101_2048` mask (score ≥ 0.5) from a square crop around its box
-(`src/sam_refine.py`; rows: `Result Step 5/Step 1/sam_ablation_x101_2048.json`). Close 5, min area 50, drop 0.2.
+(`src/sam_refine.py`; rows: `results/phase5/step1/sam_ablation_x101_2048.json`). Close 5, min area 50, drop 0.2.
 
 | Prompt | Combination | Best official PQ (thr) | Δ vs D (0.4264) | Dice at that thr |
 |---|---|---|---|---|
@@ -84,7 +84,7 @@ only 0.74, so even the gate loses TPs. Matches the plan's caveat: the labels, no
 ## Phase 5 step 1b — CPU ensemble of x101_2048 + r50_2048 (2026-10-21, 0 GPU units)
 `src/ensemble.py`: masks of the two models with IoU ≥ match IoU are one filament; score = mean over both models
 (a model that missed it adds 0); mask = best member / union / intersection. Close 5, min area 50, drop 0.2
-(rows: `Result Step 5/Step 1b/ensemble_ablation_x101_r50_2048.json`).
+(rows: `results/phase5/step1b/ensemble_ablation_x101_r50_2048.json`).
 
 | Fusion | thr 0.5 | thr 0.6 | thr 0.7 | Dice at thr 0.6 |
 |---|---|---|---|---|
@@ -99,7 +99,7 @@ mask-size effect: dilating masks by 1 / 2 px instead *loses* PQ (x101: 0.4196 / 
 Submission `submission_ens_x101_r50_2048_pp.csv` (1,278 masks, 177/180 images, passes validator) → **public LB 0.38** (best; +0.01 over x101 alone, as on val).
 
 ## Phase 5 step 2 — Mask2Former and finer mask head (2026-10-21, A100 run, scoring on CPU)
-Raw files in `Result Step 5/Step 2/`. Close 5, min area 50, drop 0.2; official val PQ (Dice in brackets).
+Raw files in `results/phase5/step2/`. Close 5, min area 50, drop 0.2; official val PQ (Dice in brackets).
 
 | Model alone | thr 0.5 | thr 0.6 | thr 0.7 | thr 0.8 | Frag / merge |
 |---|---|---|---|---|---|
@@ -124,7 +124,7 @@ Submissions: `submission_ens_m28_r50_2048_pp.csv` (1,277 masks), `submission_x10
 ## Phase 6 M1a — noise check, paired bootstrap (2026-10-27, Mirul, CPU)
 `src/bootstrap.py`, 2,000 re-draws of the 141 val images (seed 42); "LB" = 90 images drawn with replacement, rounded
 to 2 dp. Same draws for both runs of a pair. Min real gain = 1.96 × SD of the paired difference.
-Output: `Result Phase 6/Mirul/bootstrap.json`. Full-val PQ reproduces `log.csv` exactly.
+Output: `results/phase6/Mirul/bootstrap.json`. Full-val PQ reproduces `log.csv` exactly.
 
 | B vs A | ΔPQ val | 95% CI | P(B>A) | min real gain val | min real gain LB | sim. LB B higher / tie / lower |
 |---|---|---|---|---|---|---|
@@ -143,7 +143,7 @@ gains near the bar with extra caution. Training noise (Syaz S1) still to be adde
 exp006 recipe (R50-FPN, 1024, all-annotator labels, batch 2, LR 0.0025), one change per run. Scored like exp006:
 close 5, min area 50, overlap drop 0.2, thr 0.5–0.85, official PQ + Dice (samplewise); exp006 reproduces 0.3979 /
 0.6426. Paired bootstrap = `src/bootstrap.py` (2,000 draws, seed 42), each run at its best thr. Outputs:
-`Result Phase 6/Syaz/eval_s1_s2.json`, `Result Phase 6/Syaz/bootstrap_s1_s2.json`.
+`results/phase6/Syaz/eval_s1_s2.json`, `results/phase6/Syaz/bootstrap_s1_s2.json`.
 
 | Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -161,8 +161,8 @@ order after the resume differs from an unbroken run).
 
 ## Phase 6 S3 — rotations + size changes, R50 at 1024 (2026-11-01, Syaz; T4 training, CPU scoring)
 exp006 recipe with `--aug rotscale`: flips + random 0/90/180/270° rotation + image size ±20%, whole image, no crop.
-Scored as S1 + S2 (exp006 reproduces 0.3979 / 0.6426). Outputs: `Result Phase 6/Syaz/eval_s3.json`,
-`Result Phase 6/Syaz/bootstrap_s3.json`.
+Scored as S1 + S2 (exp006 reproduces 0.3979 / 0.6426). Outputs: `results/phase6/Syaz/eval_s3.json`,
+`results/phase6/Syaz/bootstrap_s3.json`.
 
 | Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -177,7 +177,7 @@ the best value does not improve. Keep **`--aug flip`** for S4 and S5. Test dump 
 exp006 recipe with `--aug copypaste` (`src/copy_paste.py`): half of the training images get 1–3 GT filaments of
 another training image pasted at free spots inside the disk (≥ 10 px from other filaments, soft edges, background
 brightness matched), outlines added to the labels; then the usual flips. Scored as S1–S3. Outputs:
-`Result Phase 6/Syaz/eval_s4.json`, `Result Phase 6/Syaz/bootstrap_s4.json`.
+`results/phase6/Syaz/eval_s4.json`, `results/phase6/Syaz/bootstrap_s4.json`.
 
 | Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -192,7 +192,7 @@ patches anywhere on the disk. Keep **`--aug flip`**; S5 uses the plain exp006 re
 exp006 recipe with `--pseudo` (`src/pseudo.py`): Mirul's M3 pseudo-labels (team Drive `external/pseudo_labels_v1.json`,
 2,098 GONG archive images, 9,671 masks from m28 at thr 0.85, no val/test days) added to the training set; real samples
 repeated ×2 (≈ 1:1 real : pseudo). 6,000 its, seed 42, T4 (Syaz's personal paid Google account). Scored as S1–S4.
-Outputs: `Result Phase 6/Syaz/eval_s5.json`, `Result Phase 6/Syaz/bootstrap_s5.json`.
+Outputs: `results/phase6/Syaz/eval_s5.json`, `results/phase6/Syaz/bootstrap_s5.json`.
 
 | Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -206,7 +206,7 @@ confident filaments (score ≥ 0.85), so faint filaments in the extra images are
 
 ## Phase 6 M1b — error budget of exp010 (2026-10-27, Mirul, CPU)
 `src/error_budget.py`, official matching (233 annotator entries, IoU > 0.5), thr 0.6. Output:
-`Result Phase 6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.
+`results/phase6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.
 "PQ if fixed" = that box alone made perfect (FN → hit at the mean IoU, FP removed): an upper bound, not a forecast.
 
 | Box | n | PQ if fixed | gain | Meaning |
@@ -230,7 +230,7 @@ alarms (341): the model ranks real vs fake filaments poorly at the cut-off. This
 ## Phase 6 M2 — flip TTA of the 2048 models (2026-10-27, Mirul; Colab T4 inference, scoring on CPU)
 Kimee's `x101_2048_m28` and `r50_2048` on val + test flipped h / v / hv (masks flipped back; median best IoU vs
 un-flipped 0.85–0.89; r50 peak GPU 2.4 GB, 1.17 s/img on T4). Views fused with `src/ensemble.py` (score = mean
-over views). Logs + grids: `Result Phase 6/Mirul/log_tta*.txt`, `tta*.json`.
+over views). Logs + grids: `results/phase6/Mirul/log_tta*.txt`, `tta*.json`.
 
 | Run (val, best setting of the 30-row grid) | PQ | Dice | vs |
 |---|---|---|---|
@@ -240,7 +240,7 @@ over views). Logs + grids: `Result Phase 6/Mirul/log_tta*.txt`, `tta*.json`.
 | **two-stage: per model 4 views (IoU 0.5 union), then 2 models (IoU 0.3 inter) thr 0.6** | **0.4480** | **0.6520** | **exp010 +0.0116, exp013 +0.0078** |
 | same, thr 0.7 | 0.4461 | 0.6425 | exp010 +0.0095 |
 
-Bootstrap (`Result Phase 6/Mirul/bootstrap_m2.json`): vs exp010 +0.0116 [+0.004, +0.020], P(better) 1.00, min real
+Bootstrap (`results/phase6/Mirul/bootstrap_m2.json`): vs exp010 +0.0116 [+0.004, +0.020], P(better) 1.00, min real
 gain for this pair 0.008; simulated LB higher / tie / lower 0.86 / 0.14 / 0.00. vs exp013 +0.0078 [+0.001, +0.014].
 Caveat: setting picked from 30 on val (some optimism); the inter fusion at IoU 0.5 and the single 8-view fusion do
 not show the gain, so it depends on the two-stage order.
@@ -279,8 +279,8 @@ competition copies → the lower JPEG quality costs nothing; the archive photos 
 M 369, T 321, U 302.
 
 ## Phase 6 M4 — per-size and per-station table of the best pipeline, exp101 (2026-11-01, Mirul, CPU)
-`src/error_budget.py --raw "Result Phase 6/Mirul/raw_preds_tta2_m28_r50_val.json.gz" --thr 0.6`, output
-`Result Phase 6/Mirul/error_budget_exp101.json`. PQ **0.4480** (= exp101), SQ 0.6735, TP 1083 / FP 495 / FN 595.
+`src/error_budget.py --raw "results/phase6/Mirul/raw_preds_tta2_m28_r50_val.json.gz" --thr 0.6`, output
+`results/phase6/Mirul/error_budget_exp101.json`. PQ **0.4480** (= exp101), SQ 0.6735, TP 1083 / FP 495 / FN 595.
 
 | Box | n | PQ if fixed | gain | vs exp010 (M1b) |
 |---|---|---|---|---|
@@ -309,9 +309,9 @@ weakest station (most real false alarms per hit); station gaps of ±0.02 are wit
 For the report (Phase 7) and the final run: more recall/confidence on medium filaments is where PQ is left.
 
 ## Phase 7 prep A — third ensemble member: flip TTA of `x101_2048` (2026-11-04, Kimee; Colab T4 inference, CPU scoring)
-Kimee's Phase 4 `x101_2048` (exp008) on val + test flipped h / v / hv (`notebooks/colab_kimee_tta_x101.ipynb`);
+Kimee's Phase 4 `x101_2048` (exp008) on val + test flipped h / v / hv (`notebooks/development/colab_kimee_tta_x101.ipynb`);
 4 views fused like exp101 (IoU 0.5 union), then fused with Mirul's m28 + r50 TTA files. Logs + grids:
-`Result Phase 7/log_tta_x101.txt`, `log_tta3_m28_r50_x101.txt`, `tta*.json`.
+`results/phase7/log_tta_x101.txt`, `log_tta3_m28_r50_x101.txt`, `tta*.json`.
 
 | Run (val, best setting of the 30-row grid) | PQ | Dice | vs |
 |---|---|---|---|
@@ -330,7 +330,7 @@ Test masks: 95% of exp101's masks also in exp015 (IoU > 0.5, median IoU 0.94) �
 **D (exp016, `src/rescore.py`, CPU):** new confidence per exp101 fused filament from 12 features (old score, size,
 shape, distance from centre, per model how many of its 4 views found it and their mean score, mean IoU and score
 spread over the 8 views, crowding). Target = share of annotator sets in which it is a TP. HistGradientBoosting,
-5-fold CV by 27-day block (out-of-fold scores only). Log: `Result Phase 7/rescore_log.txt`.
+5-fold CV by 27-day block (out-of-fold scores only). Log: `results/phase7/rescore_log.txt`.
 
 | Run (val) | best thr | PQ | Dice | TP / FP / FN |
 |---|---|---|---|---|
@@ -344,7 +344,7 @@ the cut-off; 141 val images with noisy labels (mean target 0.34) are too few to 
 ## Phase 7 — clean-clone reproduction + latency of the final pipeline (2026-11-10, Kimee; Colab L4)
 `notebooks/full_pipeline.ipynb` on a fresh Colab session: clone of `Dev`, weights joined from `weights/` (SHA-256
 OK), `src/final_pipeline.py` (2 models x 4 flip views, two-stage fusion, post-processing). Files:
-`Result Phase 7/final_run/`.
+`results/phase7/final_run/`.
 
 | Check | Clean clone (L4) | exp101 as submitted (T4 / A100 runs) |
 |---|---|---|

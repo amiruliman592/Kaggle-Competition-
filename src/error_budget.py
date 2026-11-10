@@ -20,7 +20,7 @@ for SQ every hit at IoU 1 (upper bound). Tables per GT size bin (FP: predicted
 area, as evaluate.py) and per GONG station (filename char 15).
 
 Usage:
-  python src/error_budget.py --out "Result Phase 6/Mirul/error_budget_exp010.json"
+  python src/error_budget.py --out "results/phase6/Mirul/error_budget_exp010.json"
   python src/error_budget.py --raw <val raw file> --thr 0.7 --out ...
 """
 
@@ -42,7 +42,7 @@ from split import load_split
 from utils.rle import load_predictions
 
 NEAR_IOU = 0.3
-DEFAULT_RAW = "Result Step 5/Step 1b/raw_preds_ens_x101_r50_2048_union_val.json.gz"  # exp010, best LB
+DEFAULT_RAW = "results/phase5/step1b/raw_preds_ens_x101_r50_2048_union_val.json.gz"  # exp010, best LB
 DEFAULT_THR = 0.6
 FN_BOXES = ["fn_low_score", "fn_postproc", "fn_near_miss", "fn_never"]
 FP_BOXES = ["fp_other_ann", "fp_nobody"]

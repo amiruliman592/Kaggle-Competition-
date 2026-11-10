@@ -115,7 +115,7 @@ def test_to_coco_drops_empty_images():
 def test_m3_notebook_compiles_and_saves_to_own_drive():
     import ast
     import json
-    nb = json.loads((ROOT / "notebooks" / "colab_phase6_mirul_m3.ipynb").read_text(encoding="utf-8"))
+    nb = json.loads((ROOT / "notebooks" / "development" / "colab_phase6_mirul_m3.ipynb").read_text(encoding="utf-8"))
     cells = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
     for src in cells:
         ast.parse("\n".join(l[:len(l) - len(l.lstrip())] + "pass" if l.lstrip().startswith(("!", "%")) else l

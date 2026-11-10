@@ -2,7 +2,7 @@
 ## 🗺️ Master Phase-by-Phase Project Execution Plan
 
 > **Authoritative Project Roadmap**  
-> **Source Context:** [Solar Filament Overview.txt](Solar%20Filament%20Overview.txt), [Solar_Filament_Segmentation_Plan.md](Solar_Filament_Segmentation_Plan.md), and [CLAUDE.md](CLAUDE.md).  
+> **Source Context:** [competition_overview.txt](competition_overview.txt), [Solar_Filament_Segmentation_Plan.md](Solar_Filament_Segmentation_Plan.md), and [CLAUDE.md](CLAUDE.md).  
 > **Plan written:** Sunday, Oct 18, 2026 | **Competition Deadline:** Sunday, Nov 15, 2026 | **Status (Oct 26):** Phases 0–5 done (best LB **0.38**, x101+r50 ensemble, val 0.4366); Phase 6 planned as a two-person sprint (Mirul + Syaz, Oct 27–Nov 5) while Kimee is on a break  
 > **Internal Code Freeze:** Wednesday, Nov 11, 2026 | **Final Package & Form Submission:** Saturday, Nov 14, 2026  
 > **Target Metric:** Panoptic Quality ($\text{PQ}$) $> 0.35$ | **Scoring:** 70% Quantitative + 30% Qualitative  
@@ -151,7 +151,7 @@ fragmentation is already low (frag 10 / merge 32 for m28) and Mask2Former lowers
 
 > **Decision (Oct 20):** Baseline model = **Detectron2 Mask R-CNN R50-FPN** (already proven by the Colab dry run). YOLOv8-seg deferred to a later comparison run.
 >
-> **Metric (Oct 20):** val PQ is measured with the official Kaggle rules (every annotator set scored, non-unique matching; `evaluate_official`, see `SelfEvaluationResult/FINDINGS.md`). Runner: `notebooks/colab_phase2_baseline.ipynb`.
+> **Metric (Oct 20):** val PQ is measured with the official Kaggle rules (every annotator set scored, non-unique matching; `evaluate_official`, see `SelfEvaluationResult/FINDINGS.md`). Runner: `notebooks/development/colab_phase2_baseline.ipynb`.
 
 ### Technical Workstreams
 1. **Detectron2 Mask R-CNN Customization:**
@@ -297,7 +297,7 @@ brightness/contrast only.
 **Starting point (do not re-run):** best LB **0.38** = exp010 (x101_2048 + r50_2048 ensemble, val 0.4366);
 best val **0.4404** = exp013 (x101_2048_m28 + r50_2048). The 1024 reference for recipe trials is **exp006**
 `r50_allann` (R50, 1024, all-annotator labels, 6,000 its, val PQ **0.3979**, Dice 0.6426), raw predictions in
-`Result Phase 3/Result Step 3/`.
+`results/phase3/step3/`.
 
 **Decision rule:** a change is adopted only if it beats its reference by more than the noise threshold measured in
 M1 (paired bootstrap over val images). The LB is a sanity check, never the selector.
@@ -326,10 +326,10 @@ built there too), or the other member runs a job on their Colab when idle. If ti
 **M1. Noise check + error budget (CPU only, 0 GPU) — first, everything else uses its result.**
 - *Why:* tells the team how big a gain must be to be real, and where the PQ is lost.
 - *Inputs (already in git):* raw val predictions
-  `Result Step 5/Step 1b/raw_preds_ens_x101_r50_2048_union_val.json.gz` (exp010),
-  `Result Step 5/Step 2/raw_preds_x101_2048_m28_val.json.gz` (exp012),
-  `Result Step 5/Step 2/raw_preds_ens_m28_r50_union_val.json.gz` (exp013),
-  `Result Phase 3/Result Step 3/raw_preds_r50_allann_val.json.gz` (exp006, Syaz's reference).
+  `results/phase5/step1b/raw_preds_ens_x101_r50_2048_union_val.json.gz` (exp010),
+  `results/phase5/step2/raw_preds_x101_2048_m28_val.json.gz` (exp012),
+  `results/phase5/step2/raw_preds_ens_m28_r50_union_val.json.gz` (exp013),
+  `results/phase3/step3/raw_preds_r50_allann_val.json.gz` (exp006, Syaz's reference).
 - *Build:* `src/bootstrap.py` — official PQ is pooled (TP/FP/FN/IoU summed over images), so compute each image's
   components once, then resample the 141 val images with replacement (~2,000 times) and re-pool. Report for pairs of
   runs: mean ΔPQ, 95% interval, P(B > A). Also simulate the public LB: random 90-image subsets, rounded to 2 dp,
@@ -348,18 +348,18 @@ built there too), or the other member runs a job on their Colab when idle. If ti
 - *Build:* a flip option for the dump step (e.g. `run_pipeline.py --step dump --flip none|h|v|hv`): flip the image,
   predict, flip the masks back, write a normal raw file with a flip suffix. Test: flipping twice is the identity;
   a fake model on a flipped image gives masks back in the right place.
-- *Run:* notebook `notebooks/colab_phase6_mirul.ipynb` (**ready**; `--flip` built and tested). First a 7-image memory/speed probe (X101 at 2048 has only
+- *Run:* notebook `notebooks/development/colab_phase6_mirul.ipynb` (**ready**; `--flip` built and tested). First a 7-image memory/speed probe (X101 at 2048 has only
   been run on an A100; prediction should fit in 15 GB, if not use fp16 or drop to r50 only). Then 3 flips (h, v, hv) × 2 models
-  on val + test (321 images); the un-flipped predictions are already in git. Raw files → team Drive `Phase 6/Mirul/` → download to `Result Phase 6/Mirul/` in the repo.
+  on val + test (321 images); the un-flipped predictions are already in git. Raw files → team Drive `Phase 6/Mirul/` → download to `results/phase6/Mirul/` in the repo.
 - *Score (CPU):* fuse with `src/ensemble.py` (each flip = one member, score = mean): first per model, then TTA'd
   m28 + r50. Official PQ + Dice, compared with exp010/exp013 using M1's bootstrap.
 - *If the gain is above the threshold:* build the CSV with `src/submit_from_raw.py`, check with
   `src/validate_submission.py`, upload to Kaggle, record the LB in `experiments/log.csv`.
 
 **M3. External unlabelled GONG H-alpha images + pseudo-labels (for Syaz's S5).** *(Code + notebook
-`notebooks/colab_phase6_mirul_m3.ipynb` ready 2026-10-27: product = GONG `hag` JPEGs; exclusion widened to whole val
+`notebooks/development/colab_phase6_mirul_m3.ipynb` ready 2026-10-27: product = GONG `hag` JPEGs; exclusion widened to whole val
 27-day blocks; labeller m28 thr 0.85 — see `experiments/ablation_table.md` Phase 6 M3.)*
-- *Rules (checked):* external data is allowed but no other ground-truth metadata (`Solar Filament Overview.txt`
+- *Rules (checked):* external data is allowed but no other ground-truth metadata (`competition_overview.txt`
   line 73). The competition host confirmed on the Kaggle forum (~Oct 21, reply to a question about unlabelled
   KSO/Meudon/BBSO H-alpha images): *"Your method is OK. Please make sure that the new set of observations does not
   include the test images (or observations within +/- 1 hour of those timestamps)."* Our labels come from our own
@@ -386,10 +386,10 @@ built there too), or the other member runs a job on their Colab when idle. If ti
 All Syaz runs: Mask R-CNN **R50 at 1024** (fits a T4), all-annotator labels (`--label-policy all`), trained on the
 566 train files, scored on the 141 val files exactly like exp006 (raw val dump → local CPU scoring over thr 0.5–0.8,
 official PQ + Dice; see `experiments/ablation_table.md`, Phase 3 step 3). Each run also dumps raw test predictions.
-Changes are added **one at a time**, each on top of the best so far. Notebook `notebooks/colab_phase6_syaz.ipynb`
+Changes are added **one at a time**, each on top of the best so far. Notebook `notebooks/development/colab_phase6_syaz.ipynb`
 (**ready for S1 + S2**; mount Drive → pull code → install → probe → train (resumes) → dump val/test; everything is
 written inside the team Drive `Phase 6/Syaz/`, checkpoints in `Phase 6/Syaz/output/`). S3–S5 cells are added when
-their code exists. Downloaded raw files go to `Result Phase 6/Syaz/`. Run names start with `syaz_` so they
+their code exists. Downloaded raw files go to `results/phase6/Syaz/`. Run names start with `syaz_` so they
 never collide with Kimee's checkpoint folders (`HANDOVER.md` §0.6).
 
 | Run | Change | T4 time | Compare with |
@@ -417,7 +417,7 @@ never collide with Kimee's checkpoint folders (`HANDOVER.md` §0.6).
 - **Git:** both push to `Dev`. `git pull origin Dev` before starting work and again right before every push; then
   post "pushed: <what>" in the group chat. Never force-push. Commands: `HANDOVER.md` §0.
 - **Avoid clashes:** each member writes only in their own files and folders: new scripts/notebooks named for their
-  task, results in `Result Phase 6/Mirul/` or `Result Phase 6/Syaz/`, their own subsection in `COMPLETED_TASKS.md`
+  task, results in `results/phase6/Mirul/` or `results/phase6/Syaz/`, their own subsection in `COMPLETED_TASKS.md`
   (Phase 6), their own rows in `experiments/ablation_table.md`.
 - **Experiment IDs:** `src/utils/exp_log.py` numbers runs by row count, which clashes when two people log at once.
   Always pass the ID explicitly: **Mirul exp101, exp102, …; Syaz exp201, exp202, …** (Kimee continues exp014+).

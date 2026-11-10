@@ -12,8 +12,8 @@ The fused file is an ordinary raw prediction file, so the usual post-processing
 (close, score threshold, min area, overlap removal) follows.
 
 Usage:
-  python src/ensemble.py ablate --raw "Result Phase 4/raw_preds_x101_2048_val.json.gz" \
-      "Result Phase 4/raw_preds_r50_2048_val.json.gz" --out "Result Step 5/ensemble_ablation.json"
+  python src/ensemble.py ablate --raw "results/phase4/raw_preds_x101_2048_val.json.gz" \
+      "results/phase4/raw_preds_r50_2048_val.json.gz" --out "results/phase5/ensemble_ablation.json"
   python src/ensemble.py export --raw <test raw files...> --match-iou 0.4 --mask-mode best --out <fused raw>
 """
 

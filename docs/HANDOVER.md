@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-10 (Kimee, Phase 7: **final pick = exp101** (Kaggle allows only 1 final submission); final package done — `src/final_pipeline.py`, `notebooks/full_pipeline.ipynb`, weights in `weights/`; **clean-clone reproduction verified** (val 0.4480, 6.0 s/img, 2.9 GB); left: select exp101 on Kaggle, Phase 8 report. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Last updated 2026-11-10 (Kimee, Phase 7: **repo reorganised** — team docs now in `docs/`, saved runs in `results/phaseN/`, phase notebooks in `notebooks/development/` (old → new names: `results/README.md`); **final pick = exp101** (Kaggle allows only 1 final submission); final package done — `src/final_pipeline.py`, `notebooks/full_pipeline.ipynb`, weights in `weights/`; **clean-clone reproduction verified** (val 0.4480, 6.0 s/img, 2.9 GB); left: select exp101 on Kaggle, Phase 8 report. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
 Syaz: **track S finished** — S1–S5 done (training noise ~0.001; 3× schedule, rotations + size changes, copy-paste and self-training all rejected → no recipe change); Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
@@ -132,17 +132,17 @@ knows what is written in the repo. So **`HANDOVER.md` must always describe the r
 - **Best submission (Phase 6 M2, 2026-10-27): flip TTA of x101_2048_m28 + r50_2048** (exp101): each model on the
   original + h/v/hv-flipped image, 4 views fused (`src/ensemble.py`, IoU 0.5 union), then the 2 models fused (IoU 0.3
   inter), close 5, min area 50, thr 0.6, overlap drop 0.2. **Val official PQ 0.4480, Dice 0.6520; public LB 0.39**.
-  Fused raw files in `Result Phase 6/Mirul/raw_preds_tta2_m28_r50_{val,test}.json.gz`; CSV:
-  `python src/submit_from_raw.py "Result Phase 6/Mirul/raw_preds_tta2_m28_r50_test.json.gz" submissions/submission_tta2_m28_r50_pp.csv --score-thr 0.6`.
+  Fused raw files in `results/phase6/Mirul/raw_preds_tta2_m28_r50_{val,test}.json.gz`; CSV:
+  `python src/submit_from_raw.py "results/phase6/Mirul/raw_preds_tta2_m28_r50_test.json.gz" submissions/submission_tta2_m28_r50_pp.csv --score-thr 0.6`.
 - Previous best: **ensemble x101_2048 + r50_2048** (exp010, `src/ensemble.py`): masks of both models with IoU ≥ 0.5
   are one filament, mask = union, score = mean over both models (a missing model adds 0); then close 5, min area 50,
   thr 0.6, overlap drop 0.2. **Val official PQ 0.4366, Dice 0.6505; public LB 0.38**
-  (`submissions/submission_ens_x101_r50_2048_pp.csv`; fused raw files in `Result Step 5/Step 1b/`).
+  (`submissions/submission_ens_x101_r50_2048_pp.csv`; fused raw files in `results/phase5/step1b/`).
 - Best single model on val `x101_2048_m28` (exp012, 56×56 mask head): val PQ 0.4385, Dice 0.6408, LB 0.37; ensemble
   m28 + r50 (exp013) val 0.4404, LB 0.37. Previous best single `x101_2048` (exp008): val PQ 0.4264, Dice 0.6417, LB 0.37. `r50_2048` (exp007): val PQ 0.4231 /
   Dice 0.6484 at thr 0.6, LB 0.36. Checkpoints in the team Drive folder `solar_filament/output/detectron2/<name>/model_final.pth` (§0.6; read only).
 - 1024 reference for Phase 6 recipe trials: `r50_allann` (exp006) val PQ 0.3979, Dice 0.6426, LB 0.35
-  (raw preds `Result Phase 3/Result Step 3/`).
+  (raw preds `results/phase3/step3/`).
 - LB history: 0.34 (baseline) → 0.34 (post-proc) → 0.35 (r50_allann) → 0.36 (r50_2048) → 0.37 (x101_2048) →
   **0.38 (ensemble)**. Val ≈ LB + 0.05–0.06 on every upload and val gains carried over until Phase 5, so model
   selection stays on local val.
@@ -157,9 +157,9 @@ knows what is written in the repo. So **`HANDOVER.md` must always describe the r
     hurts, so the gain is from model agreement, not mask size. Every new model should be tried as an extra member.
   - Phase 5 step 2 (exp011–013): finer mask head +0.012 val but LB 0.37; Mask2Former 0.4020 (twice the merges,
     lowers every ensemble) → dropped.
-- Raw predictions (val + test) for all models are **in git**: `Result Phase 3/`, `Result Phase 4/`, `Result Step 5/`.
+- Raw predictions (val + test) for all models are **in git**: `results/phase3/`, `results/phase4/`, `results/phase5/`.
   All scoring, post-processing and CSVs are done locally on CPU: `src/ablate_postprocess.py`, `src/ensemble.py`,
-  `src/sam_refine.py`, `src/submit_from_raw.py`, `src/viewer.py` (viewer only scans `Result Phase 3/`).
+  `src/sam_refine.py`, `src/submit_from_raw.py`, `src/viewer.py` (viewer only scans `results/phase3/`).
 - Tests: 53 pass (`pytest tests`, ~1.5–3 min; checked 2026-10-26 in a fresh `.venv` made by `setup_local.ps1`).
 - Kimee's Colab balance: ~95 units (estimate, to be confirmed), reserved for the final A100 runs (Nov 6–8).
 
@@ -170,8 +170,8 @@ exp012/exp013 were better on val but scored LB 0.37 < exp010's 0.38. We were tun
 amount of data — and measure the noise so only real gains are kept.
 
 **Full task list with inputs, outputs and "done when": `Project_Phase_Plan.md` → Phase 6. Plain-language version:
-`PHASE6_GUIDE.md`.** Ready to run (built by Kimee's session, 2026-10-26): `notebooks/colab_phase6_syaz.ipynb` (S1 + S2),
-`notebooks/colab_phase6_mirul.ipynb` (M2), `run_pipeline.py --seed` and `--flip h|v|hv` (dump only),
+`PHASE6_GUIDE.md`.** Ready to run (built by Kimee's session, 2026-10-26): `notebooks/development/colab_phase6_syaz.ipynb` (S1 + S2),
+`notebooks/development/colab_phase6_mirul.ipynb` (M2), `run_pipeline.py --seed` and `--flip h|v|hv` (dump only),
 `setup_local.ps1` / `setup_local.sh`. Short version:
 
 | Mirul (track M) | Syaz (track S) — R50 at 1024 on T4, one change at a time vs exp006 |
@@ -182,7 +182,7 @@ amount of data — and measure the noise so only real gains are kept.
 | **M4** per-station / per-size table (if time) | **S4** + copy-paste of GT filaments · **S5** + Mirul's pseudo-labels |
 
 **Shared rules:** pull before work and before push, announce pushes in the group chat; results in
-`Result Phase 6/Mirul/` and `Result Phase 6/Syaz/`; explicit experiment IDs (**Mirul exp101+, Syaz exp201+**,
+`results/phase6/Mirul/` and `results/phase6/Syaz/`; explicit experiment IDs (**Mirul exp101+, Syaz exp201+**,
 Kimee exp014+; pass `exp_id=` to `log_experiment`); Kaggle uploads only from Mirul (≤ 2/day) for candidates above
 the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED_TASKS.md`.
 
@@ -202,7 +202,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   days 2011–2022), 1 frame/day, stations balanced, QC vs train range. Labeller **m28 alone, thr 0.85** (val
 >   precision 0.84, recall 0.53, 4.7 masks/img; 8-view TTA only ~2 pts better for 8× the T4 time; table:
 >   ablation_table Phase 6 M3). `src/external/download_gong.py`, `src/external/make_pseudo_labels.py`,
->   `run_pipeline.py --step dump --image-dir`, `tests/test_external.py`, notebook `notebooks/colab_phase6_mirul_m3.ipynb`.
+>   `run_pipeline.py --step dump --image-dir`, `tests/test_external.py`, notebook `notebooks/development/colab_phase6_mirul_m3.ipynb`.
 > - **M3 step A tried on Colab (2026-10-28/29): every archive request timed out** (0 manifest rows; cell stopped by
 >   hand). From the laptop the same pages answer in ~2.5 s and an image (~400 KB) in ~1.6 s → the archive likely
 >   blocks/throttles Colab. So the archive steps ran on the laptop (2026-10-29, 0 timeouts): **A** manifest
@@ -224,7 +224,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 > - Blockers / waiting on: none. (Colab writes to the team Drive fail for me, §7 — M3 saved to my own
 >   `MyDrive/m3_mirul/` first; the raw parts are there. `external_images_v1.zip` was moved to team `external/`
 >   on 2026-11-01, next to `pseudo_labels_v1.json`.)
-> - Files: `Result Phase 6/Mirul/` (bootstrap, error budgets exp010 + exp101, 12 flip raw files, fused `raw_preds_tta*`,
+> - Files: `results/phase6/Mirul/` (bootstrap, error budgets exp010 + exp101, 12 flip raw files, fused `raw_preds_tta*`,
 >   `raw_preds_x101_2048_m28_valcopies.json.gz`, grids,
 >   logs); CSV `submissions/submission_tta2_m28_r50_pp.csv` (gitignored, on Mirul's laptop; rebuild with §2).
 >   Laptop: Mirul works only in `Downloads/Solar_Filament_Kaggle` (own `.venv` + M2 CSV; the old
@@ -253,7 +253,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   group chat. Spare T4 time available if Kimee or Mirul wants something run.
 > - Blockers / waiting on: none. Kaggle team: **joined** (Syaz confirmed 2026-11-01). Colab: university account for S3–S4,
 >   personal paid account for S5 (both have the team Drive shortcut, §0.6).
-> - Files: `Result Phase 6/Syaz/`: raw val/test files of S1–S5, `eval_s1_s2.json`, `eval_s3.json`, `eval_s4.json`,
+> - Files: `results/phase6/Syaz/`: raw val/test files of S1–S5, `eval_s1_s2.json`, `eval_s3.json`, `eval_s4.json`,
 >   `eval_s5.json` (thr sweeps), `bootstrap_s1_s2.json`, `bootstrap_s3.json`, `bootstrap_s4.json`, `bootstrap_s5.json`.
 >   Drive `Phase 6/Syaz/output/detectron2/{syaz_r50_seed2,syaz_r50_3x,syaz_r50_rotscale,syaz_r50_copypaste,syaz_r50_selftrain}/`.
 
@@ -263,19 +263,19 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   checkpoint (exp008) as a **third ensemble member** with exp101's m28 + r50 TTA (val-scorable, kept only if
 >   ≥ +0.010 vs 0.4480); then **B** (retrain m28 + r50 on all 707 files, not val-scorable) or **C** (second m28
 >   seed at 2048) with the remaining units.
-> - **A done (exp014) → rejected:** `notebooks/colab_kimee_tta_x101.ipynb` on T4; raw files in `Result Phase 7/`.
+> - **A done (exp014) → rejected:** `notebooks/development/colab_kimee_tta_x101.ipynb` on T4; raw files in `results/phase7/`.
 >   x101 TTA alone 0.4412 (+0.015 vs no TTA), but m28 + r50 + x101 best 0.4455 < exp101 0.4480. A second X101 adds
 >   the same mistakes as m28. **exp101 stays best.** Table: ablation_table Phase 7 prep A.
 > - **B chosen (C dropped: a second similar model did not help in A). Code ready, not run:** `run_pipeline.py
 >   --train-all` (`CFG.train.TRAIN_ALL`; only with `--step train`) adds the 141 val files to training (1,154
->   samples). Notebook `notebooks/colab_kimee_final_all.ipynb` (A100, ~50–55 units): `x101_2048_m28_all` +
+>   samples). Notebook `notebooks/development/colab_kimee_final_all.ipynb` (A100, ~50–55 units): `x101_2048_m28_all` +
 >   `r50_2048_all`, recipe unchanged, 7,500 its (= same passes as 6,000 on 921 samples), then 4 views each → Drive
->   `Phase 7/` → laptop `Result Phase 7/`. **Val cannot score these models**; check = LB vs exp101 (0.39); exp101
+>   `Phase 7/` → laptop `results/phase7/`. **Val cannot score these models**; check = LB vs exp101 (0.39); exp101
 >   stays a final pick either way. Tests: 82 pass.
-> - **B run (2026-11-05, exp015):** both models trained on A100 (raw files `Result Phase 7/Code B/` + `Phase7b/`;
+> - **B run (2026-11-05, exp015):** both models trained on A100 (raw files `results/phase7/code_b/` + `results/phase7/phase7b/`;
 >   checkpoints Drive `output/detectron2/{x101_2048_m28_all,r50_2048_all}/`). Sanity val (not a real score)
 >   0.4985 / 0.4733 → val was learned. Fused like exp101 → `submissions/submission_tta2_m28_r50_all_pp.csv`
->   (1,246 masks, validator PASS; rebuild: `python src/submit_from_raw.py "Result Phase 7/raw_preds_tta2_m28_r50_all_test.json.gz" submissions/submission_tta2_m28_r50_all_pp.csv --score-thr 0.6`).
+>   (1,246 masks, validator PASS; rebuild: `python src/submit_from_raw.py "results/phase7/raw_preds_tta2_m28_r50_all_test.json.gz" submissions/submission_tta2_m28_r50_all_pp.csv --score-thr 0.6`).
 > - **exp015 uploaded 2026-11-05: LB 0.39 = exp101** (tie; below the LB noise ~0.015). Both kept as final candidates:
 >   exp101 = val-checked (0.4480), exp015 = same method + 25% more data. Test masks 95% identical (median IoU 0.94).
 > - **D rescoring (exp016) → rejected:** `src/rescore.py` (gradient boosting on view agreement / size / shape,
@@ -283,7 +283,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   Phase 7 prep B + D. Score-based fixes of the confidence problem are now exhausted.
 > - **Phase 7 (2026-11-10):** Kaggle allows **1 final submission** (5 uploads/day) → **final pick = exp101**
 >   (val-checked, and the pipeline shipped in the repo; exp015 ties on LB but cannot be val-checked).
->   Extra candidate built, not uploaded: 4-model fusion exp101 + exp015 models (`Result Phase 7/final4/`,
+>   Extra candidate built, not uploaded: 4-model fusion exp101 + exp015 models (`results/phase7/final4/`,
 >   `submissions/submission_tta4_m28_r50_both_pp.csv`, 1,250 masks, PASS; val not valid) — LB probe only.
 > - **Final package code (2026-11-10, tests 86 pass):** `src/final_pipeline.py` = exp101 in one command (2 models × 4
 >   flips, two-stage fusion, post-processing, CSV + validator, per-image latency median/p95, peak GPU, `--split val`
@@ -291,21 +291,31 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   the 8 view files (`tests/test_final_pipeline.py`). `src/inference.py` got `predict_one` (same output).
 >   `src/weights_io.py`: strips a checkpoint to model weights, splits into 90 MB parts `weights/<name>.pth.part*` +
 >   `weights/manifest.json` (SHA-256); `unpack` joins + checks. `.gitattributes` keeps parts binary (autocrlf).
->   Notebooks: `notebooks/colab_kimee_pack_weights.ipynb` (CPU, reads Drive checkpoints → `Phase 7/weights/`),
+>   Notebooks: `notebooks/development/colab_kimee_pack_weights.ipynb` (CPU, reads Drive checkpoints → `Phase 7/weights/`),
 >   `notebooks/full_pipeline.ipynb` (deliverable: clean clone → unpack → test CSV → reproduction check → val PQ → figure).
 > - **Weights in the repo (2026-11-10):** `weights/` = `x101_2048_m28` 429.8 MB (5 parts, 107.4 M params) +
 >   `r50_2048` 176.2 MB (2 parts, 44.0 M params), model weights only; SHA-256 checked on the laptop after download.
 >   README rewritten for the final pipeline.
 > - **Clean-clone reproduction verified (2026-11-10, `full_pipeline.ipynb`, fresh Colab L4; files
->   `Result Phase 7/final_run/`):** val official PQ **0.4480**, Dice 0.6520, TP/FP/FN 1083/495/595 = exp101 exactly.
+>   `results/phase7/final_run/`):** val official PQ **0.4480**, Dice 0.6520, TP/FP/FN 1083/495/595 = exp101 exactly.
 >   Test: 1,255 masks vs 1,256 submitted; 1,255 of exp101's 1,256 found again (1,249 at IoU > 0.99); the one
 >   missing mask fell just under thr 0.6 (score 0.691 → 0.581, GPU rounding L4 vs T4/A100). **Latency:** median
 >   6.0 s / p95 8.2 s per image (8 forward passes + fusion + post-processing), 180 test images in 18.1 min, peak GPU
 >   2.9 GB. Table: ablation_table Phase 7 (last section). No new upload needed; final pick stays the exp101 upload.
 >   `notebooks/full_pipeline.ipynb` now carries the real outputs of that run (torch 2.14.1 + cu130; original Colab
->   download kept as `Result Phase 7/final_run/full_pipeline_executed_colab.ipynb`). It mounts no Drive.
+>   download kept as `results/phase7/final_run/full_pipeline_executed_colab.ipynb`). It mounts no Drive.
 > - **Branch:** GitHub default branch `main` is 37+ commits behind `Dev` (no weights, no final notebook). Before the
 >   form: Mirul merges `Dev` into `main` (then set `BRANCH = "main"` in `full_pipeline.ipynb`) or makes `Dev` default.
+> - **Repo reorganised for the public release (2026-11-10, one commit, 86 tests pass):** root now holds only
+>   `README.md` (guide for the organisers: where the final pipeline, weights, submission and evidence are),
+>   `CLAUDE.md`, requirements, `run_pipeline.py`, setup scripts. Moved with `git mv`: `HANDOVER.md`,
+>   `COMPLETED_TASKS.md`, `PHASE6_GUIDE.md`, both plans → `docs/`; `Solar Filament Overview.txt` →
+>   `docs/competition_overview.txt`; `Result Phase N/` + `Result Step 5/` → `results/phaseN/` (sub-folders
+>   `step1`, `step1b`, `step2`, `step3`, `code_b`, `phase7b`; index + old names in `results/README.md`);
+>   `notebooks/colab_*.ipynb` → `notebooks/development/` (`full_pipeline.ipynb` stays in `notebooks/`).
+>   Paths updated in code, tests, notebooks, docs and `experiments/log.csv`; files inside `results/` keep their
+>   recorded contents (old names in old logs). Submitted CSV added: `results/phase7/final_run/submission_exp101.csv`.
+>   **Mirul, Syaz: after `git pull origin Dev` your result folders are `results/phase6/<Name>/`.**
 > - Next: (1) select the exp101 upload (LB 0.39) as final on Kaggle; (2) code freeze Nov 11 23:59;
 >   (3) Phase 8: 4-page report (Overleaf), repo public, Google form by Nov 14.
 > - Open: competition images are in the repo — check Kaggle data rules before making it public; no LICENSE file.
@@ -322,7 +332,7 @@ start the A100 run without asking, then tell Kimee in the group chat.
 > - Pseudo-labels: team Drive `external/pseudo_labels_v1.json` + images `external/external_images_v1.zip` (2,098 images, 9,671 masks, m28 thr 0.85; archive photos check val 0.4378 vs 0.4355), verdict from S5: **not useful as is** — exp205 −0.0022 [−0.011, +0.005] vs exp006; the model gets more cautious (FP 473 vs 617 but TP 941 vs 1003 at thr 0.6), probably because thr 0.85 leaves faint filaments unlabelled. A lower pseudo-label threshold was not tried.
 > - Open problems: (M4, exp101) confidence on medium filaments — 282 true filaments scored < 0.6 (233 medium, ≤ +0.072); El Teide weakest station (0.418, most real FPs); ablation_table Phase 6 M4. …
 
-## 3. Competition rules & metric (sources: `Solar Filament Overview.txt`, `SelfEvaluationResult/`)
+## 3. Competition rules & metric (sources: `competition_overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
   `requirements.txt` and a notebook showing the whole pipeline; no extra files needed to reproduce. Repo stays
   public until winners are announced (Nov 30).
@@ -383,7 +393,7 @@ start the A100 run without asking, then tell Kimee in the group chat.
   in test scoring (host, §3). Our scorer matches the self-evaluation notebook (0.3296 check), not necessarily the LB
   scorer. M1 quantifies the LB noise, assuming LB scoring works like val, so treat its LB bar (~0.015) as approximate.
 - Final picks: our notes say 3 selected submissions, a competitor on the forum says 2, the host did not correct it and
-  `Solar Filament Overview.txt` has no number. Check on Kaggle's Submissions page before Phase 7.
+  `competition_overview.txt` has no number. Check on Kaggle's Submissions page before Phase 7.
 - Final package: how to fit the weights in the repo (sizes not measured; GitHub limit 100 MB per file; `.gitignore`
   blocks `*.pth`; see `Project_Phase_Plan.md` Phase 8).
 - Small filaments (< 200 px²): still 8–10 of 10 missed on val even at 2048; low priority, worth ≤ ~0.005 PQ.

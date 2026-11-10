@@ -9,7 +9,7 @@ predicts on the full 2048 image. Raw predictions are saved exactly like
 run_pipeline.py --step dump, so ablate_postprocess / ensemble / submit_from_raw
 work unchanged.
 
-Usage (Colab A100, notebooks/colab_phase5_a100.ipynb):
+Usage (Colab A100, notebooks/development/colab_phase5_a100.ipynb):
   python src/m2f.py train --name m2f_swin_s                  # resumes from output/m2f/<name>/last.pt
   python src/m2f.py train --name probe --max-iter 30 --no-resume
   python src/m2f.py dump  --name m2f_swin_s                  # raw_preds_<name>_{val,test}.json.gz

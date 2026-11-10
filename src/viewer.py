@@ -3,7 +3,7 @@ viewer.py — One-window viewer for filament segmentation results (no GPU).
 
 Shows each image with the annotators' ground truth (left) and a model's
 predictions (right), using the saved raw predictions
-(`Result Phase 3/**/raw_preds_<run>_<split>.json.gz`) and the SAME
+(`results/phase3/**/raw_preds_<run>_<split>.json.gz`) and the SAME
 post-processing as the submission, so what you see is what Kaggle scores.
 
   Left  — H-alpha image + ground-truth outlines, one colour per annotator;
@@ -36,7 +36,7 @@ from postprocess import close_all, select
 from utils.rle import load_predictions
 
 DISPLAY = 1024                      # displayed size (2048 / 2)
-RESULTS_DIR = CFG.paths.ROOT / "Result Phase 3"
+RESULTS_DIR = CFG.paths.ROOT / "results" / "phase3"
 # Score threshold per model = its best on val (experiments/ablation_table.md)
 RUN_THRESHOLDS = {"baseline_r50": 0.65, "r50_clahe_disk": 0.6, "r50_allann": 0.6}
 RUN_ORDER = ["r50_allann", "baseline_r50", "r50_clahe_disk"]
