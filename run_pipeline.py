@@ -1,7 +1,7 @@
 """
 run_pipeline.py — End-to-end pipeline: EDA → Split → Train → Validate → Inference → Submission.
 
-Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipynb):
+Main entry point, designed for Google Colab (see notebooks/development/colab_foundation.ipynb):
 
   python run_pipeline.py --step all
   python run_pipeline.py --dry-run          # 5 iterations, few images: smoke test
@@ -11,7 +11,14 @@ Main entry point, designed for Google Colab (see notebooks/colab_foundation.ipyn
   python run_pipeline.py --step infer --name baseline_r50 --score-thr 0.6 --min-area 100
   python run_pipeline.py --step dump  --name baseline_r50      # raw val+test predictions for offline post-processing
   python run_pipeline.py --step train --name x101_2048 --backbone x101 --resolution 2048   # Phase 4
-  (pass the same --backbone/--resolution to train, val, dump and infer of one model)
+  python run_pipeline.py --step train --name x101_2048_m28 --backbone x101 --resolution 2048 --mask-res 28  # Phase 5
+  python run_pipeline.py --step train --name syaz_r50_seed2 --label-policy all --seed 7   # Phase 6: re-train, other seed
+  python run_pipeline.py --step train --name syaz_r50_rotscale --label-policy all --aug rotscale   # Phase 6 S3
+  python run_pipeline.py --step train --name syaz_r50_copypaste --label-policy all --aug copypaste # Phase 6 S4
+  python run_pipeline.py --step train --name syaz_r50_selftrain --label-policy all --pseudo ext/pseudo_labels_v1.json  # S5
+  python run_pipeline.py --step dump  --name r50_2048 --resolution 2048 --weights <ckpt> --flip h
+      # Phase 6 TTA: predicts on flipped images -> raw_preds_<name>_fliph_<split>.json.gz
+  (pass the same --backbone/--resolution/--mask-res to train, val, dump and infer of one model)
 
 Steps:
   1. EDA                       (output/eda/)
@@ -51,7 +58,7 @@ def check_environment() -> bool:
         import detectron2
         print(f"  Detectron2: {detectron2.__version__}")
     except ImportError:
-        print("  Detectron2: NOT INSTALLED — see notebooks/colab_foundation.ipynb")
+        print("  Detectron2: NOT INSTALLED — see notebooks/development/colab_foundation.ipynb")
         return False
     return True
 
@@ -133,23 +140,39 @@ def run_preprocess(dry_run: bool):
     print(f"[Preprocess] {CFG.data.PREPROC}: wrote {n} images -> {CFG.paths.PREPROC_DIR / CFG.data.PREPROC}")
 
 
-def run_dump(weights: str, name: str, dry_run: bool):
-    """Raw (unprocessed) val + test predictions above DUMP_SCORE_THRESHOLD -> gzipped JSON."""
+def run_dump(weights: str, name: str, dry_run: bool, flip_mode=None, image_dir=None):
+    """Raw (unprocessed) val + test predictions above DUMP_SCORE_THRESHOLD -> gzipped JSON.
+
+    flip_mode (h / v / hv): predict on flipped images (masks flipped back) and add
+    "_flip<mode>" to the file name, so each flip is one ensemble member (TTA).
+    image_dir: predict every .jpg/.jpeg in this folder instead of val + test
+    (Phase 6 M3 external images); the file is named after the folder.
+    """
+    import torch
     from inference import build_predictor, predict_images
     from split import load_split
     from utils.rle import save_predictions
 
-    _, val_ids = load_split()
-    test_images = [image_path(p.stem, "test") for p in sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))]
-    if dry_run:
-        val_ids, test_images = val_ids[:4], test_images[:3]
+    if image_dir is not None:
+        image_dir = Path(image_dir)
+        paths = sorted(p for p in image_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg"))
+        assert paths, f"No .jpg/.jpeg images in {image_dir}"
+        jobs = [(image_dir.name, paths[:3] if dry_run else paths)]
+    else:
+        _, val_ids = load_split()
+        test_images = [image_path(p.stem, "test") for p in sorted(CFG.paths.TEST_IMG_DIR.glob("*.jpeg"))]
+        if dry_run:
+            val_ids, test_images = val_ids[:4], test_images[:3]
+        jobs = [("val", [image_path(s, "train") for s in val_ids]), ("test", test_images)]
     predictor = build_predictor(weights, score_threshold=CFG.infer.DUMP_SCORE_THRESHOLD)
-    for split, paths in (("val", [image_path(s, "train") for s in val_ids]),
-                         ("test", test_images)):
-        preds, sec = predict_images(predictor, paths, raw=True)
-        out = CFG.paths.OUTPUT_DIR / f"raw_preds_{name}_{split}.json.gz"
+    for split, paths in jobs:
+        preds, sec = predict_images(predictor, paths, raw=True, flip_mode=flip_mode or "none")
+        tag = f"_flip{flip_mode}" if flip_mode else ""
+        out = CFG.paths.OUTPUT_DIR / f"raw_preds_{name}{tag}_{split}.json.gz"
         save_predictions(preds, out)
         print(f"[Dump] {split}: {sum(map(len, preds.values()))} raw masks, {sec:.2f} s/img -> {out}")
+    if torch.cuda.is_available():
+        print(f"[Dump] Peak GPU memory: {torch.cuda.max_memory_allocated() / 1e9:.1f} GB")
 
 
 def run_inference_and_submit(weights: str, name: str, dry_run: bool) -> Path:
@@ -197,7 +220,31 @@ def parse_args(argv=None):
                         help="Override CFG.model.MODEL_CONFIG (r50 = Phase 2/3 default)")
     parser.add_argument("--resolution", type=int, default=None,
                         help="Override TRAIN_RESIZE and INFER_RESIZE together (2048 = native, Phase 4)")
-    return parser.parse_args(argv)
+    parser.add_argument("--mask-res", type=int, default=None,
+                        help="Override CFG.model.MASK_POOLER_RES (14 = default 28x28 masks, 28 = 56x56, Phase 5)")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Override CFG.SEED (42); a re-train with another seed measures training noise (Phase 6)")
+    parser.add_argument("--aug", choices=["flip", "rotscale", "copypaste"], default=None,
+                        help="Override CFG.train.AUG; rotscale adds 90-degree rotations + +-20%% zoom (Phase 6 S3), "
+                             "copypaste pastes filaments from other training images (Phase 6 S4)")
+    parser.add_argument("--pseudo", type=str, default=None,
+                        help="Train also on these pseudo-labels (COCO JSON, Phase 6 S5); real samples count x2")
+    parser.add_argument("--pseudo-images", type=str, default=None,
+                        help="Folder of the pseudo-labelled images (default: <json folder>/images)")
+    parser.add_argument("--flip", choices=["h", "v", "hv"], default=None,
+                        help="--step dump only: predict on flipped images for TTA (Phase 6)")
+    parser.add_argument("--image-dir", type=str, default=None,
+                        help="--step dump only: predict this folder of images instead of val + test (Phase 6 M3)")
+    parser.add_argument("--train-all", action="store_true",
+                        help="Train on all 707 files (train + val) for the final model; val can no longer score it")
+    args = parser.parse_args(argv)
+    if args.train_all and args.step != "train":
+        parser.error("--train-all only works with --step train (val is part of training, so it cannot score it)")
+    if args.flip and args.step != "dump":
+        parser.error("--flip only works with --step dump")
+    if args.image_dir and args.step != "dump":
+        parser.error("--image-dir only works with --step dump")
+    return args
 
 
 def apply_overrides(args):
@@ -206,6 +253,8 @@ def apply_overrides(args):
         CFG.model.MODEL_CONFIG = MODEL_CONFIGS[args.backbone]
     if args.resolution is not None:
         CFG.train.TRAIN_RESIZE = CFG.infer.INFER_RESIZE = args.resolution
+    if args.mask_res is not None:
+        CFG.model.MASK_POOLER_RES = args.mask_res
     if args.preproc is not None:
         CFG.data.PREPROC = args.preproc
     if args.label_policy is not None:
@@ -214,6 +263,16 @@ def apply_overrides(args):
         CFG.infer.SCORE_THRESHOLD = args.score_thr
     if args.min_area is not None:
         CFG.infer.MIN_AREA = args.min_area
+    if args.seed is not None:
+        CFG.SEED = args.seed
+    if args.aug is not None:
+        CFG.train.AUG = args.aug
+    if args.pseudo is not None:
+        CFG.train.PSEUDO_JSON = args.pseudo
+    if args.pseudo_images is not None:
+        CFG.train.PSEUDO_IMG_DIR = args.pseudo_images
+    if args.train_all:
+        CFG.train.TRAIN_ALL = True
 
 
 if __name__ == "__main__":
@@ -250,7 +309,7 @@ if __name__ == "__main__":
     if args.step == "sweep":
         run_sweep(weights, name, args.dry_run)
     if args.step == "dump":
-        run_dump(weights, name, args.dry_run)
+        run_dump(weights, name, args.dry_run, args.flip, args.image_dir)
     if args.step in ("infer", "all"):
         out = run_inference_and_submit(weights, name, args.dry_run)
         print(f"\n[Pipeline] Submission file: {out}")

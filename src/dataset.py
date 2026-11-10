@@ -21,6 +21,7 @@ import numpy as np
 from annotations import load_annotation_sets, select_annotations
 from config import CFG
 from preprocess import image_path
+from pseudo import with_pseudo
 from split import load_split
 
 
@@ -96,6 +97,9 @@ def register_datasets(limit: Optional[int] = None) -> Tuple[List[str], List[str]
     train_ids, val_ids = load_split()
     if limit:
         train_ids, val_ids = train_ids[:limit], val_ids[:limit]
+    if CFG.train.TRAIN_ALL:  # final run: val files join training (val stays registered, but is no longer held out)
+        train_ids = train_ids + val_ids
+        print("[Dataset] --train-all: val files are added to training; val scores are NOT valid for this model")
 
     single_class = CFG.model.NUM_CLASSES == 1
     classes = ["filament"] if single_class else ["Left", "Right", "Unidentifiable", "Ambiguous"]
@@ -105,8 +109,12 @@ def register_datasets(limit: Optional[int] = None) -> Tuple[List[str], List[str]
         if name in DatasetCatalog.list():
             DatasetCatalog.remove(name)
             MetadataCatalog.remove(name)
-        DatasetCatalog.register(
-            name, lambda s=stems, p=policy: build_detectron2_dicts(s, single_class, p))
+        if name == "filament_train":  # + pseudo-labelled images when --pseudo is set (Phase 6 S5)
+            DatasetCatalog.register(
+                name, lambda s=stems, p=policy: with_pseudo(build_detectron2_dicts(s, single_class, p)))
+        else:
+            DatasetCatalog.register(
+                name, lambda s=stems, p=policy: build_detectron2_dicts(s, single_class, p))
         MetadataCatalog.get(name).set(thing_classes=classes)
         print(f"[Dataset] Registered '{name}' ({len(stems)} images)")
 

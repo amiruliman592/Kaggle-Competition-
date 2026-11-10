@@ -1,0 +1,21 @@
+{
+ "x101_2048_m28": {
+  "bytes": 429840731,
+  "sha256": "cce7571d971a24063865039230377e6232a7ada19fb5eafe8bea599a9dd75c27",
+  "parts": [
+   "x101_2048_m28.pth.part00",
+   "x101_2048_m28.pth.part01",
+   "x101_2048_m28.pth.part02",
+   "x101_2048_m28.pth.part03",
+   "x101_2048_m28.pth.part04"
+  ]
+ },
+ "r50_2048": {
+  "bytes": 176215385,
+  "sha256": "afd12ce39d1026d4425d83b3283eb5ae9b42ae0be06d63de933b49c59c07fc58",
+  "parts": [
+   "r50_2048.pth.part00",
+   "r50_2048.pth.part01"
+  ]
+ }
+}

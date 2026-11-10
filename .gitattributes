@@ -1,0 +1,3 @@
+# Model weight parts (src/weights_io.py) must stay byte-identical: no line-ending conversion, no diff
+weights/*.part* binary
+*.json.gz binary

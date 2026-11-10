@@ -25,8 +25,8 @@ from detectron2.data import build_detection_train_loader
 from detectron2.data import DatasetMapper
 from detectron2.engine import DefaultTrainer
 from detectron2.evaluation import COCOEvaluator
-from detectron2.data import transforms as T
 
+from augment import CopyPasteMapper, train_augmentations
 from config import CFG
 from dataset import register_datasets
 from utils.seed import set_seed
@@ -44,22 +44,12 @@ class FilamentTrainer(DefaultTrainer):
     @classmethod
     def build_train_loader(cls, cfg):
         """Add data augmentation to the training loader."""
-        mapper = DatasetMapper(
-            cfg,
-            is_train=True,
-            augmentations=[
-                # Same scale as inference (cfg.INPUT.*_TEST) to avoid a train/test mismatch
-                T.ResizeShortestEdge(
-                    short_edge_length=cfg.INPUT.MIN_SIZE_TRAIN,
-                    max_size=cfg.INPUT.MAX_SIZE_TRAIN,
-                    sample_style="choice",
-                ),
-                T.RandomFlip(prob=0.5, horizontal=True),
-                T.RandomFlip(prob=0.5, horizontal=False, vertical=True),
-                T.RandomBrightness(0.8, 1.2),
-                T.RandomContrast(0.8, 1.2),
-            ],
-        )
+        augs = train_augmentations(cfg.INPUT.MIN_SIZE_TRAIN[0])
+        if CFG.train.AUG == "copypaste":
+            from detectron2.data import DatasetCatalog
+            mapper = CopyPasteMapper(cfg, augs, DatasetCatalog.get(cfg.DATASETS.TRAIN[0]))
+        else:
+            mapper = DatasetMapper(cfg, is_train=True, augmentations=augs)
         return build_detection_train_loader(cfg, mapper=mapper)
 
 
@@ -94,6 +84,7 @@ def build_detectron2_config(max_iter: Optional[int] = None, eval_period: Optiona
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = CFG.model.NUM_CLASSES
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512  # Larger for dense predictions
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = CFG.infer.SCORE_THRESHOLD
+    cfg.MODEL.ROI_MASK_HEAD.POOLER_RESOLUTION = CFG.model.MASK_POOLER_RES
 
     # ── Anchors (tuned for small filaments) ────────────────────────────
     cfg.MODEL.ANCHOR_GENERATOR.SIZES = CFG.model.ANCHOR_SIZES
@@ -171,6 +162,9 @@ def train(max_iter: Optional[int] = None, limit: Optional[int] = None, eval_peri
     print(f"  LR:         {CFG.train.BASE_LR}")
     print(f"  Max iter:   {cfg.SOLVER.MAX_ITER}")
     print(f"  Resolution: {CFG.train.TRAIN_RESIZE} (workers {cfg.DATALOADER.NUM_WORKERS})")
+    print(f"  Augment:    {CFG.train.AUG}")
+    print(f"  Pseudo:     {CFG.train.PSEUDO_JSON or 'none'}"
+          + (f" (real samples x{CFG.train.REAL_REPEAT})" if CFG.train.PSEUDO_JSON else ""))
     print(f"  Anchors:    {CFG.model.ANCHOR_SIZES} x {CFG.model.ASPECT_RATIOS}")
     print(f"  Output:     {cfg.OUTPUT_DIR}")
 

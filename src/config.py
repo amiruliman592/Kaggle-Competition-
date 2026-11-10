@@ -99,6 +99,9 @@ class ModelConfig:
     ASPECT_RATIOS: List[List[float]] = field(
         default_factory=lambda: [[0.2, 0.5, 1.0, 2.0, 5.0]]
     )
+    # ROI_MASK_HEAD.POOLER_RESOLUTION: each mask is drawn on a (2 x this)^2 grid
+    # inside its box. 14 = Detectron2 default (28x28); 28 = finer (56x56), Phase 5
+    MASK_POOLER_RES: int = 14
 
 
 @dataclass
@@ -107,6 +110,17 @@ class TrainConfig:
     BASE_LR: float = 0.0025
     MAX_ITER: int = 6000  # ~21 epochs over 566 train images at batch_size=2
     BATCH_SIZE: int = 2
+    # Training augmentations, see augment.py: "flip" | "rotscale" (Phase 6 S3) | "copypaste" (Phase 6 S4)
+    AUG: str = "flip"
+    SCALE_JITTER: float = 0.2  # rotscale: image size varies by +-20%
+    COPY_PASTE_PROB: float = 0.5  # copypaste: share of training images that get pasted filaments
+    COPY_PASTE_MAX: int = 3  # copypaste: 1..this many filaments pasted per image
+    # Pseudo-labelled extra images (Phase 6 S5, pseudo.py); "" = off. Images default to <json folder>/images
+    PSEUDO_JSON: str = ""
+    PSEUDO_IMG_DIR: str = ""
+    REAL_REPEAT: int = 2  # real samples counted this many times when pseudo images are added (~1:1)
+    # Final run (Phase 7 prep B): also train on the 141 val files (all 707). Val scores are then meaningless.
+    TRAIN_ALL: bool = False
     # 2048 JPEG decoding is CPU-bound: use the CPUs the machine has (Colab T4: 2, A100: 12)
     NUM_WORKERS: int = field(default_factory=lambda: min(8, os.cpu_count() or 2))
     # Detectron2's COCOEvaluator is untested with string image_ids and does not

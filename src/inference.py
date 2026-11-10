@@ -27,6 +27,7 @@ from detectron2.engine import DefaultPredictor
 
 from config import CFG
 from postprocess import postprocess_mask
+from utils.flip import flip
 from utils.rle import encode_mask, remove_overlaps, write_submission_csv
 
 
@@ -64,6 +65,7 @@ def build_predictor(model_weights: Optional[str] = None,
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = (
         CFG.infer.SCORE_THRESHOLD if score_threshold is None else score_threshold)
     cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = CFG.infer.NMS_THRESHOLD
+    cfg.MODEL.ROI_MASK_HEAD.POOLER_RESOLUTION = CFG.model.MASK_POOLER_RES  # must match training
     # Must match training, or the RPN head weights do not fit
     cfg.MODEL.ANCHOR_GENERATOR.SIZES = CFG.model.ANCHOR_SIZES
     cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = CFG.model.ASPECT_RATIOS
@@ -80,8 +82,31 @@ def build_predictor(model_weights: Optional[str] = None,
     return DefaultPredictor(cfg)
 
 
+def predict_one(predictor, img_bgr: np.ndarray, raw: bool = False, flip_mode: str = "none") -> List[dict]:
+    """One image (BGR, as cv2.imread) -> RLE dicts with "score", highest score first.
+
+    flip_mode: the image is flipped before prediction and every mask flipped back.
+    raw: skip per-mask post-processing (closing, min area).
+    """
+    with torch.no_grad():
+        instances = predictor(flip(img_bgr, flip_mode))["instances"].to("cpu")
+    rles = []
+    if len(instances) > 0:
+        pred_masks = instances.pred_masks.numpy()  # (N, H, W) boolean
+        scores = instances.scores.numpy()
+        for idx in np.argsort(-scores):
+            mask = flip(resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE), flip_mode)
+            if not raw:
+                mask = postprocess_mask(mask)
+            if mask.any():
+                rle = encode_mask(mask)
+                rle["score"] = float(scores[idx])
+                rles.append(rle)
+    return rles
+
+
 def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = True,
-                   raw: bool = False) -> Tuple[Dict[str, List[dict]], float]:
+                   raw: bool = False, flip_mode: str = "none") -> Tuple[Dict[str, List[dict]], float]:
     """
     Run inference on the given images.
 
@@ -91,6 +116,8 @@ def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = Tr
             sweep turns this off and resolves after its own score filtering.
         raw: Skip post-processing and overlap removal entirely (for
             --step dump; post-processing is then applied offline).
+        flip_mode: Test-time flip (utils.flip.FLIPS): the image is flipped
+            before prediction and every mask is flipped back.
     Returns:
         (Dict mapping image stem -> list of RLE dicts highest score first, seconds per image)
         Each RLE dict also carries its confidence under "score" (used by the val sweep).
@@ -100,22 +127,7 @@ def predict_images(predictor, img_paths: List[Path], resolve_overlaps: bool = Tr
     start = time.time()
 
     for img_path in tqdm(img_paths, desc="Inference"):
-        img = cv2.imread(str(img_path))
-        with torch.no_grad():
-            instances = predictor(img)["instances"].to("cpu")
-
-        rles = []
-        if len(instances) > 0:
-            pred_masks = instances.pred_masks.numpy()  # (N, H, W) boolean
-            scores = instances.scores.numpy()
-            for idx in np.argsort(-scores):
-                mask = resize_mask_to_original(pred_masks[idx], CFG.data.IMAGE_SIZE)
-                if not raw:
-                    mask = postprocess_mask(mask)
-                if mask.any():
-                    rle = encode_mask(mask)
-                    rle["score"] = float(scores[idx])
-                    rles.append(rle)
+        rles = predict_one(predictor, cv2.imread(str(img_path)), raw=raw, flip_mode=flip_mode)
         if resolve_overlaps and not raw:
             rles = remove_overlaps(rles, CFG.infer.MIN_AREA, CFG.infer.OVERLAP_DROP_FRAC)
         predictions[img_path.stem] = rles

@@ -1,0 +1,32 @@
+iou=0.3 best  thr=0.3  PQ=0.4022 SQ=0.6701 RQ=0.6002 Dice=0.6397 n=1279
+iou=0.3 best  thr=0.4  PQ=0.4167 SQ=0.6707 RQ=0.6212 Dice=0.6476 n=1160
+iou=0.3 best  thr=0.5  PQ=0.4276 SQ=0.6710 RQ=0.6373 Dice=0.6552 n=1052
+iou=0.3 best  thr=0.6  PQ=0.4355 SQ=0.6715 RQ=0.6486 Dice=0.6508 n=952
+iou=0.3 best  thr=0.7  PQ=0.4367 SQ=0.6724 RQ=0.6494 Dice=0.6393 n=850
+iou=0.3 union thr=0.3  PQ=0.4106 SQ=0.6699 RQ=0.6128 Dice=0.6366 n=1266
+iou=0.3 union thr=0.4  PQ=0.4240 SQ=0.6706 RQ=0.6323 Dice=0.6454 n=1152
+iou=0.3 union thr=0.5  PQ=0.4331 SQ=0.6710 RQ=0.6456 Dice=0.6555 n=1047
+iou=0.3 union thr=0.6  PQ=0.4397 SQ=0.6712 RQ=0.6550 Dice=0.6521 n=946
+iou=0.3 union thr=0.7  PQ=0.4409 SQ=0.6717 RQ=0.6564 Dice=0.6407 n=845
+iou=0.3 inter thr=0.3  PQ=0.3830 SQ=0.6659 RQ=0.5752 Dice=0.6375 n=1287
+iou=0.3 inter thr=0.4  PQ=0.3977 SQ=0.6659 RQ=0.5972 Dice=0.6434 n=1170
+iou=0.3 inter thr=0.5  PQ=0.4089 SQ=0.6659 RQ=0.6140 Dice=0.6476 n=1056
+iou=0.3 inter thr=0.6  PQ=0.4179 SQ=0.6669 RQ=0.6266 Dice=0.6419 n=954
+iou=0.3 inter thr=0.7  PQ=0.4180 SQ=0.6686 RQ=0.6252 Dice=0.6294 n=852
+iou=0.5 best  thr=0.3  PQ=0.4041 SQ=0.6698 RQ=0.6034 Dice=0.6407 n=1274
+iou=0.5 best  thr=0.4  PQ=0.4179 SQ=0.6703 RQ=0.6234 Dice=0.6464 n=1157
+iou=0.5 best  thr=0.5  PQ=0.4288 SQ=0.6708 RQ=0.6393 Dice=0.6521 n=1045
+iou=0.5 best  thr=0.6  PQ=0.4361 SQ=0.6715 RQ=0.6495 Dice=0.6488 n=948
+iou=0.5 best  thr=0.7  PQ=0.4376 SQ=0.6724 RQ=0.6508 Dice=0.6359 n=842
+iou=0.5 union thr=0.3  PQ=0.4127 SQ=0.6698 RQ=0.6161 Dice=0.6401 n=1264
+iou=0.5 union thr=0.4  PQ=0.4250 SQ=0.6708 RQ=0.6336 Dice=0.6467 n=1151
+iou=0.5 union thr=0.5  PQ=0.4349 SQ=0.6713 RQ=0.6478 Dice=0.6517 n=1041
+iou=0.5 union thr=0.6  PQ=0.4408 SQ=0.6717 RQ=0.6562 Dice=0.6498 n=943
+iou=0.5 union thr=0.7  PQ=0.4416 SQ=0.6723 RQ=0.6568 Dice=0.6379 n=839
+iou=0.5 inter thr=0.3  PQ=0.3856 SQ=0.6658 RQ=0.5792 Dice=0.6378 n=1278
+iou=0.5 inter thr=0.4  PQ=0.3996 SQ=0.6658 RQ=0.6003 Dice=0.6424 n=1162
+iou=0.5 inter thr=0.5  PQ=0.4104 SQ=0.6661 RQ=0.6161 Dice=0.6452 n=1047
+iou=0.5 inter thr=0.6  PQ=0.4190 SQ=0.6670 RQ=0.6282 Dice=0.6409 n=950
+iou=0.5 inter thr=0.7  PQ=0.4190 SQ=0.6689 RQ=0.6264 Dice=0.6268 n=844
+
+Best PQ 0.4416 (Dice 0.6379): iou=0.5 union thr=0.7 -> ..\Result Phase 6\Mirul\tta_m28.json

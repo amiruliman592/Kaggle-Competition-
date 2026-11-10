@@ -1,0 +1,13 @@
+{
+ "split": "test",
+ "images": 180,
+ "median_s": 6.01673597100023,
+ "p95_s": 8.21312133099998,
+ "mean_s": 6.02525127025279,
+ "total_s": 1083.0490663379965,
+ "gpu": "NVIDIA L4",
+ "peak_gpu_gb": 2.943130624,
+ "n_masks": 1255,
+ "valid_csv": true,
+ "csv": "submissions/submission_final.csv"
+}

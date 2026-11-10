@@ -2,8 +2,8 @@
 
 All numbers: official Kaggle PQ (`evaluate_official`) and Dice (`official_dice`, samplewise = torchmetrics
 `DiceScore` default). Model: Mask R-CNN R50-FPN baseline (exp003 checkpoint), raw predictions saved once
-(`Result Phase 3/Result Step 1/raw_preds_baseline_r50_val.json.gz`), post-processing applied offline
-(`src/ablate_postprocess.py`, raw rows in `Result Phase 3/Result Step 1/ablation_postproc_round{1,2}.json`).
+(`results/phase3/step1/raw_preds_baseline_r50_val.json.gz`), post-processing applied offline
+(`src/ablate_postprocess.py`, raw rows in `results/phase3/step1/ablation_postproc_round{1,2}.json`).
 
 ## Post-processing (step 2, 2026-10-20)
 | # | Setting | Official PQ | Δ PQ | Dice | Δ Dice | Verdict |
@@ -27,7 +27,7 @@ Phase 3 gate (PQ ≥ B0 + 0.030 = 0.4205) is **not** reachable with post-process
 
 ## Retraining (step 3, 2026-10-20) — same recipe as B0 (R50-FPN, 6,000 it), one change per run
 Each model scored over thr {0.5…0.85} × overlap rule {carve, drop 0.2}; rows show each model's best and the
-plateau (raw rows: `Result Phase 3/Result Step 3/eval_step3.json`).
+plateau (raw rows: `results/phase3/step3/eval_step3.json`).
 
 | # | Run | Change | Best official PQ | Δ vs B0'' | Dice | Δ Dice | Plateau (thr 0.6–0.7, drop 0.2) | Verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -41,3 +41,329 @@ Submission built from Run B raw test predictions: `submissions/submission_r50_al
 1,279 masks, passes validator). **Public LB 0.35** (first gain over 0.34).
 
 **Phase 3 status:** best val official PQ 0.3979 (B0 + 0.0074); gate B0 + 0.030 = 0.4205 not met.
+
+## Phase 4 — native resolution 2048 (2026-10-20, Colab A100 80 GB)
+`r50_allann` recipe (all-annotator labels, 6,000 it, batch 2, anchors 8–128), only resolution / backbone changed.
+Scored like step 3: closing 5, `MIN_AREA` 50, overlap drop 0.2, thr {0.5…0.9} (raw rows:
+`results/phase4/eval_phase4.json`). Sanity probe: X101 at 2048 peaks at 20.2 GB GPU memory; prediction 0.5–0.7 s/img.
+
+| # | Run | Change | Best official PQ | Δ vs B | Dice | Plateau (thr 0.6–0.8) | Small TP/FP/FN | PQ medium / large | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| B | r50_allann | 1024 (reference) | 0.3979 (thr 0.6) | — | 0.6426 | 0.390–0.398 | 0/0/10 | 0.372 / 0.434 | reference |
+| C | r50_2048 | resolution 1024 → 2048 | 0.4250 (thr 0.7) | **+0.027** | 0.6380 (0.6484 at thr 0.6, PQ 0.4231) | 0.415–0.425 | 0/0/10 | 0.397 / 0.471 | **adopted** |
+| D | x101_2048 | + backbone R50 → X101 | **0.4264** (thr 0.6) | **+0.029** | 0.6417 | **0.426–0.426** | 2/1/8 (thr 0.6) | 0.406 / 0.467 | **best**, flattest plateau |
+
+Notes: the gain comes from both size bins (medium +0.03, large +0.04) and from SQ (+0.013) and RQ (+0.03), not
+from small filaments, which are still almost all missed (X101 finds 2/10 at thr ≤ 0.6). Large-bin PQ rose, so the
+conditional bigger-anchor run is **not needed**. X101 vs R50 at 2048 is within noise on PQ (+0.0014) but has a wider
+plateau (thr 0.6–0.8 all 0.426) and fewer merges (25 vs 28 at thr 0.6). Phase 3 gate (0.4205) is now passed.
+Submissions (thr 0.6, drop 0.2, pass validator): `submission_x101_2048_pp.csv` (1,317 masks) → **public LB 0.37**
+(best so far); `submission_r50_2048_pp.csv` (1,313 masks) → **public LB 0.36**. LB gain over B: +0.02 (val +0.026–0.029);
+ranking D > C kept on LB. Val − LB gap 0.056 / 0.063 (earlier runs 0.047–0.050; LB shown to 2 dp, ±0.005).
+
+## Phase 5 step 1 — SAM 2 box refinement of x101_2048 (2026-10-21, Colab T4, no training)
+SAM 2.1 hiera-large redraws each `x101_2048` mask (score ≥ 0.5) from a square crop around its box
+(`src/sam_refine.py`; rows: `results/phase5/step1/sam_ablation_x101_2048.json`). Close 5, min area 50, drop 0.2.
+
+| Prompt | Combination | Best official PQ (thr) | Δ vs D (0.4264) | Dice at that thr |
+|---|---|---|---|---|
+| — | original (D) | **0.4264** (0.6) | — | **0.6417** |
+| box | SAM replaces | 0.3577 (0.8) | −0.069 | 0.5526 |
+| box | union | 0.4076 (0.8) | −0.019 | 0.5857 |
+| box | intersection | 0.3683 (0.8) | −0.058 | 0.5782 |
+| box | gate (SAM if IoU ≥ 0.5) | 0.3831 (0.8) | −0.043 | 0.5853 |
+| box+3 pts | SAM replaces | 0.3653 (0.8) | −0.061 | 0.5550 |
+| box+3 pts | union | 0.4028 (0.8) | −0.024 | 0.5842 |
+| box+3 pts | intersection | 0.3804 (0.8) | −0.046 | 0.5828 |
+| box+3 pts | gate | 0.3884 (0.8) | −0.038 | 0.5840 |
+
+**Verdict: rejected** (every variant loses PQ and Dice). SAM masks are a median 15% smaller than ours (it traces the
+dark core; annotators draw a looser outline) and ~10% bleed out to 1.4–1.5× the area; median IoU with our masks is
+only 0.74, so even the gate loses TPs. Matches the plan's caveat: the labels, not mask sharpness, set SQ.
+
+## Phase 5 step 1b — CPU ensemble of x101_2048 + r50_2048 (2026-10-21, 0 GPU units)
+`src/ensemble.py`: masks of the two models with IoU ≥ match IoU are one filament; score = mean over both models
+(a model that missed it adds 0); mask = best member / union / intersection. Close 5, min area 50, drop 0.2
+(rows: `results/phase5/step1b/ensemble_ablation_x101_r50_2048.json`).
+
+| Fusion | thr 0.5 | thr 0.6 | thr 0.7 | Dice at thr 0.6 |
+|---|---|---|---|---|
+| x101_2048 alone (D) | 0.4190 | 0.4264 | 0.4263 | 0.6417 |
+| IoU 0.5, best mask | 0.4214 | 0.4285 | 0.4298 | 0.6475 |
+| **IoU 0.5, union** | 0.4301 | **0.4366** | 0.4376 | **0.6505** |
+| IoU 0.5, intersection | 0.4120 | 0.4223 | 0.4251 | 0.6423 |
+| IoU 0.3, union | 0.4290 | 0.4357 | 0.4372 | 0.6518 |
+
+**Verdict: adopted** — union at thr 0.6: **PQ 0.4366 (+0.010), Dice 0.6505 (+0.009)**, RQ 0.639 → 0.652. Not a
+mask-size effect: dilating masks by 1 / 2 px instead *loses* PQ (x101: 0.4196 / 0.3571; ensemble: 0.4171 / 0.3424).
+Submission `submission_ens_x101_r50_2048_pp.csv` (1,278 masks, 177/180 images, passes validator) → **public LB 0.38** (best; +0.01 over x101 alone, as on val).
+
+## Phase 5 step 2 — Mask2Former and finer mask head (2026-10-21, A100 run, scoring on CPU)
+Raw files in `results/phase5/step2/`. Close 5, min area 50, drop 0.2; official val PQ (Dice in brackets).
+
+| Model alone | thr 0.5 | thr 0.6 | thr 0.7 | thr 0.8 | Frag / merge |
+|---|---|---|---|---|---|
+| x101_2048 (exp008) | 0.4190 | 0.4264 (0.6417) | 0.4263 | – | – |
+| **x101_2048_m28** (56×56 mask head) | 0.4279 | 0.4355 (0.6496) | **0.4385** (0.6408) | 0.4359 | 10 / 32 |
+| m2f_swin_s (Mask2Former) | 0.3676 | 0.3799 | 0.3942 | 0.4020 (0.6597) | 17 / 67 |
+
+| Ensemble (best setting) | PQ | Dice |
+|---|---|---|
+| x101 + r50 (exp010) | 0.4366 | 0.6505 |
+| x101 + r50 + m28 (IoU 0.5 union thr 0.6) | 0.4375 | 0.6508 |
+| x101 + r50 + m2f (IoU 0.3 best thr 0.6) | 0.4256 | 0.6504 |
+| all 4 (IoU 0.5 best thr 0.6) | 0.4318 | 0.6463 |
+| **m28 + r50 (IoU 0.5 union thr 0.6)** | **0.4404** | **0.6501** |
+| m28 + r50 (IoU 0.5 union thr 0.7) | 0.4407 | 0.6353 |
+
+**Verdict:** the finer mask head is a clear gain (+0.012 alone, best single model); m28 + r50 is the new best
+(+0.004 over exp010; thr 0.6 kept for Dice). Mask2Former is weaker alone (−0.024, twice the merges) and lowers
+every ensemble it joins, despite the best Dice. **Public LB: both 0.37** (exp010 x101 + r50 stays best at 0.38): val gains this small do not show on the LB.
+Submissions: `submission_ens_m28_r50_2048_pp.csv` (1,277 masks), `submission_x101_2048_m28_pp.csv` (1,176); both pass the validator.
+
+## Phase 6 M1a — noise check, paired bootstrap (2026-10-27, Mirul, CPU)
+`src/bootstrap.py`, 2,000 re-draws of the 141 val images (seed 42); "LB" = 90 images drawn with replacement, rounded
+to 2 dp. Same draws for both runs of a pair. Min real gain = 1.96 × SD of the paired difference.
+Output: `results/phase6/Mirul/bootstrap.json`. Full-val PQ reproduces `log.csv` exactly.
+
+| B vs A | ΔPQ val | 95% CI | P(B>A) | min real gain val | min real gain LB | sim. LB B higher / tie / lower |
+|---|---|---|---|---|---|---|
+| exp010 vs exp006 | +0.0386 | [+0.027, +0.050] | 1.00 | 0.011 | 0.015 | 1.00 / 0.00 / 0.00 |
+| exp012 vs exp010 | +0.0019 | [−0.007, +0.010] | 0.66 | 0.009 | 0.011 | 0.31 / 0.55 / 0.14 |
+| exp013 vs exp010 | +0.0038 | [−0.002, +0.009] | 0.92 | 0.005 | 0.007 | 0.41 / 0.57 / 0.02 |
+| exp013 vs exp012 | +0.0020 | [−0.006, +0.010] | 0.69 | 0.008 | 0.010 | 0.31 / 0.59 / 0.11 |
+
+Single run: SD of val PQ ≈ 0.011, of a 90-image LB ≈ 0.013–0.015.
+**Verdict:** a val gain must be **≥ ~0.010 PQ** (paired, same 141 images) to be real; on the LB that is ≥ ~0.015,
+i.e. in practice **+0.02 on the 2-dp LB**. None of the Phase 5 step 2 gains (+0.002–0.004) clear it. exp013's real
+LB drop (0.37 vs 0.38) had only ~2% chance from sampling noise alone: val and test may differ a little, so treat val
+gains near the bar with extra caution. Training noise (Syaz S1) still to be added.
+
+## Phase 6 S1 + S2 — seed repeat and 3× schedule, R50 at 1024 (2026-10-27, Syaz; T4 training, CPU scoring)
+exp006 recipe (R50-FPN, 1024, all-annotator labels, batch 2, LR 0.0025), one change per run. Scored like exp006:
+close 5, min area 50, overlap drop 0.2, thr 0.5–0.85, official PQ + Dice (samplewise); exp006 reproduces 0.3979 /
+0.6426. Paired bootstrap = `src/bootstrap.py` (2,000 draws, seed 42), each run at its best thr. Outputs:
+`results/phase6/Syaz/eval_s1_s2.json`, `results/phase6/Syaz/bootstrap_s1_s2.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference (seed 42, 6,000 its) | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp201** S1 `syaz_r50_seed2` | `--seed 7` | 0.3979 | 0.6382 | 0.3985 (0.65) | 0.6385 | +0.0005 [−0.006, +0.007] | 0.56 | **training noise** |
+| **exp202** S2 `syaz_r50_3x` | `--max-iter 18000` (LR drops 10,800 / 15,300) | 0.3907 | 0.6321 | 0.3989 (0.75) | 0.6151 | +0.0007 [−0.010, +0.011] | 0.55 | **rejected** |
+
+**Training noise (S1):** re-training with another seed moves full-val PQ by only ~0.001 (identical 0.3979 at thr
+0.6), but the PQ-vs-thr curve shifts (best thr 0.6 → 0.65) and the paired per-image difference has a 95% bar of
+±0.007. So the M1 bar (**≥ ~0.010 val PQ**) stays the binding one; S1 does not raise it.
+**3× schedule (S2):** no PQ gain (+0.0007, inside the noise), lower Dice at every thr ≥ 0.6, and the scores become
+more confident (best thr moves to 0.75; at thr 0.6 it has more FPs, 652 vs 617). Keep **6,000 its** for S3–S5 (also
+3× cheaper on a T4). S2 was resumed once from `model_0011999.pth` with optimizer + LR-scheduler state (only the data
+order after the resume differs from an unbroken run).
+
+## Phase 6 S3 — rotations + size changes, R50 at 1024 (2026-11-01, Syaz; T4 training, CPU scoring)
+exp006 recipe with `--aug rotscale`: flips + random 0/90/180/270° rotation + image size ±20%, whole image, no crop.
+Scored as S1 + S2 (exp006 reproduces 0.3979 / 0.6426). Outputs: `results/phase6/Syaz/eval_s3.json`,
+`results/phase6/Syaz/bootstrap_s3.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp203** S3 `syaz_r50_rotscale` | `--aug rotscale` | 0.3973 | 0.6427 | 0.3973 (0.6) | 0.6427 | −0.0006 [−0.009, +0.007] | 0.43 | **rejected** |
+
+No PQ gain, and the top of the 95% range (+0.007) is below the 0.010 bar. Dice is equal. At thr 0.6 it finds less and
+adds less: FP 580 vs 617, FN 700 vs 675. The scores are lower, so PQ holds up better at thr 0.5 (0.3964 vs 0.3900) but
+the best value does not improve. Keep **`--aug flip`** for S4 and S5. Test dump 0.59 s/img, 2.3 GB.
+
+## Phase 6 S4 — copy-paste, R50 at 1024 (2026-11-03, Syaz; T4 training, CPU scoring)
+exp006 recipe with `--aug copypaste` (`src/copy_paste.py`): half of the training images get 1–3 GT filaments of
+another training image pasted at free spots inside the disk (≥ 10 px from other filaments, soft edges, background
+brightness matched), outlines added to the labels; then the usual flips. Scored as S1–S3. Outputs:
+`results/phase6/Syaz/eval_s4.json`, `results/phase6/Syaz/bootstrap_s4.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp204** S4 `syaz_r50_copypaste` | `--aug copypaste` | 0.3926 | 0.6376 | 0.3945 (0.65) | 0.6363 | −0.0035 [−0.010, +0.003] | 0.15 | **rejected** |
+
+No gain; if anything slightly worse (P(B>A) 0.15), and Dice is lower at every thr ≤ 0.75. At thr 0.6 it adds false
+alarms (FP 649 vs 617) for the same hits. Pasted filaments probably teach the model to fire on filament-like dark
+patches anywhere on the disk. Keep **`--aug flip`**; S5 uses the plain exp006 recipe. T4 ~0.92 s/it (as S3).
+
+## Phase 6 S5 — self-training with pseudo-labels, R50 at 1024 (2026-11-03, Syaz; T4 training, CPU scoring)
+exp006 recipe with `--pseudo` (`src/pseudo.py`): Mirul's M3 pseudo-labels (team Drive `external/pseudo_labels_v1.json`,
+2,098 GONG archive images, 9,671 masks from m28 at thr 0.85, no val/test days) added to the training set; real samples
+repeated ×2 (≈ 1:1 real : pseudo). 6,000 its, seed 42, T4 (Syaz's personal paid Google account). Scored as S1–S4.
+Outputs: `results/phase6/Syaz/eval_s5.json`, `results/phase6/Syaz/bootstrap_s5.json`.
+
+| Run | Change | PQ thr 0.6 | Dice thr 0.6 | best PQ (thr) | Dice at best | ΔPQ vs exp006 (95% CI) | P(B>A) | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| exp006 | reference | 0.3979 | 0.6426 | 0.3979 (0.6) | 0.6426 | — | — | reference |
+| **exp205** S5 `syaz_r50_selftrain` | `--pseudo` | 0.3958 | 0.6359 | 0.3958 (0.6) | 0.6359 | −0.0022 [−0.011, +0.005] | 0.30 | **rejected** |
+
+No gain. The model becomes more cautious: at thr 0.6 it makes 832 masks instead of 956, with fewer false alarms
+(FP 473 vs 617) but fewer hits (TP 941 vs 1003); Dice is lower at every thr. Likely cause: the pseudo-labels keep only
+confident filaments (score ≥ 0.85), so faint filaments in the extra images are labelled as background. Not tried
+(no time before hand-back): a lower pseudo-label threshold. Track S result: **no recipe change** (S1–S5 all below the bar).
+
+## Phase 6 M1b — error budget of exp010 (2026-10-27, Mirul, CPU)
+`src/error_budget.py`, official matching (233 annotator entries, IoU > 0.5), thr 0.6. Output:
+`results/phase6/Mirul/error_budget_exp010.json`. PQ 0.4366, SQ 0.6695, TP 1067 / FP 527 / FN 611.
+"PQ if fixed" = that box alone made perfect (FN → hit at the mean IoU, FP removed): an upper bound, not a forecast.
+
+| Box | n | PQ if fixed | gain | Meaning |
+|---|---|---|---|---|
+| fn_low_score | 246 | 0.4997 | +0.063 | raw hit exists, score < 0.6 → confidence |
+| fp_nobody | 341 | 0.4874 | +0.051 | real false alarm |
+| fn_never | 181 | 0.4839 | +0.047 | recall (nothing within IoU 0.3) |
+| fn_near_miss | 146 | 0.4752 | +0.039 | kept mask at IoU 0.3–0.5 → outline |
+| fp_other_ann | 186 | 0.4630 | +0.026 | another annotator drew it → label noise, not fixable |
+| fn_postproc | 38 | 0.4470 | +0.010 | good raw hit removed by min area / overlap rule |
+| SQ loss (all hits IoU 1) | 1067 | 0.6522 | +0.216 | not reachable: our SQ 0.67 is already above the human 0.63 |
+
+By size: small 12 GT entries, all missed (≤ 0.005 PQ, ignore); medium PQ 0.419, large 0.482.
+By station (val ~20–28 images each, so differences of ±0.02 are noise): B 0.459, U 0.442, L 0.441, M 0.436,
+C 0.428, T 0.415.
+**Verdict:** the biggest box is **confidence** (246 true filaments found but scored < 0.6) followed by real false
+alarms (341): the model ranks real vs fake filaments poorly at the cut-off. This is what flip TTA (M2) attacks
+(agreement across views raises real ones, lowers one-off ones). Recall (181 never found) is the target of more data
+(M3/S5) and the recipe (S2–S4). 35% of FPs are drawn by another annotator: label noise sets a hard floor.
+
+## Phase 6 M2 — flip TTA of the 2048 models (2026-10-27, Mirul; Colab T4 inference, scoring on CPU)
+Kimee's `x101_2048_m28` and `r50_2048` on val + test flipped h / v / hv (masks flipped back; median best IoU vs
+un-flipped 0.85–0.89; r50 peak GPU 2.4 GB, 1.17 s/img on T4). Views fused with `src/ensemble.py` (score = mean
+over views). Logs + grids: `results/phase6/Mirul/log_tta*.txt`, `tta*.json`.
+
+| Run (val, best setting of the 30-row grid) | PQ | Dice | vs |
+|---|---|---|---|
+| m28, 4 views (IoU 0.5 union thr 0.7) | 0.4416 | 0.6379 | m28 alone 0.4385: +0.003 |
+| r50, 4 views (IoU 0.5 union thr 0.6) | 0.4345 | 0.6517 | r50 alone 0.4231 (thr 0.6): +0.011 |
+| 8 views in one fusion (IoU 0.5 best thr 0.7) | 0.4382 | 0.6369 | exp013 0.4404: −0.002 |
+| **two-stage: per model 4 views (IoU 0.5 union), then 2 models (IoU 0.3 inter) thr 0.6** | **0.4480** | **0.6520** | **exp010 +0.0116, exp013 +0.0078** |
+| same, thr 0.7 | 0.4461 | 0.6425 | exp010 +0.0095 |
+
+Bootstrap (`results/phase6/Mirul/bootstrap_m2.json`): vs exp010 +0.0116 [+0.004, +0.020], P(better) 1.00, min real
+gain for this pair 0.008; simulated LB higher / tie / lower 0.86 / 0.14 / 0.00. vs exp013 +0.0078 [+0.001, +0.014].
+Caveat: setting picked from 30 on val (some optimism); the inter fusion at IoU 0.5 and the single 8-view fusion do
+not show the gain, so it depends on the two-stage order.
+**Verdict: adopted.** Submission `submissions/submission_tta2_m28_r50_pp.csv` (1,256 masks, validator PASS):
+**public LB 0.39** (exp010 0.38) — first LB gain since Phase 5, new best (exp101).
+
+## Phase 6 M3 — external GONG images: source check + pseudo-labeller choice (2026-10-27, Mirul; CPU)
+**Source:** NSO GONG archive product `hag` (`https://gong2.nso.edu/HA/hag/YYYYMM/YYYYMMDD/<stem>.jpg`) has the same
+frames and names as the competition images. 3 train files (2011 C, 2014 B, 2022 T) compared: same 2048×2048 frame,
+correlation ≥ 0.99, mean |diff| 2.1–2.8 grey levels on the disk, brightness fit B = 1.00·G + 0.6–1.1. The archive copy
+is RGB (channels equal) at JPEG quality ~75; the competition copy is greyscale at ~90. The Colab run measures the
+effect on val PQ (archive copies of the 141 val images vs 0.4355 on the competition copies, m28 thr 0.6).
+**Exclusion:** every day of a val 27-day block + every test day ±1 → 3,310 allowed days in 2011–2022.
+
+Pseudo-label precision on val (kept mask matched by ≥ 1 annotator set at IoU > 0.5; recall averaged over sets;
+usual post-processing; scratch script, CPU):
+
+| Labeller | thr | masks/img | precision | recall | matched IoU |
+|---|---|---|---|---|---|
+| m28, 1 view | 0.80 | 5.38 | 0.817 | 0.570 | 0.689 |
+| **m28, 1 view** | **0.85** | **4.73** | **0.840** | **0.529** | **0.694** |
+| m28, 1 view | 0.90 | 4.03 | 0.864 | 0.473 | 0.696 |
+| m28, 4 flips | 0.85 | 4.48 | 0.854 | 0.511 | 0.692 |
+| m28 + r50, 8 views (exp101) | 0.80 | 4.87 | 0.860 | 0.547 | 0.694 |
+| m28 + r50, 8 views (exp101) | 0.85 | 4.24 | 0.885 | 0.496 | 0.697 |
+
+**Choice: m28 alone, thr 0.85.** The 8-view TTA is ~2 points more precise at equal recall but needs 8× the T4 time
+(~14 h vs < 2 h for 3,000 images). For S5: about half of the filaments in a pseudo-labelled image are not labelled,
+so unlabelled pixels are not reliable background; raw masks (score ≥ 0.2) are kept so S5 can ignore unsure regions.
+
+**Run (Colab T4, 2026-10-29, on Mirul's home PC; recorded on the laptop 2026-11-01):** Step D, the archive copies of
+the 141 val images with m28 at thr 0.6: official PQ **0.4378** (SQ 0.6712, RQ 0.6523), Dice 0.6535, vs 0.4355 on the
+competition copies → the lower JPEG quality costs nothing; the archive photos are safe to use. Pseudo-labels
+`pseudo_labels_v1.json` (team Drive `external/`, 4.5 MB): **2,098 images** with ≥ 1 kept mask (of 2,837 QC-passed;
+739 had none), **9,671 masks** (4.61/img, all score ≥ 0.85, median area 1,354 px²); per station B 359, C 376, L 371,
+M 369, T 321, U 302.
+
+## Phase 6 M4 — per-size and per-station table of the best pipeline, exp101 (2026-11-01, Mirul, CPU)
+`src/error_budget.py --raw "results/phase6/Mirul/raw_preds_tta2_m28_r50_val.json.gz" --thr 0.6`, output
+`results/phase6/Mirul/error_budget_exp101.json`. PQ **0.4480** (= exp101), SQ 0.6735, TP 1083 / FP 495 / FN 595.
+
+| Box | n | PQ if fixed | gain | vs exp010 (M1b) |
+|---|---|---|---|---|
+| fn_low_score | 282 | 0.5197 | +0.072 | 246 |
+| fp_nobody | 305 | 0.4943 | +0.046 | 341 |
+| fn_never | 162 | 0.4906 | +0.043 | 181 |
+| fn_near_miss | 115 | 0.4787 | +0.031 | 146 |
+| fp_other_ann | 190 | 0.4758 | +0.028 | 186 |
+| fn_postproc | 36 | 0.4578 | +0.010 | 38 |
+
+| Group | PQ | SQ | TP | low score | near miss | never | FP nobody |
+|---|---|---|---|---|---|---|---|
+| small (12 GT) | 0.000 | – | 0 | 5 | 0 | 7 | 0 |
+| **medium** | **0.430** | 0.669 | 715 | 233 | 67 | 120 | 226 |
+| large | 0.493 | 0.681 | 368 | 44 | 48 | 35 | 79 |
+| B Big Bear | 0.468 | 0.688 | 183 | 52 | 24 | 15 | 35 |
+| U Udaipur | 0.466 | 0.671 | 166 | 32 | 13 | 19 | 46 |
+| M Mauna Loa | 0.454 | 0.666 | 156 | 36 | 14 | 30 | 34 |
+| L Learmonth | 0.450 | 0.682 | 194 | 46 | 16 | 32 | 58 |
+| C Cerro Tololo | 0.436 | 0.670 | 226 | 77 | 27 | 33 | 67 |
+| **T El Teide** | **0.418** | 0.662 | 158 | 39 | 21 | 33 | 65 |
+
+**Verdict:** TTA removed false alarms (341 → 305) and near misses, but more true filaments now sit just below the
+cut-off (246 → 282): confidence is still the biggest box, mostly **medium filaments** (233 of 282). El Teide is the
+weakest station (most real false alarms per hit); station gaps of ±0.02 are within val noise (~20–28 images each).
+For the report (Phase 7) and the final run: more recall/confidence on medium filaments is where PQ is left.
+
+## Phase 7 prep A — third ensemble member: flip TTA of `x101_2048` (2026-11-04, Kimee; Colab T4 inference, CPU scoring)
+Kimee's Phase 4 `x101_2048` (exp008) on val + test flipped h / v / hv (`notebooks/development/colab_kimee_tta_x101.ipynb`);
+4 views fused like exp101 (IoU 0.5 union), then fused with Mirul's m28 + r50 TTA files. Logs + grids:
+`results/phase7/log_tta_x101.txt`, `log_tta3_m28_r50_x101.txt`, `tta*.json`.
+
+| Run (val, best setting of the 30-row grid) | PQ | Dice | vs |
+|---|---|---|---|
+| x101, 4 views (thr 0.7) | 0.4412 | 0.6353 | x101 alone 0.4264: +0.015 |
+| 3 models m28 + r50 + x101, each 4 views (IoU 0.5 inter thr 0.7) | 0.4455 | 0.6350 | exp101 0.4480: −0.0025 |
+| same, thr 0.6 | 0.4453 | 0.6515 | exp101: −0.0027 |
+
+**Verdict: rejected** (below exp101, so no bootstrap needed). The second X101 makes the same mistakes as m28, so it
+adds no new agreement. Flip TTA helps every single model (+0.003 to +0.015).
+
+## Phase 7 prep B + D — all-707-file models; rescoring (2026-11-05, Kimee)
+**B (exp015):** m28 + r50 at 2048 retrained on all 707 files (`--train-all`, 7,500 its, A100), fused like exp101.
+Val cannot score it (sanity only: m28_all 0.4985, r50_all 0.4733 at thr 0.6, both seen val). **LB 0.39 = exp101.**
+Test masks: 95% of exp101's masks also in exp015 (IoU > 0.5, median IoU 0.94) → nearly the same submission.
+
+**D (exp016, `src/rescore.py`, CPU):** new confidence per exp101 fused filament from 12 features (old score, size,
+shape, distance from centre, per model how many of its 4 views found it and their mean score, mean IoU and score
+spread over the 8 views, crowding). Target = share of annotator sets in which it is a TP. HistGradientBoosting,
+5-fold CV by 27-day block (out-of-fold scores only). Log: `results/phase7/rescore_log.txt`.
+
+| Run (val) | best thr | PQ | Dice | TP / FP / FN |
+|---|---|---|---|---|
+| exp101 score (reference) | 0.60 | **0.4480** | 0.6520 | 1083 / 495 / 595 |
+| rescored (CV) | 0.40 | 0.4423 | 0.6426 | 1030 / 432 / 648 |
+| 50/50 blend old + rescored | 0.50 | 0.4473 | 0.6502 | 1056 / 448 / 622 |
+
+**Verdict: rejected.** The new score ranks filaments slightly better overall (corr 0.648 vs 0.616) but not around
+the cut-off; 141 val images with noisy labels (mean target 0.34) are too few to learn more than the averaged score.
+
+## Phase 7 — clean-clone reproduction + latency of the final pipeline (2026-11-10, Kimee; Colab L4)
+`notebooks/full_pipeline.ipynb` on a fresh Colab session: clone of `Dev`, weights joined from `weights/` (SHA-256
+OK), `src/final_pipeline.py` (2 models x 4 flip views, two-stage fusion, post-processing). Files:
+`results/phase7/final_run/`.
+
+| Check | Clean clone (L4) | exp101 as submitted (T4 / A100 runs) |
+|---|---|---|
+| Val official PQ / SQ / RQ | **0.4480** / 0.6735 / 0.6652 | 0.4480 / 0.6734 / 0.6652 |
+| Val TP / FP / FN, masks | 1083 / 495 / 595, 933 | 1083 / 495 / 595, 933 |
+| Val Dice (samplewise) | 0.6520 | 0.6520 |
+| Test masks (images with masks) | 1,255 (177) | 1,256 (177) |
+| Test masks of exp101 found again (IoU > 0.5) | 1,255 of 1,256 (99.92%) | — |
+| ... of these IoU > 0.99 / byte-identical RLE | 1,249 / 683; lowest IoU 0.956 | — |
+
+The one missing test mask (`20170926225530Lh`, 2,452 px²) is still predicted, but its fused score fell from 0.691
+to 0.581 (one flip view no longer matched), just under the 0.6 cut. Raw score differences are ~6e-5 (median):
+GPU-level rounding (L4 vs the T4 / A100 of the original runs), not a code difference. The CSV rebuilt on CPU from
+the stored exp101 raw file is byte-identical to the uploaded one.
+
+| Latency (whole pipeline per 2048 x 2048 image: load, 8 forward passes, fusion, post-processing) | Test (180) | Val (141) |
+|---|---|---|
+| Median / p95 (after 2 warm-up images) | 6.02 s / 8.21 s | 5.98 s / 8.57 s |
+| Total | 18.1 min | 14.0 min |
+| Peak GPU memory (PyTorch allocated) | 2.94 GB | 3.00 GB |
+
+**Verdict: reproduction verified.** Val score identical, test predictions the same up to GPU rounding.

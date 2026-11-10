@@ -8,7 +8,7 @@ def runs():
     from viewer import find_runs
     r = find_runs("val")
     if not r:
-        pytest.skip("no raw predictions under Result Phase 3/")
+        pytest.skip("no raw predictions under results/phase3/")
     return r
 
 

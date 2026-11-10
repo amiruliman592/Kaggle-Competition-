@@ -34,8 +34,21 @@ def test_no_flags_keep_phase3_defaults(restore_cfg):
     assert cfg.train.TRAIN_RESIZE == cfg.infer.INFER_RESIZE == 1024
 
 
+def test_mask_res_flag():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    saved = CFG.model.MASK_POOLER_RES
+    try:
+        apply_overrides(parse_args([]))
+        assert CFG.model.MASK_POOLER_RES == 14
+        apply_overrides(parse_args(["--mask-res", "28"]))
+        assert CFG.model.MASK_POOLER_RES == 28
+    finally:
+        CFG.model.MASK_POOLER_RES = saved
+
+
 def _code_cells(name):
-    nb = json.loads((ROOT / "notebooks" / name).read_text(encoding="utf-8"))
+    nb = json.loads((ROOT / "notebooks" / "development" / name).read_text(encoding="utf-8"))
     return ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
 
 
@@ -52,3 +65,107 @@ def test_phase4_notebook_compiles_and_uses_one_resolution():
     # Every pipeline command of a model passes its FLAGS (same backbone + resolution for train and dump)
     runs = re.findall(r'run\(f"([^"]+)"\)', text)
     assert runs and all("{FLAGS_" in r for r in runs)
+
+
+def test_phase5_notebooks_compile():
+    for name in ("colab_phase5_sam2.ipynb", "colab_phase5_a100.ipynb"):
+        for src in _code_cells(name):
+            py = "\n".join(l[:len(l) - len(l.lstrip())] + "pass" if l.lstrip().startswith(("!", "%")) else l
+                           for l in src.splitlines())
+            ast.parse(py)
+    text = "\n".join(_code_cells("colab_phase5_a100.ipynb"))
+    # Train and dump of the finer-head model use the same flags
+    assert re.search(r"--step train --name \{NAME_M28\} \{FLAGS_M28\}", text)
+    assert re.search(r"--step dump  --name \{NAME_M28\} \{FLAGS_M28\}", text)
+
+
+def test_seed_flag():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    saved = CFG.SEED
+    try:
+        apply_overrides(parse_args([]))
+        assert CFG.SEED == 42
+        apply_overrides(parse_args(["--seed", "7"]))
+        assert CFG.SEED == 7
+    finally:
+        CFG.SEED = saved
+
+
+def test_aug_flag():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    saved = CFG.train.AUG
+    try:
+        apply_overrides(parse_args([]))
+        assert CFG.train.AUG == "flip"
+        apply_overrides(parse_args(["--aug", "rotscale"]))
+        assert CFG.train.AUG == "rotscale"
+        apply_overrides(parse_args(["--aug", "copypaste"]))
+        assert CFG.train.AUG == "copypaste"
+    finally:
+        CFG.train.AUG = saved
+
+
+def test_pseudo_flags():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    saved = CFG.train.PSEUDO_JSON, CFG.train.PSEUDO_IMG_DIR
+    try:
+        apply_overrides(parse_args([]))
+        assert CFG.train.PSEUDO_JSON == "" and CFG.train.PSEUDO_IMG_DIR == ""
+        apply_overrides(parse_args(["--pseudo", "ext/p.json", "--pseudo-images", "ext/img"]))
+        assert (CFG.train.PSEUDO_JSON, CFG.train.PSEUDO_IMG_DIR) == ("ext/p.json", "ext/img")
+    finally:
+        CFG.train.PSEUDO_JSON, CFG.train.PSEUDO_IMG_DIR = saved
+
+
+def test_flip_flag_only_with_dump():
+    from run_pipeline import parse_args
+    assert parse_args(["--step", "dump", "--flip", "hv"]).flip == "hv"
+    assert parse_args(["--step", "dump"]).flip is None
+    with pytest.raises(SystemExit):
+        parse_args(["--step", "train", "--flip", "h"])
+
+
+def test_phase6_notebooks_compile_and_stay_in_own_folder():
+    for name, member in (("colab_phase6_syaz.ipynb", "Syaz"), ("colab_phase6_mirul.ipynb", "Mirul")):
+        cells = _code_cells(name)
+        for src in cells:
+            py = "\n".join(l[:len(l) - len(l.lstrip())] + "pass" if l.lstrip().startswith(("!", "%")) else l
+                           for l in src.splitlines())
+            ast.parse(py)
+        text = "\n".join(cells)
+        assert f'MY_DIR = f"{{DRIVE_DIR}}/Phase 6/{member}"' in text
+    syaz = "\n".join(_code_cells("colab_phase6_syaz.ipynb"))
+    # Run names carry the member prefix, so they never resume or overwrite Kimee's checkpoints
+    assert all(n.startswith("syaz_") for n in re.findall(r'"(\w*r50\w*|\w*probe\w*)"', syaz))
+    mirul = "\n".join(_code_cells("colab_phase6_mirul.ipynb"))
+    assert "--weights" in mirul and "--flip {flip}" in mirul
+
+
+def test_train_all_flag():
+    from config import CFG
+    from run_pipeline import apply_overrides, parse_args
+    try:
+        apply_overrides(parse_args(["--step", "train"]))
+        assert CFG.train.TRAIN_ALL is False
+        apply_overrides(parse_args(["--step", "train", "--train-all"]))
+        assert CFG.train.TRAIN_ALL is True
+    finally:
+        CFG.train.TRAIN_ALL = False
+    # val is part of training, so any step that scores on val must refuse the flag
+    for step in ("val", "sweep", "all", "dump"):
+        with pytest.raises(SystemExit):
+            parse_args(["--step", step, "--train-all"])
+
+
+def test_final_all_notebook():
+    cells = _code_cells("colab_kimee_final_all.ipynb") + _code_cells("colab_kimee_tta_x101.ipynb")
+    for src in cells:
+        py = "\n".join(l[:len(l) - len(l.lstrip())] + "pass" if l.lstrip().startswith(("!", "%")) else l
+                       for l in src.splitlines())
+        ast.parse(py)
+    text = "\n".join(_code_cells("colab_kimee_final_all.ipynb"))
+    trains = re.findall(r"--step train[^\"]*", text)
+    assert trains and all("--train-all" in t and "--label-policy all" in t for t in trains)

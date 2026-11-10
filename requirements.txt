@@ -4,7 +4,7 @@
 # torch / torchvision / numpy are NOT pinned here on purpose: Colab and Kaggle ship
 # a CUDA-matched build and reinstalling it breaks Detectron2's compiled ops.
 # Exact versions of the cloud run are frozen into requirements-lock.txt by
-# notebooks/colab_foundation.ipynb (Step 4); the final release pins that file.
+# notebooks/development/colab_foundation.ipynb (Step 4); the final release pins that file.
 #
 # Detectron2 is built from source (no wheels for recent torch):
 #   pip install --no-build-isolation 'git+https://github.com/facebookresearch/detectron2.git'
