@@ -8,6 +8,8 @@ track M) and **Syaz** (Phase 6 track S). All are new to segmentation: explain in
 2. **Read before answering:** `docs/HANDOVER.md` (whole file), `docs/PHASE6_GUIDE.md` (plain-language task explanations — use its
    wording when explaining), then that person's part of `docs/Project_Phase_Plan.md` → Phase 6
    (Mirul §6.2, Syaz §6.3, shared rules §6.4), and their subsection of `docs/COMPLETED_TASKS.md` (Phase 6).
+   **Since 2026-11-10 the current work is Phase 8 (the final report): `docs/HANDOVER.md` §2b has each member's
+   tasks, the schedule and the report rules. Start every session there.**
 3. **First session for Mirul or Syaz (onboarding):** explain, in this order and briefly:
    (a) the competition and the metric in two or three sentences; (b) the timeline and what Kimee already did
    (`docs/HANDOVER.md` §0.5 and §2, with the current best scores); (c) why Phase 6 exists (gains below the noise);
@@ -79,7 +81,7 @@ Read these first; never re-run work they already record unless the code it depen
 - `docs/HANDOVER.md` — current state, decisions, next steps, gotchas.
 - `experiments/log.csv` — every training/validation run and its scores.
 - `output/eda/eda_summary.json` — EDA numbers (do not recompute).
-- `docs/competition_overview.txt` — saved Kaggle overview page (rules, rubric, deadlines); Kaggle pages cannot be fetched. Summary in `docs/HANDOVER.md` §2b.
+- `docs/competition_overview.txt` — saved Kaggle overview page (rules, rubric, deadlines); Kaggle pages cannot be fetched. Summary in `docs/HANDOVER.md` §3.
 
 Rules:
 - Do NOT re-run past phases (EDA, split, dry run, Kaggle metric check). The frozen split and metric values are final.

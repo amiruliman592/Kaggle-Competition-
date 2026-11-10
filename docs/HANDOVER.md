@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-10 (Kimee, Phase 7: **repo reorganised** — team docs now in `docs/`, saved runs in `results/phaseN/`, phase notebooks in `notebooks/development/` (old → new names: `results/README.md`); **final pick = exp101** (Kaggle allows only 1 final submission); final package done — `src/final_pipeline.py`, `notebooks/full_pipeline.ipynb`, weights in `weights/`; **clean-clone reproduction verified** (val 0.4480, 6.0 s/img, 2.9 GB); left: select exp101 on Kaggle, Phase 8 report. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Last updated 2026-11-10 (Kimee: **Phase 8 = final report, task split for Mirul + Syaz in §2b — start there.** Phase 7: **repo reorganised** — team docs now in `docs/`, saved runs in `results/phaseN/`, phase notebooks in `notebooks/development/` (old → new names: `results/README.md`); **final pick = exp101** (Kaggle allows only 1 final submission); final package done — `src/final_pipeline.py`, `notebooks/full_pipeline.ipynb`, weights in `weights/`; **clean-clone reproduction verified** (val 0.4480, 6.0 s/img, 2.9 GB); left: select exp101 on Kaggle, Phase 8 report. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
 Syaz: **track S finished** — S1–S5 done (training noise ~0.001; 3× schedule, rotations + size changes, copy-paste and self-training all rejected → no recipe change); Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
@@ -78,10 +78,10 @@ Then post in the group chat: **"pushed new version: <what changed>"**. Others ru
 | 3 Pre/post-processing, all-annotator labels (LB 0.35) | Oct 20 | Kimee | done |
 | 4 Native 2048 resolution, X101 (LB 0.37) | Oct 20–21 | Kimee | done |
 | 5 SAM 2 ✗, ensemble ✓ (LB **0.38**), Mask2Former ✗, finer mask head | Oct 21 | Kimee | done |
-| **6 Two-person sprint** (noise, TTA, training recipe, external images) | **Oct 27 – Nov 5** | **Mirul + Syaz** | **next** |
-| Final 2048 runs on A100 with the Phase 6 recipe | after hand-back (target Nov 6–8) | Kimee | planned |
-| 7 Freeze, 3 final submissions, latency, reproduction | Nov 9–11 (code freeze Nov 11) | all | planned |
-| 8 4-page report, pipeline notebook, public repo; Google form | Nov 12–14 (deadline **Nov 15**) | all | planned |
+| 6 Two-person sprint (noise, TTA, training recipe, external images) | Oct 27 – Nov 5 | Mirul + Syaz | done |
+| Final 2048 runs on A100 (all-707 retrain, exp015) + final checks | Nov 4–5 | Kimee | done |
+| 7 Final pick (exp101), weights in repo, clean-clone reproduction, latency, repo cleanup | Nov 10 (code freeze Nov 11) | Kimee | done |
+| **8 4-page report; Google form; repo public** | **Nov 10–14 (deadline Nov 15)** | **all (split in §2b)** | **now** |
 
 ### 0.6 Team Drive folder (Kimee's `solar_filament` folder)
 Kimee shares the folder link **privately in the group chat** ("anyone with the link can edit"). **Never write the link
@@ -322,6 +322,7 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   bootstrap noise check, error budget, speed; ends with a one-minute summary and likely questions with answers.
 >   CPU only (reads `results/`), runs in ~2 min, saved with outputs; recomputes val PQ 0.4480 and checks its
 >   fused masks equal the submitted ones. Example image `20110803164914Mh` (3 annotators).
+> - **Phase 8 task split written (2026-11-10): §2b.** Kimee: K8.0 template link today; Mirul + Syaz set up Overleaf (T8.0); Kimee then frame + assembly.
 > - Next: (1) select the exp101 upload (LB 0.39) as final on Kaggle; (2) code freeze Nov 11 23:59;
 >   (3) Phase 8: 4-page report (Overleaf), repo public, Google form by Nov 14.
 > - `LICENSE` added (MIT, covers our code + weights; README says the competition data and the organisers' metric
@@ -348,6 +349,99 @@ start the A100 run without asking, then tell Kimee in the group chat.
 > - Recipe for the final 2048 run (exact flags): **unchanged** — none of S2–S5 beat exp006 by the 0.010 bar (ablation_table Phase 6 S1–S5). Train as before: m28 `--backbone x101 --resolution 2048 --mask-res 28`, r50 `--resolution 2048` (default `--aug flip`, default schedule, seed 42, no `--pseudo`); then flip TTA h/v/hv + two-stage fusion as exp101. Not worth it: 3× schedule (S2), `--aug rotscale` (S3), `--aug copypaste` (S4, more FPs), `--pseudo` (S5). (Syaz)
 > - Pseudo-labels: team Drive `external/pseudo_labels_v1.json` + images `external/external_images_v1.zip` (2,098 images, 9,671 masks, m28 thr 0.85; archive photos check val 0.4378 vs 0.4355), verdict from S5: **not useful as is** — exp205 −0.0022 [−0.011, +0.005] vs exp006; the model gets more cautious (FP 473 vs 617 but TP 941 vs 1003 at thr 0.6), probably because thr 0.85 leaves faint filaments unlabelled. A lower pseudo-label threshold was not tried.
 > - Open problems: (M4, exp101) confidence on medium filaments — 282 true filaments scored < 0.6 (233 medium, ≤ +0.072); El Teide weakest station (0.418, most real FPs); ablation_table Phase 6 M4. …
+
+## 2b. Phase 8 — final report (Nov 10–15) — START HERE, Mirul and Syaz
+**Goal:** a 4-page technical report (the competition's Overleaf template, PDF) that the judges use for the 30%
+qualitative score and to read our 70% quantitative results. It goes in the Google form with the repo link.
+**Hard deadline: Sun Nov 15. Our deadline: form submitted Sat Nov 14**, one day early.
+
+**Who does what (in one line):** Mirul and Syaz first set up the Overleaf template and read its rules (T8.0). Then
+Mirul writes **experiments and results** and makes the rubric plots; Syaz writes **data and method** and makes the
+pipeline figure and the example-masks figure; Kimee writes the frame (abstract, introduction, conclusion), cuts the
+text to 4 pages and submits.
+
+### What the judges look for (from `competition_overview.txt`), and who covers it
+| Rubric item | Where in the report | Owner |
+|---|---|---|
+| 70%: mean Dice (torchmetrics `DiceScore`), PQ | Results table | Mirul |
+| 70%: distribution of Dice scores, distribution of IoU scores | Two histograms (one figure) | Mirul |
+| 70%: distribution of one-to-many and many-to-one relations between ground truth and predictions | Counts table or small bar chart | Mirul |
+| 30%: detailed description of the whole pipeline, including the architecture | Method section + pipeline figure | Syaz |
+| 30%: how the predicted masks look on H-alpha images | Example-masks figure | Syaz |
+| 30%: code quality | One paragraph + repo link (README guide, notebooks, tests) | Syaz |
+| The report must document preprocessing, architecture, training, post-processing (overview, prize rules) | Method section | Syaz |
+
+### The tasks
+**First, both together — T8.0: the Overleaf template (Tue Nov 10 evening / Wed Nov 11 morning, ~30 min)**
+The competition requires its own Overleaf template ("More details about the content of this report are provided in
+the template", `competition_overview.txt`). Kimee posts the template link in the group chat; it is not in the repo.
+| # | Who | Task | Done when |
+|---|---|---|---|
+| T8.0a | Syaz | Open the template link → *Open as Template* (or *Copy project*) in your Overleaf account; name it `Solar Filament 2026 report`; *Share* → invite Kimee and Mirul as editors. Add two files, `sec_data_method.tex` (Syaz) and `sec_results.tex` (Mirul), and `\input` them in the main file | Both others can edit; the template compiles to a PDF |
+| T8.0b | Mirul + Syaz | Read **all** instructions in the template (comments, example text, the PDF it produces). Note: required sections and their order, page limit, **whether references count in the page limit**, font / column rules, figure and table rules, anything it asks us to report | The answers are written below in "What the template requires" |
+| T8.0c | Mirul + Syaz | Map the template's sections onto the split below. If the template names sections we do not cover, or our sections do not fit its order, move the tasks and say so in the group chat | Every template section has an owner; Kimee has seen the change |
+
+**What the template requires** (filled in by Mirul and Syaz after T8.0b):
+- Required sections, in order: …
+- Page limit, and whether references count: …
+- Other rules (format, figures, anonymity, …): …
+- Changes to the split below: …
+
+**Syaz (Syazani Akmal) — Data and Method, about 1.3 pages**
+| # | Task | Use | Done when |
+|---|---|---|---|
+| S8.1 | **Data** (~0.3 page): GONG H-alpha, 707 train / 180 test, 2048×2048; 296 files labelled 2–3 times and how we use every set as a training sample; the frozen split (566/141, 27-day blocks) and why (no same-day leakage); inter-annotator PQ 0.336 | `docs/HANDOVER.md` §5, story notebook ch. 2 | Every number has its source file noted in a LaTeX comment |
+| S8.2 | **Method** (~0.8 page): Mask R-CNN (X101-FPN with 56×56 mask head + R50-FPN, COCO-pretrained, Detectron2), anchors 8–128 px and aspect ratios 0.2–5, native 2048 without tiling; training recipe (921 samples, 6,000 its, batch 2, LR 0.0025, flips + brightness/contrast, seed 42); flip TTA (4 views); two-stage fusion (views: IoU 0.5 union, models: IoU 0.3 intersection, mean score with missing = 0); post-processing (closing 5, score ≥ 0.6, area ≥ 50, overlap removal with 20% drop) | `README.md` "The final pipeline", `src/final_pipeline.py` header, `src/config.py`, story notebook ch. 4, 7–9 | A reader could rebuild the pipeline from the text alone |
+| S8.3 | **Figure 1, pipeline diagram** (full width): image → 2 models × 4 views → fusion 1 → fusion 2 → clean-up → CSV | Story notebook ch. 4 (style) | Vector PDF in `docs/report/figures/fig_pipeline.pdf`, readable at print size |
+| S8.4 | **Figure 2, example masks**: 2–3 validation crops, columns = image, annotator, our masks (hits / false alarms / misses coloured); include one hard case | Story notebook ch. 10 (code to copy) | PNG/PDF in `docs/report/figures/`, made by a script in `docs/report/` |
+| S8.5 | **Implementation and reproducibility** (~0.2 page): repo link, weights in the repo, `notebooks/full_pipeline.ipynb`, clean-clone result (val 0.4480 again; 6.0 s/image, 2.9 GB on an L4), tests | `results/phase7/final_run/`, `README.md` | Contains the repo URL and the one-line run instruction |
+
+**Mirul (Amirul Iman) — Experiments and Results, about 1.5 pages**
+| # | Task | Use | Done when |
+|---|---|---|---|
+| M8.1 | **Rubric numbers for the final pipeline (exp101) on val**: mean Dice (samplewise, our logged value 0.6520), PQ / SQ / RQ, TP / FP / FN; **Dice and IoU distributions** (histograms over matched pairs); **one-to-many and many-to-one counts** (`evaluate.py` already counts fragmented GT and merged predictions) | `results/phase6/Mirul/raw_preds_tta2_m28_r50_val.json.gz`, `src/evaluate.py` (`official_dice`, `match_image`), `final_pipeline.postprocess` | One small CPU script in `docs/report/`, its numbers saved as JSON in `results/phase8/Mirul/`, figure in `docs/report/figures/`. **Run this first (Wed Nov 11)**: Kimee and Syaz need the numbers |
+| M8.2 | **Evaluation protocol** (~0.25 page): official PQ pools every annotator set; ours equals the organisers' notebook (0.3296); Dice settings; why val ≈ LB + 0.05; paired bootstrap → gains under ~0.010 are noise | `SelfEvaluationResult/FINDINGS.md`, `docs/HANDOVER.md` §3 and §6, story notebook ch. 12 | Explains why we chose on val, not on the LB |
+| M8.3 | **Table 1, the journey**: baseline → all annotators → 2048 → X101 → ensemble → final, with val PQ, Dice and LB | `experiments/log.csv`, story notebook ch. 11 | Same numbers as `README.md` "How we got here" |
+| M8.4 | **Table 2, what did not work** (short): CLAHE + disk mask, SAM 2, Mask2Former, 3× schedule, rotations, copy-paste, self-training, 3rd model, re-scoring, all-707 retrain — one line each with the number | `experiments/ablation_table.md`, story notebook ch. 11 | Each row has a val number and a one-phrase reason |
+| M8.5 | **Error analysis** (~0.3 page): error budget of exp101 (282 low-score hits, real FPs, never found, 190 FPs drawn by another annotator), per size and per station, small filaments | `results/phase6/Mirul/error_budget_exp101.json`, story notebook ch. 13 | Ends with the main limitation (confidence near the cut-off) |
+| M8.6 | **Runtime**: 6.0 s/image median, 8.2 s p95, 18 min for 180 images, 2.9 GB peak (L4); training on A100 | `results/phase7/final_run/report_test.json` | One sentence or a small table |
+
+**Kimee (Shamsul Hakimee) — frame and final assembly, about 0.9 page**
+| # | Task | Done when |
+|---|---|---|
+| K8.0 | **Today (Tue Nov 10):** post the competition's Overleaf **template link** in the group chat (never in the repo); accept Syaz's Overleaf invite (T8.0a) | Mirul and Syaz have the link |
+| K8.1 | **Abstract** (~150 words) and **Introduction** (~0.5 page): filaments and space weather, the task, PQ in one formula, label noise (0.336), our three ideas in one sentence each, the headline numbers | — |
+| K8.2 | **Conclusion and limitations** (~0.25 page): what worked, what did not, the confidence problem, what we would do next | — |
+| K8.3 | **Fri Nov 13:** merge, cut to 4 pages, check every number against the repo, references | PDF fits the template's page limit |
+| K8.4 | **Sat Nov 14:** final PDF, Google form (report PDF, repo URL, full names of all three), repo public and `main` up to date | Confirmation saved |
+
+### Schedule
+| Day | Who | What |
+|---|---|---|
+| Tue Nov 10 | Kimee | K8.0: template link + this plan in the group chat |
+| Tue Nov 10 – Wed Nov 11 morning | Mirul + Syaz | **T8.0 template: Overleaf project (Syaz), template rules read and written into §2b (both)** |
+| Wed Nov 11 | Mirul | M8.1 rubric numbers and plots done **(code freeze 23:59: no change to `src/` after this; scripts in `docs/report/` are fine)** |
+| Wed Nov 11 – Thu Nov 12 | all | First drafts of every section and figure in Overleaf, **by Thu 23:59** |
+| Fri Nov 13 | Mirul ↔ Syaz | Read each other's section; check that the numbers in it are in the repo. Kimee assembles and cuts to 4 pages |
+| Sat Nov 14 | Kimee | Final PDF, Google form, public repo |
+| Sun Nov 15 | — | Buffer only (official deadline) |
+
+### Rules for the report
+- **Every number comes from a file in the repo.** Put the source in a LaTeX comment next to it
+  (`% results/phase7/final_run/report_val.json`). Report validation numbers as *official PQ on the frozen 141-file
+  split*, and the LB as *public leaderboard, ~50% of test*.
+- **Use the full names** in the author list (Shamsul Hakimee, Amirul Iman, Syazani Akmal); short names stay in file names.
+- **Figures:** save them in `docs/report/figures/`, made by a script in `docs/report/` (so they can be remade).
+  Do not commit the Overleaf link anywhere in the repo.
+- **Rule 2.8b:** AI tools are allowed, but every one of us must be able to explain each part. Read
+  `notebooks/pipeline_story.ipynb` once before writing; its "Say it like this" lines and chapter 15 answers are a
+  safe starting wording.
+- Write only in your own section file in Overleaf; leave comments for the others rather than editing their text.
+
+### Phase 8 status (each member updates their own line)
+- **Kimee** — 2026-11-10: plan written. Next: K8.0 (post the template link).
+- **Mirul** — not started. Next: T8.0b–c (template rules, with Syaz), then M8.1 (Wed Nov 11).
+- **Syaz** — not started. Next: T8.0a (Overleaf project from the template), T8.0b–c (with Mirul), then S8.1–S8.3.
 
 ## 3. Competition rules & metric (sources: `competition_overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
