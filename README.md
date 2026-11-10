@@ -6,7 +6,8 @@ Instance segmentation of solar filaments in 2048 × 2048 GONG H-alpha images
 **Final submission: validation PQ 0.4480, Dice 0.6520 · public leaderboard 0.39.**
 For reference, two human annotators of the same image agree at PQ ≈ 0.336.
 
-Team: Kimee (lead), Mirul, Syaz.
+Team: **Shamsul Hakimee** (lead), **Amirul Iman**, **Syazani Akmal**.
+In folder names, run names and working notes we use our short names: Kimee, Mirul and Syaz.
 
 ## Guide for reviewers: where to find what
 

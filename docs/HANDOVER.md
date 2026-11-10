@@ -13,9 +13,9 @@ Read this first in a new session, then `CLAUDE.md`, `COMPLETED_TASKS.md` (everyt
 ### 0.1 Who is who
 | Person | Role | Phase 6 track |
 |---|---|---|
-| **Kimee** (GitHub `shamsulhakimee`) | Lead; built Phases 0–5. On a break during Phase 6; comes back **when both Phase 6 tracks are finished** for the final A100 run | — |
-| **Mirul** (GitHub `amiruliman592`, repo owner) | Track M: analysis, test-time flips, external images | `Project_Phase_Plan.md` §6.2 (M1–M4) |
-| **Syaz** | Track S: training recipe on T4 | `Project_Phase_Plan.md` §6.3 (S1–S5) |
+| **Kimee** = Shamsul Hakimee (GitHub `shamsulhakimee`) | Lead; built Phases 0–5. On a break during Phase 6; comes back **when both Phase 6 tracks are finished** for the final A100 run | — |
+| **Mirul** = Amirul Iman (GitHub `amiruliman592`, repo owner) | Track M: analysis, test-time flips, external images | `Project_Phase_Plan.md` §6.2 (M1–M4) |
+| **Syaz** = Syazani Akmal | Track S: training recipe on T4 | `Project_Phase_Plan.md` §6.3 (S1–S5) |
 
 Team chat = the group chat. Every push is announced there.
 

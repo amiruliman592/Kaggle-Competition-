@@ -14,8 +14,8 @@ can be recomputed without a GPU.
 | `phase5/step1/` | SAM 2 mask refinement (rejected) | exp009 |
 | `phase5/step1b/` | First ensemble: X101 + R50 | exp010 |
 | `phase5/step2/` | `x101_2048_m28` (a final model), Mask2Former (rejected), ensembles | exp011–013 |
-| `phase6/Mirul/` | Noise check (bootstrap), error budgets, **flip views and fused predictions of the final submission** | exp101 |
-| `phase6/Syaz/` | Training-recipe trials: second seed, longer schedule, rotations, copy-paste, self-training | exp201–205 |
+| `phase6/Mirul/` (Amirul Iman) | Noise check (bootstrap), error budgets, **flip views and fused predictions of the final submission** | exp101 |
+| `phase6/Syaz/` (Syazani Akmal) | Training-recipe trials: second seed, longer schedule, rotations, copy-paste, self-training | exp201–205 |
 | `phase7/` | Third ensemble member (rejected), models trained on all 707 files (`code_b/`, `phase7b/`), 4-model fusion (`final4/`), re-scoring (`rescore/`) | exp014–016 |
 | `phase7/final_run/` | **Final submission CSV and the clean-clone reproduction run** | exp101 |
 
