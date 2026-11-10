@@ -1,251 +1,95 @@
-# 🌞 Solar Filament Instance Segmentation (Kaggle 2026)
+# Solar Filament Instance Segmentation — Kaggle 2026
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-ee4c2c.svg)](https://pytorch.org/)
-[![Detectron2](https://img.shields.io/badge/Detectron2-v0.6-brightgreen.svg)](https://github.com/facebookresearch/detectron2)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+Instance segmentation of solar filaments in 2048 × 2048 GONG H-alpha images
+(Solar Filament Segmentation Challenge 2026, MAGFiLO 1.0 data). Metric: Panoptic Quality (PQ = SQ × RQ).
 
-An end-to-end instance segmentation pipeline designed for the **Solar Filament Segmentation Challenge 2026**. This repository implements a full Detectron2 (Mask R-CNN ResNet-50 FPN) baseline with customized anchor scales, solar disk masking, competition-exact RLE encoding, and local Panoptic Quality (PQ) offline evaluation.
+**Final submission (exp101): val official PQ 0.4480, Dice 0.6520 · public LB 0.39.**
+For reference, two human annotators of the same image agree at PQ ≈ 0.336.
 
----
+## Reproduce the final submission
 
-## 📌 Table of Contents
+Everything is in this repo: code, data, frozen split and **model weights** (`weights/`, split into < 100 MB parts).
 
-- [Competition Summary](#-competition-summary)
-- [Project Architecture](#-project-architecture)
-- [Quick Start Guide](#-quick-start-guide)
-  - [Option A: Google Colab Pro / Kaggle GPU (Recommended)](#option-a-google-colab-pro--kaggle-gpu-recommended)
-  - [Option B: Local Machine (EDA & Offline Evaluation)](#option-b-local-machine-eda--offline-evaluation)
-  - [Option C: WSL2 / Linux GPU](#option-c-wsl2--linux-gpu)
-- [Pipeline Usage](#-pipeline-usage)
-- [Module Overview](#-module-overview)
-- [Evaluation & Metric](#-evaluation--metric)
-- [Submission Format](#-submission-format)
-- [Next Steps & Team Roadmap](#-next-steps--team-roadmap)
-- [Contributing Guidelines](#-contributing-guidelines)
+**Colab (recommended):** open [`notebooks/full_pipeline.ipynb`](notebooks/full_pipeline.ipynb), choose a GPU runtime
+(T4 is enough), Run all. It clones the repo, installs Detectron2, joins and checks the weights (SHA-256), predicts
+the 180 test images, writes and validates `submissions/submission_final.csv`, compares it with the submitted
+predictions, scores the val split and shows example masks.
 
----
-
-## 🔬 Competition Summary
-
-| Item | Details |
-|---|---|
-| **Goal** | Segment individual solar filaments from ground-based GONG $H\alpha$ images |
-| **Primary Metric** | **Panoptic Quality (PQ = SQ × RQ)** |
-| **Image Resolution** | Fixed $2048 \times 2048$ pixels (JPEG) |
-| **Dataset Size** | 707 training images (8,199 filament instances), 180 test images |
-| **Key Challenges** | Fine barb threads, background atmospheric noise, filament fragmentation, extreme size variations (9 px² to 37,000+ px²) |
-
----
-
-## 🗂️ Project Architecture
-
-```text
-Solar_Filament_Kaggle/
-├── .gitignore                          # Ignores __pycache__, checkpoints, output/
-├── requirements.txt                    # Project dependencies
-├── run_pipeline.py                     # Master CLI runner (EDA, Train, Inference)
-├── Solar_Filament_Segmentation_Plan.md # In-depth strategic team plan & roadmap
-├── filament-segmentation-2026/         # Dataset directory (Kaggle format)
-│   └── MAGFiLO_1.0_Kaggle_2026/
-│       ├── train/
-│       │   ├── train_images/
-│       │   └── MAGFiLO_1.0_Annotations_kaggle2026_train.json
-│       └── test/
-│           └── test_images/
-├── src/                                # Core codebase
-│   ├── __init__.py
-│   ├── config.py                       # Centralized hyperparameters & paths
-│   ├── dataset.py                      # COCO JSON loader, solar disk mask, train/val split
-│   ├── eda.py                          # Exploratory data analysis & visualizations
-│   ├── train.py                        # Detectron2 Mask R-CNN training & evaluator
-│   ├── evaluate.py                     # Offline PQ, SQ, RQ, Dice, and IoU evaluator
-│   ├── inference.py                    # Test inference & pycocotools RLE generator
-│   └── visualize.py                    # Qualitative prediction overlay visualizer
-└── output/                             # Auto-generated checkpoints, EDA plots, submission.csv
-```
-
----
-
-## ⚡ Quick Start Guide
-
-### Option A: Google Colab Pro / Kaggle GPU (Recommended)
-
-Since Detectron2 requires CUDA C++ compilation and model training benefits greatly from an A100 or T4/P100 GPU:
-
-1. Clone or upload this repository to Google Drive / Colab or Kaggle:
-   ```bash
-   git clone <REPO_URL>
-   cd Solar_Filament_Kaggle
-   ```
-
-2. Run the full automated pipeline with the `--colab` flag:
-   ```bash
-   python run_pipeline.py --colab --step all
-   ```
-   This will:
-   - Install required dependencies and Detectron2.
-   - Run Exploratory Data Analysis (EDA) and save plots to `output/eda/`.
-   - Train the Mask R-CNN model on the 80/20 train/val split.
-   - Run inference across all 180 test images.
-   - Export `output/submission.csv` ready for Kaggle submission.
-
----
-
-### Option B: Local Machine (EDA & Offline Evaluation)
-
-You can run EDA, inspect datasets, and calculate metrics locally without needing GPU/Detectron2:
-
-1. Create and activate a virtual environment (Python 3.10 recommended):
-   ```powershell
-   conda create -n solar_filament python=3.10 -y
-   conda activate solar_filament
-   ```
-
-2. Install core visualization and data processing packages:
-   ```powershell
-   pip install -r requirements.txt
-   ```
-
-3. Run EDA:
-   ```powershell
-   python src/eda.py
-   ```
-
----
-
-### Option C: WSL2 / Linux GPU
-
-If training locally on Windows with an NVIDIA GPU, use WSL2 (Ubuntu):
-
+**Any Linux machine with a CUDA GPU:**
 ```bash
-# 1. Install PyTorch with matching CUDA (e.g., cu121)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-
-# 2. Install Detectron2 from official GitHub
-pip install 'git+https://github.com/facebookresearch/detectron2.git'
-
-# 3. Install other dependencies
+git clone <this repo> && cd <repo>
 pip install -r requirements.txt
-
-# 4. Run pipeline
-python run_pipeline.py --step all
+pip install --no-build-isolation 'git+https://github.com/facebookresearch/detectron2.git@1e3e13bbf607b54f62205c4c33922521822fb298'
+python src/weights_io.py unpack --dir weights                       # join parts, check SHA-256
+python src/final_pipeline.py predict --split test --out submissions/submission_final.csv
+python src/final_pipeline.py predict --split val                    # official PQ + Dice on the frozen val split
 ```
+Exact package versions of our runs: `requirements-lock.txt` (Python 3.13, torch 2.11 + CUDA 13.0, Detectron2 `1e3e13b`).
 
----
+## Final pipeline (`src/final_pipeline.py`)
 
-## 🚀 Pipeline Usage
-
-[run_pipeline.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/run_pipeline.py) provides flexible stage-by-stage execution via `--step`:
-
-```bash
-# Setup dependencies (Colab)
-python run_pipeline.py --step setup
-
-# Step 1: Run Exploratory Data Analysis (generates figures in output/eda/)
-python run_pipeline.py --step eda
-
-# Step 2: Train Mask R-CNN baseline
-python run_pipeline.py --step train
-
-# Step 3: Run inference on test images & generate output/submission.csv
-python run_pipeline.py --step infer
-
-# Run all steps sequentially
-python run_pipeline.py --step all
-```
-
-**External unlabelled images (Phase 6 M3, self-training):** public NSO GONG H-alpha JPEGs (`gong2.nso.edu/HA/hag`),
-no external labels; days of val time blocks and test days ±1 are excluded. Reproduce with
-`src/external/download_gong.py` (frame list in `external/manifest.csv`) and `src/external/make_pseudo_labels.py`
-(masks drawn by our own model); notebook `notebooks/colab_phase6_mirul_m3.ipynb`.
-
----
-
-## 🧩 Module Overview
-
-### 1. Central Configuration ([src/config.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/src/config.py))
-Stores all parameters in a clean `@dataclass Config` instance (`CFG`):
-- **Image Resolution**: Native $(2048, 2048)$, resized to $(1024, 1024)$ during training for memory efficiency.
-- **Model Backbone**: `mask_rcnn_R_50_FPN_3x`.
-- **Anchor Tuning**: Fine-scale anchors `[[8], [16], [32], [64], [128]]` specifically configured for thin and small filament instances (down to 9 px²).
-- **Hyperparameters**: Base LR $0.0025$, batch size $2$, max iterations $3000$, evaluation period $500$.
-
-### 2. Dataset Preparation ([src/dataset.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/src/dataset.py))
-- Reads the COCO-formatted `MAGFiLO_1.0_Annotations_kaggle2026_train.json`.
-- Implements `get_train_val_split()` with reproducible random seeding.
-- Provides `create_solar_disk_mask()` using Hough Circle / Otsu thresholding to mask out space noise outside the solar perimeter.
-- Registers standard Detectron2 dataset catalogs (`filament_train`, `filament_val`).
-
-### 3. Exploratory Data Analysis ([src/eda.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/src/eda.py))
-Generates:
-- `output/eda/sample_ground_truth.png`: Bounding boxes and instance contours overlaid on original solar disks.
-- `output/eda/area_distribution.png`: Log-scale filament area distributions.
-- `output/eda/filaments_per_image.png`: Instance density per image (averaging ~7.1 filaments/image).
-- `output/eda/category_distribution.png`: Left, Right, Unidentifiable, and Ambiguous breakdowns.
-
-### 4. Training Engine ([src/train.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/src/train.py))
-- Custom `FilamentTrainer` subclassing Detectron2's `DefaultTrainer`.
-- Custom `DatasetMapper` integrating random horizontal/vertical flips and resize transforms.
-- Periodic COCO evaluation on the validation set with automated checkpoint saving in `output/`.
-
-### 5. Offline Evaluation ([src/evaluate.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/src/evaluate.py))
-Enables local metric tracking without burning Kaggle daily submission limits:
-- Implements exact competition **Panoptic Quality (PQ)**:
-  $$\text{PQ} = \text{SQ} \times \text{RQ}$$
-  $$\text{SQ} = \frac{\sum_{(p, g) \in \text{TP}} \text{IoU}(p, g)}{|\text{TP}|}, \quad \text{RQ} = \frac{|\text{TP}|}{|\text{TP}| + \frac{1}{2}|\text{FP}| + \frac{1}{2}|\text{FN}|}$$
-- Computes Mean Dice and IoU statistics across all validation images.
-
-### 6. Inference & Submission ([src/inference.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/src/inference.py))
-- Loads the trained model weights.
-- Processes all 180 test images.
-- Scales masks back to native $2048 \times 2048$ resolution.
-- Applies `pycocotools.mask.encode(np.asfortranarray(mask))['counts']`.
-- Exports `output/submission.csv` strictly compliant with competition formatting.
-
----
-
-## 📊 Submission Format
-
-The submission file matches the official Kaggle requirement:
-
-| `filament_id` | `segmentation_rle` |
+| Step | What |
 |---|---|
-| `20150125172714Mh_1` | `f8uSDds...VQNC` |
-| `20150125172714Mh_2` | `KHT%$HD...9>km` |
+| Input | Test image only, native 2048 × 2048, no tiling, no pre-processing |
+| Models | Mask R-CNN **X101-FPN with a 56 × 56 mask head** + Mask R-CNN **R50-FPN**, both trained at 2048 (Detectron2, COCO init) |
+| Training | Every annotator set of the 566 train files is its own sample (921 samples); 6,000 its, batch 2, LR 0.0025, h/v flips + brightness/contrast; anchors 8–128 px, aspect ratios 0.2–5 |
+| Test-time augmentation | Each model predicts the original + horizontal, vertical and double flip (masks flipped back) |
+| Fusion 1 (per model) | 4 views: IoU ≥ 0.5 = same filament, mask = union, score = mean over views |
+| Fusion 2 (models) | IoU ≥ 0.3, mask = intersection, score = mean over the 2 models |
+| Post-processing | Closing (5 px), score ≥ 0.6, area ≥ 50 px², overlaps removed (higher score wins; > 20 % covered → dropped) |
+| Output | `filament_id,segmentation_rle` (COCO RLE counts), checked by `src/validate_submission.py` |
 
-- `filament_id`: `{image_name_without_extension}_{instance_index}` (1-indexed).
-- `segmentation_rle`: pycocotools RLE counts string.
-- Empty predictions for an image are omitted; images with multiple filaments have multiple rows.
+## How we got here (val official PQ on 141 held-out files; public LB)
 
----
+| Step | Val PQ | LB |
+|---|---|---|
+| Mask R-CNN R50, 1024 px (baseline) | 0.3905 | 0.34 |
+| + overlap rule, all annotator sets as training samples | 0.3979 | 0.35 |
+| + native 2048 resolution (R50 / X101) | 0.4231 / 0.4264 | 0.36 / 0.37 |
+| + ensemble X101 + R50 | 0.4366 | 0.38 |
+| + finer mask head, flip TTA, two-stage fusion (**final**) | **0.4480** | **0.39** |
 
-## 🗺️ Next Steps & Team Roadmap
+Tried and rejected (all numbers in [`experiments/ablation_table.md`](experiments/ablation_table.md) and
+[`experiments/log.csv`](experiments/log.csv)): CLAHE + solar-disk masking, SAM 2 mask refinement, Mask2Former
+(Swin-S), longer schedule, 90° rotations + zoom, copy-paste of filaments, self-training on 2,098 external GONG
+images, a third ensemble member, learned re-scoring. A paired bootstrap on val showed that gains below ~0.010 PQ
+are noise, so only larger gains were kept.
 
-Collaborators looking to push leaderboard score can focus on the prioritized tasks below:
+## Validation
 
-1. **Post-Processing Optimization (High Impact / Easy)**:
-   - **Fragmentation Fix**: Filaments often break into multiple pieces, which severely hurts Recognition Quality (RQ). Implement morphological closing (`cv2.morphologyEx`) or proximity clustering to merge fragments.
-   - **Small Blob Filtering**: Filter out tiny artifact predictions $< 30\text{ px}^2$ to eliminate false positives.
-   - **Disk Mask Filtering**: Discard any prediction centered outside the solar disk radius.
-2. **2048×2048 Tiling & Stitching (Medium Impact)**:
-   - Instead of resizing $2048 \to 1024$ (which loses thin filament barbs), train on overlapping $1024 \times 1024$ patches with stride $512$ and stitch with Non-Maximum Suppression (NMS).
-3. **Model Upgrades**:
-   - Experiment with **Mask2Former** (SOTA on instance segmentation).
-   - Test **YOLOv8x-seg / YOLOv11-seg** for rapid iteration.
-   - Evaluate zero-shot prompt-based segmentation with **SAM2**.
-4. **Test-Time Augmentation (TTA)**:
-   - Horizontal and vertical flip averaging during inference for an easy $+0.01\sim 0.02$ boost in PQ.
+- Frozen split [`splits/val_ids.json`](splits/val_ids.json): 566 / 141 files in 27-day time blocks (no same-day leakage).
+- `src/evaluate.py` implements the official metric (every annotator set scored and pooled); it matches the
+  organisers' self-evaluation notebook exactly (0.3296 = 0.3296, `SelfEvaluationResult/FINDINGS.md`).
+- Dice: torchmetrics `DiceScore`, samplewise.
+- 296 of the 707 training files were annotated 2–3 times; `src/annotations.py` handles the duplicate entries.
 
----
+## Repository layout
 
-## 👥 Contributing Guidelines
+```
+src/final_pipeline.py      final submission pipeline (GPU) + submission comparison
+src/weights_io.py          weights stored in the repo (pack / unpack + SHA-256)
+src/train.py, dataset.py   Detectron2 training (config: src/config.py, CLI: run_pipeline.py)
+src/inference.py           prediction, incl. flipped views
+src/ensemble.py            mask fusion of models / views (CPU)
+src/postprocess.py         closing, score / area cut, overlap removal (CPU)
+src/evaluate.py            official PQ + Dice
+src/bootstrap.py           paired bootstrap (noise threshold)
+src/error_budget.py        where PQ is lost (by error type, size, station)
+weights/                   final model weights (parts + manifest.json)
+filament-segmentation-2026/  competition data
+splits/                    frozen train/val split
+notebooks/                 Colab notebooks of every phase; full_pipeline.ipynb = final
+Result */                  saved raw predictions of every run (scoring and fusion run on CPU from these)
+experiments/               experiment log + ablation tables
+tests/                     pytest suite (python -m pytest tests)
+```
 
-1. **Branching**:
-   - Create a feature branch: `git checkout -b feature/<your-name>-<feature-description>` (e.g. `feature/ali-morphological-postproc`).
-2. **Keep Configs Centralized**:
-   - Avoid hardcoding parameters in individual scripts; add new hyperparameters to [src/config.py](file:///c:/Users/User/Downloads/Solar_Filament_Kaggle/src/config.py).
-3. **Commit Cleanly**:
-   - Do **NOT** commit trained weights (`*.pth`), large outputs, or local virtual environments (handled by `.gitignore`).
-4. **Evaluate Before Submitting**:
-   - Always run `python src/evaluate.py` to confirm your local validation PQ improves before generating a new `submission.csv`.
+## Rules we followed
+
+Only the test images are used at inference (no file-name time or station, no neighbouring frames). No external
+labels (MAGFiLO masks, filament catalogues). External unlabelled GONG images were tried for self-training only
+(host-approved, no day within ±1 of a test image) and are **not** used in the final model.
+
+## Team
+
+Kimee (lead), Mirul, Syaz.
