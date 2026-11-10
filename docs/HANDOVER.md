@@ -316,6 +316,12 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   Paths updated in code, tests, notebooks, docs and `experiments/log.csv`; files inside `results/` keep their
 >   recorded contents (old names in old logs). Submitted CSV added: `results/phase7/final_run/submission_exp101.csv`.
 >   **Mirul, Syaz: after `git pull origin Dev` your result folders are `results/phase6/<Name>/`.**
+> - **`notebooks/pipeline_story.ipynb` (2026-11-10):** the pipeline as a story in 15 chapters, for the team to
+>   understand and explain (rule 2.8b) and for the report's figures: task, label noise, PQ, Mask R-CNN, one model's
+>   scores, 2048 vs 1024, four views, two models, clean-up, result per annotator, journey chart, failed ideas,
+>   bootstrap noise check, error budget, speed; ends with a one-minute summary and likely questions with answers.
+>   CPU only (reads `results/`), runs in ~2 min, saved with outputs; recomputes val PQ 0.4480 and checks its
+>   fused masks equal the submitted ones. Example image `20110803164914Mh` (3 annotators).
 > - Next: (1) select the exp101 upload (LB 0.39) as final on Kaggle; (2) code freeze Nov 11 23:59;
 >   (3) Phase 8: 4-page report (Overleaf), repo public, Google form by Nov 14.
 > - `LICENSE` added (MIT, covers our code + weights; README says the competition data and the organisers' metric

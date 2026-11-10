@@ -16,6 +16,7 @@ the **model weights**. Nothing is downloaded from anywhere else except Python pa
 
 | If you want to… | Open | Notes |
 |---|---|---|
+| **Understand the method step by step** | [`notebooks/pipeline_story.ipynb`](notebooks/pipeline_story.ipynb) | A plain-language walk through the pipeline, with pictures of each step on a real validation image and every number recomputed from the saved predictions. Runs on a laptop without a GPU in about 2 minutes. |
 | **See the whole pipeline run, with results** | [`notebooks/full_pipeline.ipynb`](notebooks/full_pipeline.ipynb) | Start here. The notebook is saved with the outputs of our own clean-clone run, so you can read the results without running it. To run it yourself: Colab, GPU runtime, "Run all" (about 45 minutes). |
 | **Read the final pipeline code** | [`src/final_pipeline.py`](src/final_pipeline.py) | One file, about 200 lines: 2 models × 4 flipped views → fusion → post-processing → CSV. The header comment lists every step and setting. |
 | **Find the model weights** | [`weights/`](weights/) | 2 models, stored as parts under 100 MB with a SHA-256 manifest. [`src/weights_io.py`](src/weights_io.py) joins and checks them. |
@@ -127,6 +128,7 @@ setup_local.ps1 / .sh        one-command CPU setup for a laptop (scoring, fusion
 
 notebooks/
   full_pipeline.ipynb        FINAL: the whole pipeline from a clean clone, saved with outputs
+  pipeline_story.ipynb       the method explained step by step, with pictures (CPU, ~2 min)
   development/               Colab notebooks of each project phase (history)
 
 src/
