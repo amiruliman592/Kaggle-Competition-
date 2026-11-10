@@ -409,8 +409,8 @@ start the A100 run without asking, then tell Kimee in the group chat.
   then compile-check every notebook cell.
 - "Could not find cuda drivers" in Colab logs comes from TensorFlow, not PyTorch — harmless.
 - Colab ships two OpenCV builds (same `cv2`); harmless.
-- Lecture notes (`lecturenotesMachineVision/`, in `.gitignore` — the repo must go public) were reviewed; method
-  verdicts are in `Project_Phase_Plan.md` §14. Only on Kimee's laptop.
+- Lecture notes were reviewed; method verdicts are in `Project_Phase_Plan.md` §14. The notes themselves are not in
+  the repo and never were (2026-11-10: moved out of the project folder on Kimee's laptop; do not copy them back).
 - Kimee's laptop only: Avast intercepts Python HTTPS (`CERTIFICATE_VERIFY_FAILED`); download with `curl` instead.
   Kimee also has a local alias `git cm "msg"` (not in the repo).
 - Never list/read the image folders or print the 48 MB annotation JSON (CLAUDE.md token rules).

@@ -56,6 +56,3 @@ submissions/*.csv
 
 # Preprocessed image cache (regenerable)
 preprocessed/
-
-# Course lecture notes (local reference only, not part of the public repo)
-lecturenotesMachineVision/
