@@ -119,6 +119,7 @@ below about 0.010 PQ are noise, so only larger gains were kept. All numbers are 
 
 ```
 README.md                    this guide
+LICENSE                      MIT licence for our code and trained weights
 requirements.txt             Python packages (requirements-lock.txt = exact versions of our runs)
 run_pipeline.py              command-line entry for training and single-model prediction
 setup_local.ps1 / .sh        one-command CPU setup for a laptop (scoring, fusion and tests need no GPU)
@@ -158,3 +159,11 @@ Only the test images are used at inference: no time or station from the file nam
 external labels were used (no MAGFiLO masks, no filament catalogues). External unlabelled GONG images were tried for
 self-training only, as allowed by the host and with no day within ±1 of a test image; they are **not** used in the
 final model.
+
+## Licence
+
+Our code and our trained model weights are released under the [MIT licence](LICENSE). This does not cover material
+that belongs to others and is included here only so that the result can be reproduced:
+the competition data in `filament-segmentation-2026/` (MAGFiLO 1.0, under the competition's terms) and the
+organisers' metric code in `SelfEvaluationResult/official_metric.py`. The models are built with
+[Detectron2](https://github.com/facebookresearch/detectron2) (Apache 2.0) and start from its COCO-pretrained weights.

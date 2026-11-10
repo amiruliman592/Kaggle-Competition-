@@ -318,7 +318,10 @@ the M1 threshold; each member logs in their own Phase 6 subsection of `COMPLETED
 >   **Mirul, Syaz: after `git pull origin Dev` your result folders are `results/phase6/<Name>/`.**
 > - Next: (1) select the exp101 upload (LB 0.39) as final on Kaggle; (2) code freeze Nov 11 23:59;
 >   (3) Phase 8: 4-page report (Overleaf), repo public, Google form by Nov 14.
-> - Open: competition images are in the repo — check Kaggle data rules before making it public; no LICENSE file.
+> - `LICENSE` added (MIT, covers our code + weights; README says the competition data and the organisers' metric
+>   code are not covered). `.gitignore` tidied: secrets (`kaggle.json`, `.env`), joined `*.pth`, Drive download
+>   folders, `external/images/`, `.claude/`, OS files.
+> - Open: competition images are in the repo — check Kaggle data rules before making it public.
 > - Blockers: none.
 
 **Hand-back to Kimee (when both tracks are done; target Nov 5, latest Nov 6):** fill in the block below, so Kimee can
