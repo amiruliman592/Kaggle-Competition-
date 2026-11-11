@@ -387,10 +387,20 @@ about the final submission ("Please use this Overleaf template"), next to the Go
 | T8.0c | Mirul + Syaz | Map the template's sections onto the split below. If the template names sections we do not cover, or our sections do not fit its order, move the tasks and say so in the group chat | Every template section has an owner; both agree in the group chat |
 
 **What the template requires** (filled in by Mirul and Syaz after T8.0b):
-- Required sections, in order: …
-- Page limit, and whether references count: …
-- Other rules (format, figures, anonymity, …): …
-- Changes to the split below: …
+(read by Syaz 2026-11-11 from the template's guide text; Mirul to confirm)
+- Required sections, in order: Abstract → 1 Introduction → 2 Methodology → 3 Evaluation → 4 Acknowledgment (already
+  written by the organisers, keep it) → References. **No separate Data or Results section.**
+- Page limit, and whether references count: **4 pages, excluding the Acknowledgment and References.**
+- Other rules: replace all grey guide text (`\guide{...}`) with our own; do not change any black text except title and
+  authors; at the end set `\guideStylefalse` to hide leftover guide text. Methodology must include the whole pipeline
+  (pre- and post-processing), the sampling strategy and train/val/test split, **a graphic of the entire pipeline** and
+  **graphics with example segmentations**. Evaluation must include the evaluation strategy, plots/tables of performance
+  **with error bars or uncertainty where possible**, strengths, weaknesses and ideas for improvement. Be succinct; no
+  need to explain what filaments are or why segmentation matters.
+- Changes to the split below: S8.1 Data, S8.2 Method and S8.5 Implementation all go into **2 Methodology**
+  (`sec_method.tex`, Syaz). Mirul's M8.2–M8.7 all go into **3 Evaluation** (`sec_evaluation.tex`); the conclusion
+  becomes its last part (strengths, weaknesses, improvements). Overleaf project `Solar Filament 2026 report` (owner
+  Syaz; Mirul editor, Kimee viewer; link only in the group chat).
 
 **Syaz (Syazani Akmal) — Abstract, Introduction, Data and Method; final PDF — about 1.9 pages**
 | # | Task | Use | Done when |
@@ -439,7 +449,7 @@ about the final submission ("Please use this Overleaf template"), next to the Go
 
 ### Phase 8 status (each member updates their own line)
 - **Mirul** — not started. Next: T8.0b–c (template rules, with Syaz), then M8.1 (Wed Nov 11). Last: M8.8 (form, Sat).
-- **Syaz** — not started. Next: T8.0a (Overleaf project from the template), T8.0b–c (with Mirul), then S8.1–S8.3 and S8.6. Fri: S8.7 (assembly).
+- **Syaz** — 2026-11-12: T8.0a done (Overleaf project from the template, `sec_method.tex` + `sec_evaluation.tex` `\input` under Methodology / Evaluation, shared with Mirul (edit) and Kimee (view)); T8.0b rules written above (Mirul to confirm). S8.1 Data + split drafted in `sec_method.tex` (compiles, MAGFiLO cited as `ahmadzadeh2024dataset`). Paused 2026-11-12. Next: S8.2 Method (model + training), S8.3 pipeline figure, S8.4 example masks, S8.5; S8.6 abstract + intro after Mirul's M8.1 numbers. Fri: S8.7 (assembly).
 
 ## 3. Competition rules & metric (sources: `competition_overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
