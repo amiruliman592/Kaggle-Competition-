@@ -145,20 +145,21 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.size": 8, "pdf.fonttype": 42})
-    fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.3))
+    plt.rcParams.update({"font.size": 7, "pdf.fonttype": 42})
+    fig, axes = plt.subplots(1, 2, figsize=(3.5, 1.7))  # one column of the two-column template
     bins = np.linspace(0, 1, 41)
     for ax, vals, tp, name in [(axes[0], pair_dice, tp_dice, "Dice"), (axes[1], pair_iou, tp_iou, "IoU")]:
         ax.hist(vals, bins=bins, color="#b8c4d6", label="all overlapping pairs")
         ax.hist(tp, bins=bins, color="#2f5d9a", label="matched (IoU > 0.5)")
         thr = 2 * MATCH_IOU / (1 + MATCH_IOU) if name == "Dice" else MATCH_IOU
         ax.axvline(thr, color="k", lw=0.8, ls="--")
-        ax.set_xlabel(f"{name} per predicted / ground-truth pair")
+        ax.set_xlabel(f"{name} per pair")
         ax.set_xlim(0, 1)
         ax.spines[["top", "right"]].set_visible(False)
     axes[0].set_ylabel("pairs")
-    axes[0].legend(frameon=False, loc="upper left")
-    fig.tight_layout()
+    h, lab = axes[0].get_legend_handles_labels()
+    fig.legend(h, lab, frameon=False, loc="upper center", ncol=2, fontsize=6.5, handlelength=1)
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT_FIG.with_suffix(".pdf"))
     fig.savefig(OUT_FIG.with_suffix(".png"), dpi=200)

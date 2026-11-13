@@ -453,8 +453,11 @@ about the final submission ("Please use this Overleaf template"), next to the Go
   (all on GitHub already except `dice_by_station_exp101.json` + `qc.csv`). **M8.1 done**
   (`docs/report/m81_rubric.py` → `results/phase8/Mirul/rubric_exp101.json`, `docs/report/figures/fig_dice_iou.pdf`):
   PQ 0.448 [0.425, 0.470], Dice 0.652 [0.628, 0.672] (95% bootstrap over files); matched pairs mean Dice 0.802 /
-  IoU 0.673; one-to-many 20, many-to-one 58. Next: M8.2–M8.7 in `sec_evaluation.tex`; confirm T8.0b rules. Last:
-  M8.8 (form, Sat).
+  IoU 0.673; one-to-many 20, many-to-one 58. **M8.2–M8.7 drafted** (2026-11-13) in
+  `docs/report/sec_evaluation.tex` (protocol, Table 1 journey, final numbers + Fig. Dice/IoU, Table 2 rejected
+  ideas, error analysis, runtime, strengths/weaknesses; sources in LaTeX comments; "% OPTIONAL" = cut first);
+  figure resized to one column. Next: paste into Overleaf + upload `fig_dice_iou.pdf`, Syaz assembles. Last: M8.8
+  (form, Sat).
 - **Syaz** — 2026-11-12: T8.0a done (Overleaf project from the template, `sec_method.tex` + `sec_evaluation.tex` `\input` under Methodology / Evaluation, shared with Mirul (edit) and Kimee (view)); T8.0b rules written above (Mirul to confirm). S8.1 Data + split drafted in `sec_method.tex` (compiles, MAGFiLO cited as `ahmadzadeh2024dataset`). Paused 2026-11-12. Next: S8.2 Method (model + training), S8.3 pipeline figure, S8.4 example masks, S8.5; S8.6 abstract + intro after Mirul's M8.1 numbers. Fri: S8.7 (assembly).
 
 ## 3. Competition rules & metric (sources: `competition_overview.txt`, `SelfEvaluationResult/`)
