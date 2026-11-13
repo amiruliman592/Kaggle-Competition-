@@ -453,9 +453,18 @@ about the final submission ("Please use this Overleaf template"), next to the Go
   (all on GitHub already except `dice_by_station_exp101.json` + `qc.csv`). **M8.1 done**
   (`docs/report/m81_rubric.py` → `results/phase8/Mirul/rubric_exp101.json`, `docs/report/figures/fig_dice_iou.pdf`):
   PQ 0.448 [0.425, 0.470], Dice 0.652 [0.628, 0.672] (95% bootstrap over files); matched pairs mean Dice 0.802 /
+<<<<<<< HEAD
   IoU 0.673; one-to-many 20, many-to-one 58. Next: M8.2–M8.7 in `sec_evaluation.tex`; confirm T8.0b rules. Last:
   M8.8 (form, Sat).
 - **Syaz** — 2026-11-13: T8.0a done (Overleaf project from the template, `sec_method.tex` + `sec_evaluation.tex` `\input` under Methodology / Evaluation, shared with Mirul (edit) and Kimee (view)); T8.0b rules written above (Mirul to confirm). In `sec_method.tex`: 2.1 Data + split (compiles, MAGFiLO cited as `ahmadzadeh2024dataset`); 2.2 Models and training + 2.3 Inference, fusion, post-processing pasted in Overleaf. **S8.3 done:** Figure 1 `docs/report/make_fig_pipeline.py` -> `docs/report/figures/fig_pipeline.pdf` (`fig:pipeline`). Overleaf check 2026-11-13: `sec_evaluation.tex` still empty (Mirul told). **S8.4 done:** Figure 2 `docs/report/make_fig_examples.py` -> `docs/report/figures/fig_examples.pdf` (`fig:examples`; 3 val images picked by image PQ: good 20111112193254Bh 0.56, typical 20130707134154Bh 0.45, hard 20110923165814Mh 0.32). Next (Fri Nov 13): S8.5 code paragraph, S8.6 abstract + intro (Mirul's M8.1 numbers now in), then S8.7 assembly.
+=======
+  IoU 0.673; one-to-many 20, many-to-one 58. **M8.2–M8.7 drafted** (2026-11-13) in
+  `docs/report/sec_evaluation.tex` (protocol, Table 1 journey, final numbers + Fig. Dice/IoU, Table 2 rejected
+  ideas, error analysis, runtime, strengths/weaknesses; sources in LaTeX comments; "% OPTIONAL" = cut first);
+  figure resized to one column. **In Overleaf and compiling** (2026-11-13): whole draft ends on page 3, Evaluation
+  ≈ 1.4 pages. Next: Syaz assembles. Last: M8.8 (merge `Dev` → `main`, form, Sat).
+- **Syaz** — 2026-11-13: T8.0a done (Overleaf project from the template, `sec_method.tex` + `sec_evaluation.tex` `\input` under Methodology / Evaluation, shared with Mirul (edit) and Kimee (view)); T8.0b rules written above (Mirul to confirm). In `sec_method.tex`: 2.1 Data + split (compiles, MAGFiLO cited as `ahmadzadeh2024dataset`); 2.2 Models and training + 2.3 Inference, fusion, post-processing pasted in Overleaf. **S8.3 done:** Figure 1 `docs/report/make_fig_pipeline.py` -> `docs/report/figures/fig_pipeline.pdf` (`fig:pipeline`). Overleaf check 2026-11-13: `sec_evaluation.tex` still empty (Mirul told). Next (Fri Nov 13): S8.4 Figure 2 example masks, S8.5 code paragraph, S8.6 abstract + intro (Mirul's M8.1 numbers now in), then S8.7 assembly.
+>>>>>>> 694f1314a9d58b01a7605a4447c1c2c5b1ded6d9
 
 ## 3. Competition rules & metric (sources: `competition_overview.txt`, `SelfEvaluationResult/`)
 - **Final package (Nov 15, Google form):** 4-page report (Overleaf template, PDF); **public** Git repo with pinned
