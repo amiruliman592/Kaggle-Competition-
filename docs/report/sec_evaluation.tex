@@ -1,0 +1,150 @@
+% ============================================================================
+% sec_evaluation.tex  --  Section 3 Evaluation (Mirul / Amirul Iman), Phase 8 M8.2-M8.7
+% \input under "Evaluation" in the Overleaf main file. Needs fig_dice_iou.pdf uploaded.
+% Every number has its source file in a comment. Parts marked "% OPTIONAL" can be cut
+% first if the report is over 4 pages.
+% ============================================================================
+
+% ---------------------------------------------------------------- M8.2
+\subsection{Evaluation protocol}
+All choices were made on a frozen validation split of 141 of the 707 training files (27-day time blocks, so no
+validation day is also a training day). We score with the official Kaggle PQ: every annotator set of a file is its
+own ground-truth entry (233 entries), a prediction matches a ground-truth filament at IoU $>0.5$, and TP, FP and FN
+are pooled over all entries.
+% results/phase8/Mirul/rubric_exp101.json (num_entries 233)
+Our implementation gives the same value as the organisers' notebook on the same files (0.3296 both).
+% SelfEvaluationResult/FINDINGS.md
+Dice is \texttt{torchmetrics} \texttt{DiceScore} on the binary foreground mask (union of all filaments), averaged
+over entries; the organisers' exact settings are not published.
+
+The labels are noisy: two annotators of the same image reach only PQ 0.336 against each other, and an exact copy of
+one annotator scores 0.739 on our validation entries, so the reachable PQ is far below 1.
+% output/eda/eda_summary.json (0.336); SelfEvaluationResult/FINDINGS.md (0.7394)
+To separate real gains from chance we used a paired bootstrap over the 141 files (2,000 draws): a gain smaller than
+about 0.010 PQ is not distinguishable from noise, and retraining with another random seed changed PQ by only 0.001.
+% results/phase6/Mirul/bootstrap.json; experiments/ablation_table.md Phase 6 M1a, S1
+The public leaderboard (about half of the 180 test images, two decimals) has a standard deviation of about 0.014,
+so we used it only as a check. Validation PQ was 0.05--0.06 above the leaderboard on every upload, but the ranking
+of the steps in Table~\ref{tab:journey} was the same on both.
+% experiments/ablation_table.md Phase 6 M1a (LB SD 0.013-0.015); experiments/log.csv (lb_score column)
+
+% ---------------------------------------------------------------- M8.3 + M8.1
+\subsection{Results}
+Table~\ref{tab:journey} shows how each step changed the score. The largest gains came from native 2048-pixel input
+($+0.025$), from combining two models ($+0.010$) and from the four flipped views with two-stage fusion ($+0.011$).
+The last two are above the noise level: $+0.039$ [0.027, 0.050] for the ensemble against the 1024-pixel model and
+$+0.012$ [0.004, 0.020] for the final pipeline against the plain ensemble (95\% bootstrap intervals).
+% results/phase6/Mirul/bootstrap.json (exp010 vs exp006); results/phase6/Mirul/bootstrap_m2.json (exp101 vs exp010)
+
+\begin{table}[t]
+\centering
+\caption{From baseline to final pipeline. Validation: official PQ and mean Dice on the frozen 141-file split.
+LB: public leaderboard, about 50\% of the test set.}
+\label{tab:journey}
+\small
+\begin{tabular}{@{}lccc@{}}
+\hline
+Step & Val PQ & Dice & LB \\
+\hline
+Mask R-CNN R50, 1024 px (baseline)     & 0.391 & 0.609 & 0.34 \\ % log.csv exp003
++ all annotator sets as training data  & 0.398 & 0.643 & 0.35 \\ % log.csv exp006
++ native 2048 px, R50                  & 0.423 & 0.648 & 0.36 \\ % log.csv exp007 (thr 0.6)
+\quad X101 instead of R50              & 0.426 & 0.642 & 0.37 \\ % log.csv exp008
++ ensemble X101 + R50                  & 0.437 & 0.651 & 0.38 \\ % log.csv exp010
++ 56$\times$56 mask head, 4 flip views, & \textbf{0.448} & \textbf{0.652} & \textbf{0.39} \\ % log.csv exp101
+\quad two-stage fusion (\textbf{final}) & & & \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Final pipeline.} On validation it reaches PQ $0.448$ (95\% interval $0.425$--$0.470$), with segmentation
+quality SQ $0.673$ and recognition quality RQ $0.665$ (1,083 TP, 495 FP, 595 FN), and mean Dice $0.652$
+($0.628$--$0.672$). The intervals come from 2,000 bootstrap draws of the 141 files.
+% results/phase8/Mirul/rubric_exp101.json (PQ, SQ, RQ, TP/FP/FN, Dice_samplewise, bootstrap_95ci_files)
+Fig.~\ref{fig:diceiou} shows the Dice and IoU of every pair of a predicted and a ground-truth filament that overlap.
+The matched pairs are tightly grouped (median Dice 0.81, median IoU 0.67); the long tail below the 0.5 cut-off are
+filaments we found but outlined too differently from the annotator.
+% rubric_exp101.json dist_Dice_matched_TP.median 0.806, dist_IoU_matched_TP.median 0.675
+\textbf{One-to-many and many-to-one.} Of the ground-truth filaments, 20 were split into several predicted pieces
+(19 into two, one into three); 58 of our 933 masks cover two or more ground-truth filaments (55 cover two, 3 cover
+three). A piece counts when at least half of its area lies inside the other mask. Merging is therefore about three
+times more common than fragmentation.
+% rubric_exp101.json one_to_many_*, many_to_one_*, n_pred_masks 933
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig_dice_iou.pdf}
+\caption{Dice (left) and IoU (right) of every overlapping pair of predicted and ground-truth filaments on
+validation (all annotator sets). Dark: pairs counted as true positives (IoU $>0.5$, dashed line).}
+\label{fig:diceiou}
+% docs/report/m81_rubric.py -> docs/report/figures/fig_dice_iou.pdf
+\end{figure}
+
+% ---------------------------------------------------------------- M8.4
+\subsection{What did not work}
+Table~\ref{tab:negative} lists ideas that did not pass the 0.010 noise bar. Training-recipe changes were tested on
+the cheaper 1024-pixel R50 model (reference PQ 0.398), all others on the 2048-pixel models.
+
+\begin{table}[t]
+\centering
+\caption{Rejected ideas (validation official PQ; $\Delta$ against the reference of that test).}
+\label{tab:negative}
+\small
+\begin{tabular}{@{}lcl@{}}
+\hline
+Idea & $\Delta$PQ & Reason \\
+\hline
+CLAHE + solar-disk mask      & $+0.000$ & no gain \\                    % ablation_table Retraining A
+SAM 2 mask refinement        & $-0.019$ & tighter than annotators \\    % ablation_table Phase 5 step 1
+Mask2Former (Swin-S)         & $-0.024$ & twice the merges \\           % ablation_table Phase 5 step 2
+3$\times$ longer schedule    & $+0.001$ & noise, lower Dice \\          % ablation_table S2 (exp202)
+90$^\circ$ rotations + zoom  & $-0.001$ & no gain \\                    % ablation_table S3 (exp203)
+Copy-paste of filaments      & $-0.004$ & more false alarms \\          % ablation_table S4 (exp204)
+Self-training, 2,098 images  & $-0.002$ & model too cautious \\         % ablation_table S5 (exp205)
+Third ensemble member        & $-0.003$ & same errors as X101 \\        % ablation_table Phase 7 prep A
+Learned re-scoring           & $-0.006$ & too few labels \\             % ablation_table Phase 7 prep D (exp016)
+Retrain on all 707 files     & LB $=$   & 95\% same masks \\            % ablation_table Phase 7 prep B (exp015)
+\hline
+\end{tabular}
+\end{table}
+
+% OPTIONAL (cut first): one-sentence explanations of Table 2
+SAM 2 draws the dark core of a filament, about 15\% smaller than the human outline, which confirms that the labels,
+not mask sharpness, limit SQ. Self-training used only confident pseudo-labels (score $\geq 0.85$), so faint
+filaments in the extra images were taught as background.
+% ablation_table Phase 5 step 1, Phase 6 S5
+
+% ---------------------------------------------------------------- M8.5
+\subsection{Error analysis}
+We put every validation error of the final pipeline into one cause and computed the PQ if only that cause were
+fixed. The largest is confidence: 282 ground-truth filaments are found by a raw prediction (IoU $>0.5$) but scored
+below the 0.6 cut-off ($+0.072$ PQ if kept; 233 of them medium-sized). Next are 305 false alarms that no annotator
+drew ($+0.046$), 162 filaments with no prediction near them ($+0.043$) and 115 near misses with IoU 0.3--0.5
+($+0.031$). A further 190 ``false alarms'' were drawn by another annotator of the same image, i.e.\ label noise
+rather than model error.
+% results/phase6/Mirul/error_budget_exp101.json; experiments/ablation_table.md Phase 6 M4
+By size, medium filaments score PQ 0.430 against 0.493 for large ones; the 12 small filaments ($<200$\,px$^2$)
+are all missed, which costs at most 0.005 PQ. By station, PQ ranges from 0.418 (El Teide, most false alarms) to
+0.468 (Big Bear); with only 20--28 files per station these gaps are within noise.
+% error_budget_exp101.json by size / station; docs/HANDOVER.md section 6 (small <= 0.005)
+
+% ---------------------------------------------------------------- M8.6
+\subsection{Runtime}
+Inference runs eight forward passes per image (two models $\times$ four views) plus fusion and post-processing:
+median 6.0\,s and 95th percentile 8.2\,s per 2048$\times$2048 image on one NVIDIA L4 GPU, 18 minutes for all 180
+test images, with 2.9\,GB peak GPU memory. Training at 2048 pixels needs about 20\,GB and was done on an A100.
+% results/phase7/final_run/report_test.json; experiments/log.csv exp008 (peak 20.2 GB)
+
+% ---------------------------------------------------------------- M8.7
+\subsection{Strengths, weaknesses and improvements}
+\textbf{Strengths.} Every step was chosen on a fixed split against a measured noise level, so the gains carried
+over to the leaderboard (0.34 to 0.39). The method is simple (two standard Mask R-CNN models, no pre-processing) and
+a clean clone of the repository reproduces the validation result exactly.
+% results/phase7/final_run/report_val.json (PQ 0.4480 again)
+\textbf{Weaknesses.} The main loss is confidence near the cut-off: many correct medium-sized filaments are scored
+just below 0.6, and one threshold cannot keep them without adding false alarms. Over-merging of nearby filaments is
+three times more common than fragmentation, and small filaments are not found.
+\textbf{Improvements.} Better calibrated scores for medium filaments, for example from more labelled data or
+self-training with a lower pseudo-label threshold, which we did not have time to test; and a rule or model to
+split masks that join two filaments.
+% error_budget_exp101.json (fn_low_score); ablation_table Phase 6 S5 (lower threshold not tried)
