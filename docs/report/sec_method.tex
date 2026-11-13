@@ -1,0 +1,159 @@
+% ============================================================
+% 2a  Data and validation split   (Syaz, S8.1)
+% ============================================================
+\subsection{Data and validation split}\label{sec:data}
+We use only the competition data: full-disk GONG H$\alpha$ images from
+the MAGFiLO~1.0 dataset~\cite{ahmadzadeh2024dataset}, 707 annotated training files and
+180 unannotated test files, all $2048\times2048$ JPEGs.
+% source: CLAUDE.md §2 (dataset layout); docs/HANDOVER.md §5
+The training annotations hold 8{,}199 filament outlines, with areas from
+9 to 37{,}739~px$^2$ (mean $\approx$2{,}120~px$^2$).
+% source: CLAUDE.md §2 (instance count and area range)
+
+\textbf{Several annotators per image.} The annotation file has 1{,}154
+image entries for the 707 files: 296 files were outlined independently by
+two or three annotators.
+% source: docs/HANDOVER.md §5; docs/COMPLETED_TASKS.md Phase 1
+The annotators often disagree. Scored against each other with the
+competition metric, two annotators of the same image reach only
+PQ~$\approx$~0.336 (SQ~0.63, RQ~0.53), a rough human ceiling for the task.
+% source: docs/COMPLETED_TASKS.md Phase 1; docs/HANDOVER.md §5
+We never merge the annotation sets. For training, every annotator set is
+its own sample (921 samples from 566 training files); for evaluation, all
+sets of a file are used, as in the official scorer.
+% source: README.md "Training"; docs/HANDOVER.md §5; SelfEvaluationResult/FINDINGS.md
+
+\textbf{Validation split.} We hold out 141 of the 707 files (20\%) as a
+validation set. It was frozen once (seed 42) and used for every model
+choice.
+% source: splits/val_ids.json (n_train 566, n_val 141, seed 42)
+Images taken a few days apart show the same filaments, so a random split
+would leak near-copies into validation. We therefore group the files into
+27-day blocks (about one solar rotation) and keep each block entirely in
+training or in validation (stratified group 5-fold, strata = number of
+filaments per file; mean 7.46 in training vs.\ 7.31 in validation).
+% source: splits/val_ids.json ("method", train_mean_filaments, val_mean_filaments)
+The test set has no ground truth and was used only for leaderboard
+submissions. All validation numbers in this report are the official PQ on
+these 141 files; the public leaderboard (LB) uses about half of the test
+images.
+% source: docs/HANDOVER.md §2b "Rules for the report"
+
+% ============================================================
+% 2b  Models and training   (Syaz, S8.2)
+% ============================================================
+\subsection{Models and training}\label{sec:models}
+We use two Mask R-CNN instance-segmentation models from Detectron2, both
+pretrained on COCO: one with a ResNeXt-101 (32$\times$8d) FPN backbone and
+one with a ResNet-50 FPN backbone. Mask R-CNN first proposes boxes around
+possible filaments, then draws a mask inside each box and gives it a
+confidence score. We use a single class (``filament'').
+% source: src/config.py (MODEL_CONFIGS, NUM_CLASSES); src/final_pipeline.py header
+Three changes adapt the models to filaments:
+(i) small anchor boxes of 8--128~px with aspect ratios 0.2--5, because
+filaments are long and thin;
+% source: src/config.py ModelConfig (ANCHOR_SIZES, ASPECT_RATIOS)
+(ii) for the X101 model, a finer mask head that draws each mask on a
+$56\times56$ grid instead of the default $28\times28$, which keeps thin
+filament edges;
+% source: src/config.py (MASK_POOLER_RES 14 -> 28); src/final_pipeline.py MODELS
+(iii) both models train and predict on the full $2048\times2048$ image,
+without tiling or resizing, so thin filaments keep their fine detail.
+No pre-processing is applied: solar-disk masking and CLAHE contrast
+enhancement gave no gain (Sec.~\ref{sec:evaluation}).
+% source: README.md "The final pipeline" (Input row) and "How we got here"; experiments/ablation_table.md
+
+Both models use the same training recipe: every annotator set of the 566
+training files is its own sample (921 samples); 6{,}000 iterations with
+batch size 2; SGD with learning rate 0.0025, a 200-iteration linear
+warm-up and a 10$\times$ drop at 60\% and 85\% of training; random
+horizontal and vertical flips and brightness and contrast changes of
+$\pm$20\%; seed 42. Training ran on one NVIDIA A100 GPU (Google Colab).
+% source: README.md "Training"; src/config.py TrainConfig; src/train.py (WARMUP_ITERS, STEPS, GAMMA); src/augment.py (RandomFlip, RandomBrightness/Contrast 0.8-1.2)
+
+% ============================================================
+% 2c  Inference, fusion and post-processing   (Syaz, S8.2)
+% ============================================================
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{fig_pipeline.pdf}
+  \caption{The final pipeline. Each test image is predicted by two Mask R-CNN
+  models on four flipped views; the views of each model are merged first
+  (Fusion~1), then the two models (Fusion~2), and the result is cleaned up
+  before it is written to the submission file.}
+  \Description{Block diagram: test image, four flipped views, two Mask R-CNN
+  models, two view-fusion steps, model fusion, clean-up, submission CSV.}
+  \label{fig:pipeline}
+\end{figure*}
+% source: docs/report/make_fig_pipeline.py (settings from src/final_pipeline.py)
+
+\subsection{Inference, fusion and post-processing}\label{sec:inference}
+The full pipeline is shown in Fig.~\ref{fig:pipeline}.
+For each test image, each model predicts four views: the original image
+and its horizontal, vertical and double flip. The predicted masks are
+flipped back, and only masks with a score of at least 0.2 are kept at
+this stage.
+% source: src/final_pipeline.py (VIEWS; DUMP_SCORE_THRESHOLD 0.2 in src/config.py)
+The predictions are then merged in two steps:
+\begin{enumerate}
+  \item \textbf{Views (per model).} Masks from different views with
+  IoU~$\geq$~0.5 are the same filament. The merged mask is their union and
+  its score is the mean over the four views; a view that missed the
+  filament counts as 0. A filament seen in only one view therefore gets a
+  low score.
+  \item \textbf{Models.} The two models are merged the same way, with
+  IoU~$\geq$~0.3; the merged mask is the intersection of the two masks and
+  its score is the mean of the two models.
+\end{enumerate}
+% source: src/final_pipeline.py header and VIEW_IOU/VIEW_MODE/MODEL_IOU/MODEL_MODE
+Finally, four post-processing steps target the metric's failure modes:
+(i) morphological closing with a 5-px elliptical kernel reconnects small
+breaks inside a filament, which would otherwise count as extra false
+positives; (ii) masks with a score below 0.6 are removed; (iii) masks
+smaller than 50~px$^2$ are removed as noise; (iv) overlapping masks are
+resolved: the higher-scored mask keeps the shared pixels, and a mask that
+loses more than 20\% of its area is dropped. The remaining masks are
+written as COCO run-length encodings in the submission file.
+% source: src/final_pipeline.py (SCORE_THR 0.6, CLOSE_KERNEL 5, MIN_AREA 50, DROP_FRAC 0.2); README.md "The final pipeline"
+Fig.~\ref{fig:examples} shows the output on three validation images.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{fig_examples.pdf}
+  \caption{Example segmentations on validation images, chosen by their own
+  PQ: (a) a good image (90th percentile), (b) a typical one (median) and
+  (c) a hard one (10th percentile). For each image, the left crop shows one
+  annotator's filaments and the right crop shows our final masks judged
+  against that annotator. In (c), a mask that covers a real filament but
+  overlaps it with IoU below 0.5 counts as both a false alarm and a miss.}
+  \Description{Six image crops of the Sun in H-alpha in three pairs. In each
+  pair, annotator outlines on the left and our coloured masks on the right:
+  green hits, red false alarms, dashed cyan missed filaments.}
+  \label{fig:examples}
+\end{figure*}
+% source: docs/report/make_fig_examples.py (val images 20111112193254Bh,
+% 20130707134154Bh, 20110923165814Mh; image PQ 0.56 / 0.45 / 0.32)
+% ============================================================
+% 2d  Implementation and reproducibility   (Syaz, S8.5)
+% ============================================================
+\subsection{Implementation and reproducibility}\label{sec:code}
+All code, the frozen validation split and the trained weights of both
+models are in our public repository\footnote{\url{https://github.com/amiruliman592/Kaggle-Competition-}};
+nothing else has to be downloaded. The weights are stored in 94-MB parts
+with SHA-256 checksums and joined by one command. The notebook
+\texttt{full\_\allowbreak pipeline.ipynb} (folder \texttt{notebooks/})
+runs the whole pipeline on a Colab
+GPU (``Run all''): it predicts the 180 test images, writes and validates
+the submission file and scores the validation split. A run from a fresh
+clone gave the same validation result (PQ 0.4480, TP/FP/FN 1083/495/595)
+and found 1{,}255 of the 1{,}256 submitted test masks again. On an NVIDIA L4
+the whole pipeline takes 6.0~s per image (median; 8.2~s at the 95th
+percentile), 18 minutes for the 180 test images, with 2.9~GB peak GPU
+memory. The repository also holds 84 automated tests, a README guide for
+reviewers and a plain-language notebook that explains every step
+(\texttt{notebooks/pipeline\_story.ipynb}).
+% source: README.md "Reproduce the final submission"; results/phase7/final_run/report_test.json (median 6.02 s, p95 8.21 s, total 1083 s, 2.94 GB);
+% results/phase7/final_run/report_val.json; docs/COMPLETED_TASKS.md Phase 7 (clean clone, 1,255 of 1,256); weights/manifest.json; tests/ (84 test functions)
+
+
+

@@ -1,0 +1,177 @@
+% =============================================================================
+% COPYRIGHT AND DISCLAIMER
+% =============================================================================
+% This file is provided as a convenience template for competition participants.
+% By using it, you accept full responsibility for compliance with all applicable
+% copyright, licensing, and usage rules of the Association for Computing
+% Machinery (ACM) and of any LaTeX packages you load (including, without
+% limitation, the "acmart" document class and related ACM materials).
+%
+% Consult ACM's official publication, template, and copyright policies before
+% using this setup for any purpose other than this competition. Do not assume
+% that this template may be reused, redistributed, or submitted elsewhere
+% without independently verifying ACM's current rules.
+%
+% Use of the "acmart" class, the "sigconf" option, or ACM-style formatting in
+% this template does NOT mean that this report, this competition, its organizers,
+% or any resulting PDF is sponsored, endorsed, affiliated with, or published by
+% ACM. ACM trademarks and branding remain the property of ACM.
+%
+% Template packages live in preamble.tex.
+% Citations live in main.bib. Edit this file with your paper content.
+% =============================================================================
+
+\documentclass[sigconf]{acmart}
+\input{preamble}
+
+% Guide styling: \guideStyletrue = show gray italic hints; \guideStylefalse = omit them
+% \guideStyletrue
+\guideStylefalse
+
+
+\begin{document}
+
+\title{Native-Resolution Mask R-CNN Ensemble with Flip Test-Time Augmentation}
+
+\subtitle{A Solution to the Solar Filament Segmentation Challenge 2026} % DO NOT CHANGE
+
+
+\author{Shamsul Hakimee}
+\affiliation{%
+  \department{Kulliyyah of Engineering}
+  \institution{International Islamic University Malaysia}
+  \city{Kuala Lumpur}
+  \country{Malaysia}
+}
+\email{shamsul.hakimee@student.iium.edu.my}
+
+\author{Amirul Iman}
+\affiliation{%
+  \department{Kulliyyah of Engineering}
+  \institution{International Islamic University Malaysia}
+  \city{Kuala Lumpur}
+  \country{Malaysia}
+}
+\email{amiruliman.khir@student.iium.edu.my}
+
+\author{Syazani Akmal}
+\affiliation{%
+  \department{Kulliyyah of Engineering}
+  \institution{International Islamic University Malaysia}
+  \city{Kuala Lumpur}
+  \country{Malaysia}
+}
+\email{syazani.akmal@student.iium.edu.my}
+
+
+\begin{abstract}
+    This report describes our solution to the Solar Filament Segmentation Challenge~2026, a Kaggle competition on automatic segmentation of solar filaments in GONG H-$\alpha$ observations.
+Our pipeline uses two Mask R-CNN models (ResNeXt-101 and ResNet-50 FPN
+backbones) that work on the full $2048\times2048$ images without tiling,
+with anchors shaped for thin, elongated filaments. Each model predicts
+four flipped views of every image; the views are merged per model and the
+two models are then merged by mask intersection, followed by simple
+clean-up rules that target the fragmentation and false-alarm penalties
+of panoptic quality (PQ). Every annotator's labels are used as separate
+training samples. On a held-out validation split built from 27-day time
+blocks, the final pipeline reaches PQ~0.448 (95\% CI 0.425--0.470) and a
+mean Dice of 0.652, against an inter-annotator agreement of PQ~0.336;
+it scores 0.39 on the public leaderboard. Code, weights and a one-click
+notebook are public.
+% source: results/phase8/Mirul/rubric_exp101.json (PQ, bootstrap CI, Dice_samplewise); README.md (LB 0.39); docs/HANDOVER.md §5 (0.336)
+\end{abstract}
+
+
+\maketitle
+
+\ifguideStyle
+\noindent{\color{gray!65}\itshape
+Guide mode is on.}
+\par\medskip
+\fi
+
+\guide{Please limit your report to four (4) pages, excluding the Acknowledgment and References sections. Throughout this document, please follow these considerations: 
+\begin{itemize}
+    \item Do not alter any text that is currently in black color (except for the emails under authors' name).
+    \item Replace all gray text with your own.
+    \item When you are done with the report, please replace \texttt{\textbackslash guideStyletrue} with \texttt{\textbackslash guideStylefalse}, to remove any gray text. Alternatively, you can remove any text wrapped in \texttt{\textbackslash guide\{\}},
+    \item Be as succinct as possible, and only provide details regarding your own work. For example, there is no need to discuss what solar filaments are, or why filament segmentation matters.
+    \item If you must, you can add extra sections.
+\end{itemize}}
+
+
+% ==================================== %
+%              INTRODUCTION            %
+% ==================================== %
+\section{Introduction}
+    This report goes over the details of our submitted solution to the Solar Filament Segmentation Challenge~2026 \cite{filament-segmentation-2026}. The challenge, launched on July~10,~2026, is organized by the Earth-Space AI Research (ESAIR) Lab\footnote{\href{https://www.esairlab.com/home}{www.esairlab.com/}}. This challenge utilizes the MAGFiLO dataset for evaluation of the segmentation algorithms \cite{ahmadzadeh2024dataset}. The task is instance segmentation: every filament must be a separate
+mask. Submissions are scored with panoptic quality,
+\begin{equation}
+  \mathrm{PQ}=\underbrace{\frac{\sum_{(p,g)\in TP}\mathrm{IoU}(p,g)}{|TP|}}_{\mathrm{SQ}}
+  \times\underbrace{\frac{|TP|}{|TP|+\frac12|FP|+\frac12|FN|}}_{\mathrm{RQ}},
+\end{equation}
+where a prediction and a ground-truth mask form a true positive (TP)
+only if their IoU is above 0.5. Two properties of the data make this hard.
+First, filaments are long and thin, so a prediction that breaks one
+filament into pieces gains one TP but adds false positives (FP). Second,
+the labels are noisy: when two annotators outline the same image, their
+masks agree only at PQ~$\approx$~0.336.
+% source: SelfEvaluationResult/FINDINGS.md (official metric, IoU > 0.5); docs/HANDOVER.md §5 (0.336)
+
+Our solution rests on three ideas, each kept only if it beat the
+validation noise of about 0.010~PQ (Sec.~\ref{sec:evaluation}):
+(i) train and predict at the native $2048\times2048$ resolution, so thin
+filaments are not lost by down-scaling; (ii) combine two different
+Mask R-CNN models and keep only the pixels both agree on; (iii) predict
+each image in four flipped views and average them, which lowers the
+scores of chance detections. Sec.~\ref{sec:methodology} describes the
+data, the models and the pipeline; Sec.~\ref{sec:evaluation} reports
+the results, what did not work, and the remaining errors.
+% source: README.md "How we got here"; experiments/ablation_table.md (Phase 6 M1 noise threshold 0.010)
+
+
+
+% ==================================== %
+%              METHODOLOGY             %
+% ==================================== %
+\section{Methodology}\label{sec:methodology}
+\input{sec_method}
+    \guide{Explain your methodology, ensuring that the following items are included:
+    \begin{itemize}
+        \item (for novel algorithms) a detailed description of the algorithm introduced for segmentation,
+        \item (for existing algorithms) a quick review of the algorithm used for segmentation, and appropriate citation(s),
+        \item a detailed description of the end-to-end data pipeline, including pre-processing and post-processing,
+        \item (for ML models) a detailed description of any sampling strategy including train-val-test splits,
+        \item a graphic illustrating the entire data pipeline,
+        \item one or more graphics showing a few examples of the segmentations.
+    \end{itemize}}
+
+% ==================================== %
+%              EVALUATION              %
+% ==================================== %
+\section{Evaluation}\label{sec:evaluation}
+\input{sec_evaluation}
+    \guide{Explain your evaluation. This includes:
+    \begin{itemize}
+        \item the evaluation strategy,
+        \item plots and/or tables showing the performance of the segmentation algorithm (please include error bars and uncertainty measures whenever possible),
+        \item strengths and weaknesses of the proposed algorithm, and possible strategies for improvement.
+    \end{itemize}}
+
+
+
+% ==================================== %
+%            ACKNOWLEDGMENT            %
+% ==================================== %
+\section{Acknowledgment}\label{sec:acknowledgment}
+    % Do not change
+    The organization of the Filament Segmentation Challenge 2026 is partially supported by the U.S. National Science Foundation (NSF) under Grant No. 2209912 and 2433781, directorate for Computer and Information Science and Engineering (CSE), and Office of Advanced Cyberinfrastructure (OAC), and Grant No. 2511630, AST Division Of Astronomical Sciences and MPS Directorate for Mathematical and Physical Sciences.
+
+    The Filament Segmentation Challenge 2026 is sponsored by the U.S. National Science Foundation (NSF) National Solar Observatory (NSO). 
+
+    This work utilizes GONG data obtained by the NSO Integrated Synoptic Program, managed by the National Solar Observatory, which is operated by the Association of Universities for Research in Astronomy (AURA), Inc. under a cooperative agreement with the National Science Foundation and with contribution from the National Oceanic and Atmospheric Administration. The GONG network of instruments is hosted by the Big Bear Solar Observatory, High Altitude Observatory, Learmonth Solar Observatory, Udaipur Solar Observatory, Instituto de Astrofísica de Canarias, and Cerro Tololo Interamerican Observatory.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{main}
+
+\end{document}
