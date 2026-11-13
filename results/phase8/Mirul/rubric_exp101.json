@@ -1,0 +1,85 @@
+{
+ "source": "results/phase6/Mirul/raw_preds_tta2_m28_r50_val.json.gz",
+ "split": "frozen val, 141 files, every annotator set (official Kaggle PQ)",
+ "num_entries": 233,
+ "PQ": 0.4480176076083478,
+ "SQ": 0.6734742984177194,
+ "RQ": 0.6652334152334153,
+ "TP": 1083,
+ "FP": 495,
+ "FN": 595,
+ "Dice_samplewise": 0.6520017144341537,
+ "Dice_global": 0.6765543989452006,
+ "bootstrap_95ci_files": {
+  "n_boot": 2000,
+  "PQ": [
+   0.4252709418556999,
+   0.4696869614022556
+  ],
+  "SQ": [
+   0.6673063995054653,
+   0.6795844524158788
+  ],
+  "RQ": [
+   0.632979492039995,
+   0.6980905593418776
+  ],
+  "Dice": [
+   0.628459676593116,
+   0.6722585299381566
+  ]
+ },
+ "n_pred_masks": 933,
+ "dist_pair_IoU_all_overlaps": {
+  "n": 1419,
+  "mean": 0.5883473951257715,
+  "std": 0.18188324130529238,
+  "q25": 0.5155816762780598,
+  "median": 0.6344737981810308,
+  "q75": 0.7187967505642361
+ },
+ "dist_pair_Dice_all_overlaps": {
+  "n": 1419,
+  "mean": 0.7210151188809526,
+  "std": 0.17525812429923238,
+  "q25": 0.6803745097128222,
+  "median": 0.7763645998940116,
+  "q75": 0.8363952759961715
+ },
+ "dist_IoU_matched_TP": {
+  "n": 1083,
+  "mean": 0.6734742984177194,
+  "std": 0.08404344848044273,
+  "q25": 0.611451699655499,
+  "median": 0.6745689655172413,
+  "q75": 0.7388219453192753
+ },
+ "dist_Dice_matched_TP": {
+  "n": 1083,
+  "mean": 0.8018483318042623,
+  "std": 0.060489616774238725,
+  "q25": 0.7588829337590518,
+  "median": 0.8056628056628056,
+  "q75": 0.8497959750550633
+ },
+ "dist_Dice_per_entry": {
+  "n": 233,
+  "mean": 0.6520017144341537,
+  "std": 0.15553609933641988,
+  "q25": 0.6033570012795744,
+  "median": 0.6890497093368133,
+  "q75": 0.7478541993943947
+ },
+ "one_to_many_fragmented_gt": 20,
+ "many_to_one_merged_pred": 58,
+ "one_to_many_k_counts": {
+  "2": 19,
+  "3": 1
+ },
+ "many_to_one_k_counts": {
+  "2": 55,
+  "3": 3
+ },
+ "relation_rule": "a piece counts if >= 50% of its area lies inside the other mask",
+ "note_pairs": "all_overlaps = every GT/pred pair with IoU > 0 (organisers' notebook plots); matched_TP = pairs with IoU > 0.5 (the PQ true positives)"
+}
