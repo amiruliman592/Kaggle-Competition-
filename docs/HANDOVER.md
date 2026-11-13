@@ -1,6 +1,6 @@
 # HANDOVER — Solar Filament Segmentation 2026
 
-Last updated 2026-11-10 (Kimee: **Phase 8 = final report, task split for Mirul + Syaz in §2b — start there.** Phase 7: **repo reorganised** — team docs now in `docs/`, saved runs in `results/phaseN/`, phase notebooks in `notebooks/development/` (old → new names: `results/README.md`); **final pick = exp101** (Kaggle allows only 1 final submission); final package done — `src/final_pipeline.py`, `notebooks/full_pipeline.ipynb`, weights in `weights/`; **clean-clone reproduction verified** (val 0.4480, 6.0 s/img, 2.9 GB); left: select exp101 on Kaggle, Phase 8 report. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
+Last updated 2026-11-13 (Mirul: Phase 8 M8.1 rubric numbers + Dice/IoU figure done, §2b status). Before that 2026-11-10 (Kimee: **Phase 8 = final report, task split for Mirul + Syaz in §2b — start there.** Phase 7: **repo reorganised** — team docs now in `docs/`, saved runs in `results/phaseN/`, phase notebooks in `notebooks/development/` (old → new names: `results/README.md`); **final pick = exp101** (Kaggle allows only 1 final submission); final package done — `src/final_pipeline.py`, `notebooks/full_pipeline.ipynb`, weights in `weights/`; **clean-clone reproduction verified** (val 0.4480, 6.0 s/img, 2.9 GB); left: select exp101 on Kaggle, Phase 8 report. Earlier: A = 3rd ensemble member rejected, exp101 stays best; Phases 0–5 done by Kimee; **Phase 6 handed to Mirul and Syaz** while Kimee is on a break;
 Syaz: **track S finished** — S1–S5 done (training noise ~0.001; 3× schedule, rotations + size changes, copy-paste and self-training all rejected → no recipe change); Mirul: M1 done, **M2 flip TTA = new best, LB 0.39**, M3 + M4 done (pseudo-labels in team Drive `external/`),
 **track M finished**).
 **This file is the team's shared memory: every member's Claude session MUST keep it current (§0.7).**
@@ -448,7 +448,13 @@ about the final submission ("Please use this Overleaf template"), next to the Go
 - Write only in your own section file in Overleaf; leave comments for the others rather than editing their text.
 
 ### Phase 8 status (each member updates their own line)
-- **Mirul** — not started. Next: T8.0b–c (template rules, with Syaz), then M8.1 (Wed Nov 11). Last: M8.8 (form, Sat).
+- **Mirul** — 2026-11-13: started today (behind plan; nothing written in Overleaf yet). Laptop clone
+  `Downloads/Kaggle/Kaggle-Competition-` pulled to `06ef3ad`; old Oct 29 staged M3 files set aside in `git stash`
+  (all on GitHub already except `dice_by_station_exp101.json` + `qc.csv`). **M8.1 done**
+  (`docs/report/m81_rubric.py` → `results/phase8/Mirul/rubric_exp101.json`, `docs/report/figures/fig_dice_iou.pdf`):
+  PQ 0.448 [0.425, 0.470], Dice 0.652 [0.628, 0.672] (95% bootstrap over files); matched pairs mean Dice 0.802 /
+  IoU 0.673; one-to-many 20, many-to-one 58. Next: M8.2–M8.7 in `sec_evaluation.tex`; confirm T8.0b rules. Last:
+  M8.8 (form, Sat).
 - **Syaz** — 2026-11-12: T8.0a done (Overleaf project from the template, `sec_method.tex` + `sec_evaluation.tex` `\input` under Methodology / Evaluation, shared with Mirul (edit) and Kimee (view)); T8.0b rules written above (Mirul to confirm). S8.1 Data + split drafted in `sec_method.tex` (compiles, MAGFiLO cited as `ahmadzadeh2024dataset`). Paused 2026-11-12. Next: S8.2 Method (model + training), S8.3 pipeline figure, S8.4 example masks, S8.5; S8.6 abstract + intro after Mirul's M8.1 numbers. Fri: S8.7 (assembly).
 
 ## 3. Competition rules & metric (sources: `competition_overview.txt`, `SelfEvaluationResult/`)
