@@ -9,40 +9,6 @@ For reference, two human annotators of the same image agree at PQ ≈ 0.336.
 Team: **Shamsul Hakimee** (lead), **Amirul Iman**, **Syazani Akmal**.
 In folder names, run names and working notes we use our short names: Kimee, Mirul and Syaz.
 
-## MCTA 4364 project progress report
-
-**Track 1 (Kaggle)** · [Solar Filament Segmentation Challenge 2026](https://www.kaggle.com/competitions/filament-segmentation-2026) · Kaggle team **Mirkel592**
-
-| Member | Matric number |
-|---|---|
-| Shamsul Hakimee | |
-| Amirul Iman | |
-| Syazani Akmal | 2314517 |
-
-### Run the R50 baseline
-
-The course baseline is Mask R-CNN R50-FPN at 1024 px with the first annotator set per training image. For the exact archived validation result, use the saved model predictions and the frozen validation split. This check runs on CPU and needs neither Detectron2 nor the baseline checkpoint.
-
-Once the course tag is published, clone that snapshot with `git clone --branch progress-v1 https://github.com/amiruliman592/Kaggle-Competition-.git` and enter `Kaggle-Competition-`.
-
-On Windows, run the commands below from the reviewed repository checkout. On Linux or macOS, use `bash setup_local.sh --skip-tests` followed by `.venv/bin/python` for the Python commands. A fresh setup installs the CPU packages.
-
-```powershell
-powershell -ExecutionPolicy Bypass -File setup_local.ps1 -SkipTests
-.venv\Scripts\python.exe docs/progress/evaluate_baseline.py
-```
-
-The expected result is **PQ 0.3865 and Dice 0.6194** across 141 validation images and 233 annotator sets. This applies 5 px closing, a score threshold of 0.80, and overlap removal by confidence. The public Kaggle score of **0.34** is recorded in the [B0′ experiment notes](experiments/ablation_table.md#post-processing-step-2-2026-10-20).
-
-To rebuild the historical competition CSV from the archived Phase 2 export, run this repair and the submission validator. The team recorded **1,072 non-overlapping masks** in 176 test images. The missing-image warning is expected for the four images with no detections.
-
-```powershell
-.venv\Scripts\python.exe src/fix_overlaps.py results/phase2/submission_baseline_r50.csv output/submission_baseline_r50_nooverlap.csv
-.venv\Scripts\python.exe src/validate_submission.py output/submission_baseline_r50_nooverlap.csv
-```
-
-To train the network again, use the [original Phase 2 Colab notebook](notebooks/development/colab_phase2_baseline.ipynb) on a GPU. Its archived notebook includes Google Drive checkpoint setup. The standalone training entry point on a CUDA machine with the Detectron2 setup below is `python run_pipeline.py --step train --name baseline_r50 --backbone r50 --resolution 1024 --label-policy first --max-iter 6000 --seed 42 --no-resume`. A fresh retraining run can give slightly different scores. The commands above reproduce the course report's archived result.
-
 ## Guide for reviewers: where to find what
 
 Everything needed to reproduce the submission is in this repository: code, data, the frozen validation split and
