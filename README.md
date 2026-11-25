@@ -15,8 +15,8 @@ In folder names, run names and working notes we use our short names: Kimee, Miru
 
 | Member | Matric number |
 |---|---|
-| Shamsul Hakimee | |
-| Amirul Iman | |
+| Shamsul Hakimee | 2315027 |
+| Amirul Iman | 2316633 |
 | Syazani Akmal | 2314517 |
 
 ### Run the R50 baseline
